@@ -87,8 +87,35 @@ See `vectors/sigstore/001-happy-path-snp-tdx-multiplatform/` for a template.
 ## Adding a new SDK
 
 1. Create a `tinfoil-conformance` binary in your SDK that implements the subcommands in `schemas/`.
-2. Add a CI workflow that calls the reusable workflow in `.github/workflows/run.yml`.
+2. Add a CI workflow (see [CI wiring](#ci-wiring) below).
 3. Open a PR to this repo registering your SDK in `harness/sdks.toml` (planned).
+
+## CI wiring
+
+Each SDK ships its own self-contained workflow that builds the SDK's
+`tinfoil-conformance` binary, checks out this repo, and runs the harness.
+There is intentionally **no** cross-repo reusable workflow — the build step is
+SDK-specific (cargo vs npm vs pip), and inline workflows are easier to debug
+and don't require artifact passing between jobs.
+
+See the canonical implementations:
+
+* [`tinfoil-rs/.github/workflows/tinfoil-conformance.yml`](https://github.com/tinfoilsh/tinfoil-rs/blob/main/.github/workflows/tinfoil-conformance.yml)
+* [`tinfoil-js/.github/workflows/tinfoil-conformance.yml`](https://github.com/tinfoilsh/tinfoil-js/blob/main/.github/workflows/tinfoil-conformance.yml)
+
+The pattern, in steps:
+
+1. Checkout your SDK (`actions/checkout`).
+2. Set up the SDK's toolchain (rustup / setup-node / setup-python).
+3. Build the SDK's `tinfoil-conformance` binary.
+4. Checkout this repo into a subdirectory: `repository: lsd-cat/tinfoil-conformance`.
+5. Set up Python 3.12, install the harness: `pip install ./tinfoil-conformance/harness`.
+6. Run `tinfoil-conformance run --sdk <name>=<binary-path> --vectors tinfoil-conformance/vectors/sigstore`.
+7. Upload `results/` as an artifact (`if: always()`) and append `results/latest/results.md` to `$GITHUB_STEP_SUMMARY`.
+
+The exit code of `tinfoil-conformance run` is non-zero if any fixture failed
+or errored, so the job will fail naturally. Skips (capability-gated fixtures)
+do not fail the job.
 
 ## Relationship to upstream sigstore-conformance
 
