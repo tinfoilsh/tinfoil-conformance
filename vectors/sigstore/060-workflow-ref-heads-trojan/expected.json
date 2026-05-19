@@ -1,0 +1,7 @@
+{
+  "stage": "verify-sigstore",
+  "accepted": false,
+  "rejection": {
+    "code": "WORKFLOW_REF_PREFIX_MISMATCH"
+  }
+}

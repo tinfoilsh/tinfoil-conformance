@@ -1,0 +1,20 @@
+id: 062-predicate-missing-tdx-rtmr2
+stage: verify-sigstore
+title: |
+  DSSE-signed in-toto statement whose SnpTdxMultiPlatformV1 predicate lacks tdx_measurement.rtmr2 must reject with PREDICATE_MEASUREMENT_INVALID.
+spec_refs: ["5.5"]
+expects:
+  exit_code: 10
+  rejection_code: "PREDICATE_MEASUREMENT_INVALID"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: "supported"
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  The recon-found JS bug was extracting ONLY snp_measurement, silently
+  dropping rtmr1 and rtmr2. After the verifier fix, both SDKs must
+  reject if rtmr2 is missing rather than producing a 1- or 2-register
+  measurement. The payload is re-signed by fixturegen so the DSSE
+  signature is valid and the failure is genuinely at predicate parsing.

@@ -1,0 +1,7 @@
+{
+  "stage": "verify-sigstore",
+  "accepted": false,
+  "rejection": {
+    "code": "PREDICATE_MEASUREMENT_INVALID"
+  }
+}

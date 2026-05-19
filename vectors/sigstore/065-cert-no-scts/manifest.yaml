@@ -1,0 +1,17 @@
+id: 065-cert-no-scts
+stage: verify-sigstore
+title: |
+  Leaf cert with zero embedded SCTs must reject with SCT_INSUFFICIENT.
+spec_refs: ["5.2"]
+expects:
+  exit_code: 10
+  rejection_code: "SCT_INSUFFICIENT"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: "supported"
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  SPEC §5.2 #4 requires at least 1 valid SCT. fixturegen embeds an
+  empty SCT list extension; both SDKs must reject.

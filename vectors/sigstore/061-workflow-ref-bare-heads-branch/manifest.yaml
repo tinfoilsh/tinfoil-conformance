@@ -1,0 +1,18 @@
+id: 061-workflow-ref-bare-heads-branch
+stage: verify-sigstore
+title: |
+  Cert workflow ref 'refs/heads/main' (no trojan) must be rejected.
+spec_refs: ["5.3"]
+expects:
+  exit_code: 10
+  rejection_code: "WORKFLOW_REF_PREFIX_MISMATCH"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: "supported"
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  The plain branch-build case: cert is for a build that wasn't
+  triggered by a tag. SDKs must reject because policy requires
+  tag-triggered builds (workflow_ref_prefix='refs/tags/').

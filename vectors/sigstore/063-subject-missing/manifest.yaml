@@ -1,0 +1,18 @@
+id: 063-subject-missing
+stage: verify-sigstore
+title: |
+  DSSE-signed in-toto statement with empty subject must reject.
+spec_refs: ["5.4"]
+expects:
+  exit_code: 10
+  rejection_code: "SUBJECT_MISSING"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: "supported"
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  Subject is empty after re-signing. The release-artifact binding
+  cannot be checked. SDKs reject with SUBJECT_MISSING (or some
+  equivalent — list-form acceptable since wording differs).

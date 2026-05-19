@@ -1,0 +1,20 @@
+id: 064-rekor-integrated-time-outside-cert-validity
+stage: verify-sigstore
+title: |
+  Rekor integratedTime outside the leaf cert's validity window must reject.
+spec_refs: ["5.2"]
+expects:
+  exit_code: 10
+  rejection_code: "CERT_EXPIRED"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: "supported"
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  Leaf cert is valid 2020-01-01T00:00:00Z to 2020-01-01T00:10:00Z.
+  The Rekor entry's integratedTime is 2026-01-01T00:02:00Z — well past
+  the cert's NotAfter. Rust explicitly checks integratedTime against
+  the cert window. JS may surface this as REKOR_INCLUSION_INVALID or
+  as CERT_EXPIRED depending on internal check order; list-form accepts.

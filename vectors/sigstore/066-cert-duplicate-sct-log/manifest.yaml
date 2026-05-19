@@ -1,0 +1,20 @@
+id: 066-cert-duplicate-sct-log
+stage: verify-sigstore
+title: |
+  Leaf cert with two SCTs from the same CT log must reject — replay-amplification guard.
+spec_refs: ["5.2"]
+expects:
+  exit_code: 10
+  rejection_code: "SCT_DUPLICATE_LOG"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: "supported"
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  Both SCTs are signed by the same fixturegen CT log key (same log_id).
+  Rust's verifier explicitly rejects duplicate log ids before counting
+  SCTs (so threshold > 1 can't be trivially inflated). JS / sigstore-
+  browser may or may not do this check; if it accepts duplicates this
+  is a real divergence to fix in JS, not a fixture bug.
