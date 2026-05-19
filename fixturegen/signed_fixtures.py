@@ -393,10 +393,13 @@ def main() -> None:
         spec_refs=["5.2"],
         notes=(
             "Both SCTs are signed by the same fixturegen CT log key (same log_id).\n"
-            "Rust's verifier explicitly rejects duplicate log ids before counting\n"
-            "SCTs (so threshold > 1 can't be trivially inflated). JS / sigstore-\n"
-            "browser may or may not do this check; if it accepts duplicates this\n"
-            "is a real divergence to fix in JS, not a fixture bug."
+            "tinfoil-rs explicitly rejects duplicate log_ids before counting\n"
+            "SCTs (so threshold > 1 can't be trivially inflated) and emits\n"
+            "SCT_DUPLICATE_LOG. @freedomofpress/sigstore-browser does the same.\n"
+            "sigstore-python collapses missing-SCT and duplicate-SCT into the\n"
+            "same 'Expected one certificate timestamp' error and emits\n"
+            "SCT_INSUFFICIENT. List-form rejection accepts both — divergence is\n"
+            "visible in the per-SDK column."
         ),
         spec=FixtureSpec(
             payload_bytes=payload,
@@ -406,7 +409,7 @@ def main() -> None:
         repo=DEFAULT_REPO,
         policy_override=None,
         expected_exit=10,
-        rejection_code="SCT_DUPLICATE_LOG",
+        rejection_code=["SCT_DUPLICATE_LOG", "SCT_INSUFFICIENT"],
     )
 
     # 067: bundle with 2 valid tlog entries -------------------------------
@@ -429,9 +432,11 @@ def main() -> None:
         notes=(
             "SPEC §5.2 #3 plain reading. Both tlog entries are valid Rekor\n"
             "inclusion proofs for the same DSSE envelope, signed by the same\n"
-            "test Rekor key. The fixturegen output for this fixture exists\n"
-            "specifically to catch over-strict SDKs."
+            "test Rekor key. Gated on sigstore.accepts_multi_tlog_entries —\n"
+            "SDKs that hardcode exactly-1 (sigstore-python's current behavior)\n"
+            "declare the cap as false and the fixture skips cleanly."
         ),
+        extra_capabilities={"sigstore.accepts_multi_tlog_entries": True},
         spec=FixtureSpec(
             payload_bytes=payload,
             workflow_repository=DEFAULT_REPO,
@@ -489,9 +494,10 @@ def main() -> None:
 
     # 069: cert with V1 and V2 OIDC disagreeing -----------------------------
     # Both extensions present but V1 says gitlab.com and V2 says GitHub.
-    # SPEC §5.3 doesn't explicitly say which to prefer; both Rust and JS
-    # prefer V2 (Rust by match order in extract_certificate_info, JS via
-    # `v2 ?? v1` in WrappedOIDCIssuer). This pins V2-wins.
+    # SPEC §5.3 doesn't explicitly mandate precedence; Rust and JS prefer
+    # V2; sigstore-python prefers V1. Gate the fixture on the
+    # `oidc_issuer_v2_preferred` capability so V1-preferring SDKs skip
+    # cleanly rather than fail.
     write_fixture(
         fixture_id="069-cert-v1-v2-oidc-disagree-v2-wins",
         title=(
@@ -500,9 +506,11 @@ def main() -> None:
         spec_refs=["5.3"],
         notes=(
             "V1 (.1.1) carries 'https://gitlab.com/oidc'; V2 (.1.8) carries\n"
-            "the GitHub Actions issuer. Both SDKs read V2 first. The fixture\n"
-            "accepts because V2 matches the policy. A future SDK that prefers\n"
-            "V1 would reject with OIDC_ISSUER_MISMATCH — caught here."
+            "the GitHub Actions issuer. Rust + JS read V2 first → accept.\n"
+            "sigstore-python (used by tinfoil-python) reads V1 first → reject\n"
+            "with OIDC_ISSUER_MISMATCH. Gated on oidc_issuer_v2_preferred so\n"
+            "the divergence is visible (Python skips with a clear reason)\n"
+            "rather than a noisy fail."
         ),
         spec=FixtureSpec(
             payload_bytes=payload,
@@ -516,6 +524,7 @@ def main() -> None:
         expected_outputs={
             "cert_oidc_issuer": "https://token.actions.githubusercontent.com",
         },
+        extra_capabilities={"sigstore.oidc_issuer_v2_preferred": True},
     )
 
     # 070: cert missing GitHubWorkflowRef extension -------------------------

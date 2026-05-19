@@ -72,6 +72,18 @@
         "legacy_bundle_format_supported": {
           "type": "boolean",
           "description": "True if the SDK accepts pre-v0.3 bundles where the cert lives at verificationMaterial.x509CertificateChain.certificates[0].rawBytes instead of .certificate.rawBytes. Optional and forward-compat — real production is v0.3-only."
+        },
+        "accepts_multi_tlog_entries": {
+          "type": "boolean",
+          "description": "True if the SDK accepts bundles with >1 Rekor tlog entries (SPEC §5.2 #3 says 'at least 1'). False indicates the SDK is over-strict — it hardcodes exactly-1 — which is a known sigstore-python (and historically sigstore-go) limitation."
+        },
+        "oidc_issuer_v2_preferred": {
+          "type": "boolean",
+          "description": "True if the SDK prefers the OIDC Issuer V2 extension (OID 1.3.6.1.4.1.57264.1.8) over V1 (.1.1) when both are present in the leaf cert. SPEC §5.3 doesn't pin precedence; Rust and JS prefer V2, sigstore-python prefers V1."
+        },
+        "scts_count_distinguish_missing_vs_duplicate": {
+          "type": "boolean",
+          "description": "True if the SDK distinguishes SCT_INSUFFICIENT (zero SCTs) from SCT_DUPLICATE_LOG (two SCTs from same log) at the rejection-code level. sigstore-python collapses both into the same 'expected one certificate timestamp' error and can't tell them apart."
         }
       }
     },

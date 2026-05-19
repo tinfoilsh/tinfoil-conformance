@@ -5,7 +5,7 @@ title: |
 spec_refs: ["5.2"]
 expects:
   exit_code: 10
-  rejection_code: "SCT_DUPLICATE_LOG"
+  rejection_code: ["SCT_DUPLICATE_LOG", "SCT_INSUFFICIENT"]
 required_capabilities:
   sigstore.trust_root_loading: "configurable"
   sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
@@ -14,7 +14,10 @@ required_capabilities:
 fixture_kind: synthetic
 notes: |
   Both SCTs are signed by the same fixturegen CT log key (same log_id).
-  Rust's verifier explicitly rejects duplicate log ids before counting
-  SCTs (so threshold > 1 can't be trivially inflated). JS / sigstore-
-  browser may or may not do this check; if it accepts duplicates this
-  is a real divergence to fix in JS, not a fixture bug.
+  tinfoil-rs explicitly rejects duplicate log_ids before counting
+  SCTs (so threshold > 1 can't be trivially inflated) and emits
+  SCT_DUPLICATE_LOG. @freedomofpress/sigstore-browser does the same.
+  sigstore-python collapses missing-SCT and duplicate-SCT into the
+  same 'Expected one certificate timestamp' error and emits
+  SCT_INSUFFICIENT. List-form rejection accepts both — divergence is
+  visible in the per-SDK column.

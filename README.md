@@ -4,17 +4,17 @@ Cross-SDK conformance test suite for [Tinfoil](https://tinfoil.sh) attestation v
 
 This repo is the **executable form** of the Tinfoil Attestation Verification Specification (see [`sdk-flywheel/SPEC.md`](https://github.com/tinfoilsh/sdk-flywheel) v1.2, Section 5 for the Sigstore stage covered first). Each verification stage in the SPEC corresponds to a subcommand in a small CLI contract; each requirement (`MUST` / `SHOULD`) corresponds to one or more test vectors that pass or fail on a per-SDK basis.
 
-The goal is to make cross-SDK compliance **measurable** rather than judged by code review. As SDKs converge on the SPEC the pass count climbs monotonically.
+The goal is to make cross-SDK compliance **measurable** rather than judged by code review.
 
 ## Status
 
-Work in progress. v0.1 covers the Sigstore stage. SEV-SNP, TDX, measurement comparison, TLS-pinning, certificate binding, and EHBP stages follow.
+Work in progress. v0.1 covers the Sigstore stage.
 
 ## Design
 
 * **One contract, many SDKs.** Each SDK ships a `tinfoil-conformance` binary that speaks the JSON-in / JSON-out protocol defined in `schemas/`. The harness in this repo spawns those binaries.
-* **Hermetic.** No live GitHub, no live Sigstore TUF, no system clock. Bundles, trust roots and verification time are all supplied as inputs.
-* **Capability-aware.** SDKs declare missing features via `capabilities`; the harness skips fixtures that require unimplemented knobs and records the skip — never silently passes.
+* **Hermetic.** Bundles, trust roots and verification time are all supplied as inputs.
+* **Capability-aware.** SDKs declare missing features via `capabilities`; the harness skips fixtures that require unimplemented knobs and records the skip.
 * **Spec-anchored.** Every fixture cites a SPEC section; every rejection code maps to a SPEC clause.
 
 ## Repository layout

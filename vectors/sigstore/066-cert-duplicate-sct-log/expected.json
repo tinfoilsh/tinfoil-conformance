@@ -2,6 +2,9 @@
   "stage": "verify-sigstore",
   "accepted": false,
   "rejection": {
-    "code": "SCT_DUPLICATE_LOG"
+    "code": [
+      "SCT_DUPLICATE_LOG",
+      "SCT_INSUFFICIENT"
+    ]
   }
 }

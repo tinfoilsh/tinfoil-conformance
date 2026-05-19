@@ -10,9 +10,11 @@ required_capabilities:
   sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
   sigstore.policy_fields_configurable.workflow_ref_prefix: true
   sigstore.policy_fields_configurable.predicate_types_allowed: true
+  sigstore.accepts_multi_tlog_entries: true
 fixture_kind: synthetic
 notes: |
   SPEC §5.2 #3 plain reading. Both tlog entries are valid Rekor
   inclusion proofs for the same DSSE envelope, signed by the same
-  test Rekor key. The fixturegen output for this fixture exists
-  specifically to catch over-strict SDKs.
+  test Rekor key. Gated on sigstore.accepts_multi_tlog_entries —
+  SDKs that hardcode exactly-1 (sigstore-python's current behavior)
+  declare the cap as false and the fixture skips cleanly.

@@ -10,9 +10,12 @@ required_capabilities:
   sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
   sigstore.policy_fields_configurable.workflow_ref_prefix: true
   sigstore.policy_fields_configurable.predicate_types_allowed: true
+  sigstore.oidc_issuer_v2_preferred: true
 fixture_kind: synthetic
 notes: |
   V1 (.1.1) carries 'https://gitlab.com/oidc'; V2 (.1.8) carries
-  the GitHub Actions issuer. Both SDKs read V2 first. The fixture
-  accepts because V2 matches the policy. A future SDK that prefers
-  V1 would reject with OIDC_ISSUER_MISMATCH — caught here.
+  the GitHub Actions issuer. Rust + JS read V2 first → accept.
+  sigstore-python (used by tinfoil-python) reads V1 first → reject
+  with OIDC_ISSUER_MISMATCH. Gated on oidc_issuer_v2_preferred so
+  the divergence is visible (Python skips with a clear reason)
+  rather than a noisy fail.
