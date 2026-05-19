@@ -1,0 +1,20 @@
+id: 075-cert-no-oidc-issuer-extension
+stage: verify-sigstore
+title: |
+  Cert with no OIDC issuer extension (neither .1.1 V1 nor .1.8 V2) — must reject.
+spec_refs: ["5.3"]
+expects:
+  exit_code: 10
+  rejection_code: ["OIDC_ISSUER_MISMATCH", "BUNDLE_MALFORMED"]
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  The OIDC issuer policy can't be evaluated when the cert carries
+  neither V1 nor V2. The canonical rejection is OIDC_ISSUER_MISMATCH;
+  Rust's extract_certificate_info also short-circuits with a 'missing
+  required OIDC issuer extension' error which classifies as
+  BUNDLE_MALFORMED — list-form rejection_code accepts either.

@@ -1,0 +1,24 @@
+id: 079-bundle-cert-in-x509-chain-format
+stage: verify-sigstore
+title: |
+  Bundle with cert at verificationMaterial.x509CertificateChain.
+  certificates[0].rawBytes (older Sigstore v0.1/v0.2 format).
+  Accept-only fixture, gated on sigstore.legacy_bundle_format_supported.
+spec_refs: ["5.2"]
+expects:
+  exit_code: 0
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.legacy_bundle_format_supported: true
+fixture_kind: real-frozen-bundle-mutation
+notes: |
+  Cert relocated from .verificationMaterial.certificate.rawBytes
+  (v0.3 layout) to .verificationMaterial.x509CertificateChain.
+  certificates[0].rawBytes (older v0.1/v0.2 layout). Real production
+  bundles are all v0.3, but tinfoil-js via @freedomofpress/sigstore-
+  browser accepts the older layout for archived-bundle compatibility.
+  Rust currently doesn't, and declares
+  legacy_bundle_format_supported: false in capabilities so it skips
+  cleanly. If Rust ever adds fallback support, flip the cap to true
+  and the fixture starts running there too.

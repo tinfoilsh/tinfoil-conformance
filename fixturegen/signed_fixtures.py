@@ -673,6 +673,206 @@ def main() -> None:
         },
     )
 
+    # 075: cert with neither V1 nor V2 OIDC issuer extension --------------
+    # Both .1.1 and .1.8 omitted. SDKs can't evaluate the OIDC issuer policy
+    # at all → reject. This catches a future SDK that silently treats
+    # missing-extension as "no policy, accept" (a known anti-pattern).
+    write_fixture(
+        fixture_id="075-cert-no-oidc-issuer-extension",
+        title=(
+            "Cert with no OIDC issuer extension (neither .1.1 V1 nor .1.8 V2) — "
+            "must reject."
+        ),
+        spec_refs=["5.3"],
+        notes=(
+            "The OIDC issuer policy can't be evaluated when the cert carries\n"
+            "neither V1 nor V2. The canonical rejection is OIDC_ISSUER_MISMATCH;\n"
+            "Rust's extract_certificate_info also short-circuits with a 'missing\n"
+            "required OIDC issuer extension' error which classifies as\n"
+            "BUNDLE_MALFORMED — list-form rejection_code accepts either."
+        ),
+        spec=FixtureSpec(
+            payload_bytes=payload,
+            workflow_repository=DEFAULT_REPO,
+            omit_oidc_v1=True,
+            omit_oidc_v2=True,
+        ),
+        repo=DEFAULT_REPO,
+        policy_override=None,
+        expected_exit=10,
+        rejection_code=["OIDC_ISSUER_MISMATCH", "BUNDLE_MALFORMED"],
+    )
+
+    # 076: empty workflow_ref_prefix policy --------------------------------
+    # policy.workflow_ref_prefix="" is a degenerate but valid policy: every
+    # ref starts with the empty string, so the check trivially accepts. SDKs
+    # MUST honor this. A future SDK that special-cases empty-string to "must
+    # match exactly" would reject — caught here.
+    write_fixture(
+        fixture_id="076-workflow-ref-prefix-empty-accepts-any",
+        title=(
+            "policy.workflow_ref_prefix='' (no restriction) must accept any "
+            "cert workflow ref."
+        ),
+        spec_refs=["5.3"],
+        notes=(
+            "Degenerate-but-valid policy. The cert's actual workflow ref is\n"
+            "refs/heads/main; the empty prefix trivially matches it. Catches\n"
+            "SDKs that special-case empty-string to 'must match exactly' or\n"
+            "fail-closed."
+        ),
+        spec=FixtureSpec(
+            payload_bytes=payload,
+            workflow_repository=DEFAULT_REPO,
+            workflow_ref="refs/heads/main",  # would fail "refs/tags/" prefix
+        ),
+        repo=DEFAULT_REPO,
+        policy_override={"workflow_ref_prefix": ""},
+        expected_exit=0,
+        rejection_code=None,
+        expected_outputs={
+            "predicate_type": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
+        },
+    )
+
+    # 077: predicate type with trailing slash -------------------------------
+    # Predicate type URI has a trailing slash, policy doesn't. Exact-match
+    # enforcement rejects. Catches lenient string comparators.
+    write_fixture(
+        fixture_id="077-predicate-type-trailing-slash",
+        title=(
+            "In-toto predicate type with a trailing slash must NOT match a "
+            "no-trailing-slash policy entry — exact match."
+        ),
+        spec_refs=["5.5"],
+        notes=(
+            "The statement's predicateType is\n"
+            "'https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1/' (note the\n"
+            "trailing slash). The default policy lists the same URI WITHOUT\n"
+            "trailing slash. SDKs that do canonical-URI normalization on\n"
+            "predicate types would erroneously accept. SPEC §5.5 specifies\n"
+            "exact URI match — reject."
+        ),
+        spec=FixtureSpec(
+            payload_bytes=payload,
+            workflow_repository=DEFAULT_REPO,
+            predicate_type_override=(
+                "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1/"
+            ),
+        ),
+        repo=DEFAULT_REPO,
+        policy_override=None,
+        expected_exit=10,
+        rejection_code="PREDICATE_TYPE_NOT_ALLOWED",
+    )
+
+    # 078: in-toto statement _type with case variation ----------------------
+    # _type = "https://in-toto.io/Statement/V1" (capital V). Policy default
+    # allows "https://in-toto.io/Statement/v0.1" and ".../v1" (lowercase).
+    # Exact match should reject.
+    write_fixture(
+        fixture_id="078-in-toto-statement-type-case-variation",
+        title=(
+            "In-toto _type with capital V (Statement/V1) must NOT match a "
+            "lowercase-v allow-list — exact match."
+        ),
+        spec_refs=["5.4"],
+        notes=(
+            "The in-toto statement _type is exactly\n"
+            "'https://in-toto.io/Statement/V1' (capital V). Policy default\n"
+            "lists 'https://in-toto.io/Statement/v0.1' and '.../v1'. Per\n"
+            "SPEC §5.4 the comparison is exact string equality — reject."
+        ),
+        spec=FixtureSpec(
+            payload_bytes=payload,
+            workflow_repository=DEFAULT_REPO,
+            statement_type_override="https://in-toto.io/Statement/V1",
+        ),
+        repo=DEFAULT_REPO,
+        # default_policy keeps in_toto_statement_types_allowed=None (= any);
+        # pin it explicitly so the capital-V variant fails the allow-list.
+        policy_override={
+            "in_toto_statement_types_allowed": [
+                "https://in-toto.io/Statement/v0.1",
+                "https://in-toto.io/Statement/v1",
+            ]
+        },
+        expected_exit=10,
+        rejection_code="IN_TOTO_STATEMENT_TYPE_NOT_ALLOWED",
+        extra_capabilities={
+            "sigstore.policy_fields_configurable.in_toto_statement_types_allowed": True,
+        },
+    )
+
+    # 079: bundle with cert under x509CertificateChain (older format) -------
+    # Sigstore v0.1/v0.2 bundles nested the leaf cert under
+    # `verificationMaterial.x509CertificateChain.certificates[0].rawBytes`.
+    # v0.3 moved it to `verificationMaterial.certificate.rawBytes`. SDKs that
+    # support both formats accept; SDKs hardcoded to v0.3 reject.
+    #
+    # Real production bundles are all v0.3 today, but a verifier that drops
+    # support for older bundles silently breaks anyone who archived bundles
+    # from older releases. Documents whether each SDK gracefully handles
+    # the older shape.
+    # Re-load the seed fixture's bundle (the real production v0.3 bundle).
+    seed_input_for_079 = json.loads((SEED / "input.json").read_text())
+    seed_bundle_for_079 = json.loads(base64.b64decode(seed_input_for_079["bundle_b64"]))
+    old_format = copy.deepcopy(seed_bundle_for_079)
+    cert_rawbytes = old_format["verificationMaterial"]["certificate"]["rawBytes"]
+    del old_format["verificationMaterial"]["certificate"]
+    old_format["verificationMaterial"]["x509CertificateChain"] = {
+        "certificates": [{"rawBytes": cert_rawbytes}]
+    }
+    old_format["mediaType"] = "application/vnd.dev.sigstore.bundle+json;version=0.2"
+    seed_input2 = copy.deepcopy(seed_input_for_079)
+    seed_input2["bundle_b64"] = base64.standard_b64encode(
+        json.dumps(old_format).encode()
+    ).decode()
+    # Manually write this fixture since it's a bundle-mutation, not a
+    # fixturegen run: take fixture 001's seed and mutate just the cert location.
+    dst = VECTORS_DIR / "079-bundle-cert-in-x509-chain-format"
+    dst.mkdir(parents=True, exist_ok=True)
+    (dst / "input.json").write_text(json.dumps(seed_input2, indent=2))
+    (dst / "expected.json").write_text(
+        json.dumps(
+            {
+                "stage": "verify-sigstore",
+                "accepted": True,
+                "outputs": {
+                    "predicate_type": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
+                    "subject_digest_sha256_hex": seed_digest(),
+                },
+            },
+            indent=2,
+        )
+    )
+    (dst / "manifest.yaml").write_text(
+        "id: 079-bundle-cert-in-x509-chain-format\n"
+        "stage: verify-sigstore\n"
+        "title: |\n"
+        "  Bundle with cert at verificationMaterial.x509CertificateChain.\n"
+        "  certificates[0].rawBytes (older Sigstore v0.1/v0.2 format).\n"
+        '  Accept-only fixture, gated on sigstore.legacy_bundle_format_supported.\n'
+        'spec_refs: ["5.2"]\n'
+        "expects:\n"
+        "  exit_code: 0\n"
+        "required_capabilities:\n"
+        '  sigstore.trust_root_loading: "configurable"\n'
+        '  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]\n'
+        '  sigstore.legacy_bundle_format_supported: true\n'
+        "fixture_kind: real-frozen-bundle-mutation\n"
+        "notes: |\n"
+        "  Cert relocated from .verificationMaterial.certificate.rawBytes\n"
+        "  (v0.3 layout) to .verificationMaterial.x509CertificateChain.\n"
+        "  certificates[0].rawBytes (older v0.1/v0.2 layout). Real production\n"
+        "  bundles are all v0.3, but tinfoil-js via @freedomofpress/sigstore-\n"
+        "  browser accepts the older layout for archived-bundle compatibility.\n"
+        "  Rust currently doesn't, and declares\n"
+        "  legacy_bundle_format_supported: false in capabilities so it skips\n"
+        "  cleanly. If Rust ever adds fallback support, flip the cap to true\n"
+        "  and the fixture starts running there too.\n"
+    )
+
     print("Wrote synthetic fixtures:")
     for d in sorted(VECTORS_DIR.iterdir()):
         if d.is_dir() and d.name.startswith(("06",)):

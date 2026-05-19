@@ -1,0 +1,21 @@
+id: 077-predicate-type-trailing-slash
+stage: verify-sigstore
+title: |
+  In-toto predicate type with a trailing slash must NOT match a no-trailing-slash policy entry — exact match.
+spec_refs: ["5.5"]
+expects:
+  exit_code: 10
+  rejection_code: "PREDICATE_TYPE_NOT_ALLOWED"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  The statement's predicateType is
+  'https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1/' (note the
+  trailing slash). The default policy lists the same URI WITHOUT
+  trailing slash. SDKs that do canonical-URI normalization on
+  predicate types would erroneously accept. SPEC §5.5 specifies
+  exact URI match — reject.

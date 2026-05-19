@@ -1,0 +1,7 @@
+{
+  "stage": "verify-sigstore",
+  "accepted": false,
+  "rejection": {
+    "code": "IN_TOTO_STATEMENT_TYPE_NOT_ALLOWED"
+  }
+}

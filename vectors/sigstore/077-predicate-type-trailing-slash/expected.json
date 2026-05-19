@@ -1,0 +1,7 @@
+{
+  "stage": "verify-sigstore",
+  "accepted": false,
+  "rejection": {
+    "code": "PREDICATE_TYPE_NOT_ALLOWED"
+  }
+}

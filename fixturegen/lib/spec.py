@@ -86,6 +86,13 @@ class FixtureSpec:
     # When set, an extra unknown field is added to the in-toto statement
     # before signing. SDKs should tolerate (forward compat).
     extra_statement_field: tuple[str, object] | None = None
+    # When set, override the in-toto statement's `_type` field. Lets fixtures
+    # probe case-sensitivity / trailing-slash strictness.
+    statement_type_override: str | None = None
+    # When set, override the in-toto statement's `predicateType` field. The
+    # actual predicate content stays the same — fixtures use this to test
+    # exact-match enforcement on the type string.
+    predicate_type_override: str | None = None
     integrated_time: datetime = field(
         default_factory=lambda: datetime(2026, 1, 1, 0, 2, tzinfo=timezone.utc)
     )
@@ -235,10 +242,19 @@ def _maybe_mutate_payload(spec: "FixtureSpec") -> bytes:
     bytes are canonical and stable across regenerations."""
     import json as _json
 
-    if spec.num_subjects == 1 and spec.extra_statement_field is None:
+    if (
+        spec.num_subjects == 1
+        and spec.extra_statement_field is None
+        and spec.statement_type_override is None
+        and spec.predicate_type_override is None
+    ):
         return spec.payload_bytes
 
     statement = _json.loads(spec.payload_bytes.decode())
+    if spec.statement_type_override is not None:
+        statement["_type"] = spec.statement_type_override
+    if spec.predicate_type_override is not None:
+        statement["predicateType"] = spec.predicate_type_override
     if spec.num_subjects > 1:
         # First subject's digest is zeroed → mismatches caller's expected_digest.
         # Real subject is kept at index 1+ so SPEC §5.4 "check subject[0] only"

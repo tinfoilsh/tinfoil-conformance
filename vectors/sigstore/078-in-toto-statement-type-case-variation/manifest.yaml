@@ -1,0 +1,20 @@
+id: 078-in-toto-statement-type-case-variation
+stage: verify-sigstore
+title: |
+  In-toto _type with capital V (Statement/V1) must NOT match a lowercase-v allow-list — exact match.
+spec_refs: ["5.4"]
+expects:
+  exit_code: 10
+  rejection_code: "IN_TOTO_STATEMENT_TYPE_NOT_ALLOWED"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+  sigstore.policy_fields_configurable.in_toto_statement_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  The in-toto statement _type is exactly
+  'https://in-toto.io/Statement/V1' (capital V). Policy default
+  lists 'https://in-toto.io/Statement/v0.1' and '.../v1'. Per
+  SPEC §5.4 the comparison is exact string equality — reject.

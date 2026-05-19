@@ -1,0 +1,10 @@
+{
+  "stage": "verify-sigstore",
+  "accepted": false,
+  "rejection": {
+    "code": [
+      "OIDC_ISSUER_MISMATCH",
+      "BUNDLE_MALFORMED"
+    ]
+  }
+}

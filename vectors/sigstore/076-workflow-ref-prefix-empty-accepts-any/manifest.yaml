@@ -1,0 +1,18 @@
+id: 076-workflow-ref-prefix-empty-accepts-any
+stage: verify-sigstore
+title: |
+  policy.workflow_ref_prefix='' (no restriction) must accept any cert workflow ref.
+spec_refs: ["5.3"]
+expects:
+  exit_code: 0
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  Degenerate-but-valid policy. The cert's actual workflow ref is
+  refs/heads/main; the empty prefix trivially matches it. Catches
+  SDKs that special-case empty-string to 'must match exactly' or
+  fail-closed.

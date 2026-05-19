@@ -68,6 +68,10 @@
           "type": "array",
           "items": {"type": "string", "format": "uri"},
           "description": "Tinfoil predicate type URIs this SDK can extract a Measurement from."
+        },
+        "legacy_bundle_format_supported": {
+          "type": "boolean",
+          "description": "True if the SDK accepts pre-v0.3 bundles where the cert lives at verificationMaterial.x509CertificateChain.certificates[0].rawBytes instead of .certificate.rawBytes. Optional and forward-compat — real production is v0.3-only."
         }
       }
     },
