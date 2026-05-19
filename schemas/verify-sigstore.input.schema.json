@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/schemas/verify-sigstore.input.schema.json",
+  "title": "verify-sigstore input",
+  "description": "Input piped on stdin to `tinfoil-conformance verify-sigstore`. Covers Tinfoil's Sigstore policy layer (SPEC §5).",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "bundle_b64",
+    "expected_digest_sha256_hex",
+    "repo",
+    "policy",
+    "trust_root_b64",
+    "verification_time_unix"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "bundle_b64": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "description": "Standard base64-encoded raw Sigstore bundle JSON bytes."
+    },
+    "expected_digest_sha256_hex": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{64}$",
+      "description": "Expected release artifact SHA-256 digest in hex. Per SPEC §7.3, comparison MUST be lowercase-normalized."
+    },
+    "repo": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$",
+      "description": "GitHub owner/repo. Compared exactly against the cert's GitHubWorkflowRepository extension (SPEC §5.3)."
+    },
+    "policy": {
+      "type": "object",
+      "required": ["oidc_issuer", "workflow_ref_prefix", "payload_type"],
+      "additionalProperties": false,
+      "properties": {
+        "oidc_issuer": {
+          "type": "string",
+          "format": "uri",
+          "description": "Exact-match OIDC issuer (SPEC §5.3). Typically https://token.actions.githubusercontent.com"
+        },
+        "workflow_ref_prefix": {
+          "type": "string",
+          "description": "Required prefix on the cert's GitHubWorkflowRef extension (SPEC §5.3). Prefix match, not regex. Typically 'refs/tags/'."
+        },
+        "predicate_types_allowed": {
+          "type": ["array", "null"],
+          "items": {"type": "string", "format": "uri"},
+          "description": "Allow-list of predicate types (SPEC §5.5). null = any."
+        },
+        "in_toto_statement_types_allowed": {
+          "type": ["array", "null"],
+          "items": {"type": "string", "format": "uri"},
+          "description": "Allow-list of in-toto statement _type values. null = any. SPEC §5.4 is silent here; some SDKs pin to v0.1/v1."
+        },
+        "payload_type": {
+          "type": "string",
+          "description": "Required DSSE envelope payload_type (SPEC §5.4). Exact match. Typically 'application/vnd.in-toto+json'."
+        },
+        "tlog_entries_min": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 1,
+          "description": "Minimum Rekor log entries required (SPEC §5.2 #3)."
+        },
+        "tlog_entries_max": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "default": null,
+          "description": "Maximum allowed tlog entries. null = unbounded. SPEC §5.2 imposes no upper bound."
+        },
+        "sct_min": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 1,
+          "description": "Minimum SCTs required (SPEC §5.2 #4)."
+        },
+        "observer_timestamps_min": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 1,
+          "description": "Minimum observer timestamps required (SPEC §5.2 #5)."
+        }
+      }
+    },
+    "trust_root_b64": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "description": "Base64-encoded Sigstore trusted_root.json (SPEC §5.1). SDKs MUST use this and not their embedded copy when this field is present."
+    },
+    "verification_time_unix": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Wall-clock seconds since UNIX epoch to use for ALL time comparisons (cert validity, Rekor integrated_time, log/key validity). Required to keep fixtures hermetic across years."
+    }
+  }
+}

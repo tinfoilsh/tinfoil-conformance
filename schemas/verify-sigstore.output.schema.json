@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/schemas/verify-sigstore.output.schema.json",
+  "title": "verify-sigstore output",
+  "description": "Output written to stdout by `tinfoil-conformance verify-sigstore`. Exactly one of `outputs` (when accepted) or `rejection` (when rejected) is populated.",
+  "type": "object",
+  "required": ["stage", "accepted"],
+  "additionalProperties": false,
+  "properties": {
+    "stage": {"const": "verify-sigstore"},
+    "accepted": {"type": "boolean"},
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "predicate_type": {"type": "string", "format": "uri"},
+        "in_toto_statement_type": {"type": "string", "format": "uri"},
+        "subject_name": {"type": "string"},
+        "subject_digest_sha256_hex": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "measurement": {
+          "type": "object",
+          "required": ["type", "registers"],
+          "additionalProperties": false,
+          "properties": {
+            "type": {"type": "string", "format": "uri"},
+            "registers": {
+              "type": "array",
+              "items": {"type": "string", "pattern": "^[0-9a-f]+$"},
+              "minItems": 1
+            }
+          }
+        },
+        "cert_oidc_issuer": {"type": "string", "format": "uri"},
+        "cert_workflow_ref": {"type": "string"},
+        "cert_workflow_repository": {"type": "string"},
+        "cert_workflow_signer_uri": {"type": "string"},
+        "rekor_log_id_hex": {"type": "string", "pattern": "^[0-9a-f]+$"},
+        "rekor_integrated_time_unix": {"type": "integer"},
+        "tlog_entry_count": {"type": "integer", "minimum": 0},
+        "sct_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "rejection": {
+      "type": "object",
+      "required": ["code"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "BUNDLE_MALFORMED",
+            "DSSE_SIGNATURE_INVALID",
+            "FULCIO_CHAIN_INVALID",
+            "CERT_EXPIRED",
+            "SCT_INSUFFICIENT",
+            "SCT_DUPLICATE_LOG",
+            "TLOG_COUNT_OUT_OF_RANGE",
+            "REKOR_INCLUSION_INVALID",
+            "REKOR_KEY_NOT_TRUSTED",
+            "CHECKPOINT_ROOT_MISMATCH",
+            "OBSERVER_TIMESTAMP_INSUFFICIENT",
+            "OIDC_ISSUER_MISMATCH",
+            "WORKFLOW_REPOSITORY_MISMATCH",
+            "WORKFLOW_REF_PREFIX_MISMATCH",
+            "PAYLOAD_TYPE_MISMATCH",
+            "IN_TOTO_STATEMENT_TYPE_NOT_ALLOWED",
+            "PREDICATE_TYPE_NOT_ALLOWED",
+            "SUBJECT_DIGEST_MISMATCH",
+            "SUBJECT_MISSING",
+            "PREDICATE_MEASUREMENT_INVALID",
+            "TRUST_ROOT_INVALID"
+          ]
+        },
+        "spec_ref": {"type": "string", "description": "SPEC.md section the failing check is anchored to."},
+        "message": {"type": "string", "description": "Human-readable detail. Never diffed by the harness."}
+      }
+    }
+  },
+  "oneOf": [
+    {"properties": {"accepted": {"const": true}, "outputs": true}, "required": ["outputs"]},
+    {"properties": {"accepted": {"const": false}, "rejection": true}, "required": ["rejection"]}
+  ]
+}

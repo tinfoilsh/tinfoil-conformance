@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/schemas/capabilities.schema.json",
+  "title": "tinfoil-conformance capabilities",
+  "description": "Self-description emitted by `tinfoil-conformance capabilities`. Read once per SDK by the harness, used to skip fixtures that require unsupported knobs.",
+  "type": "object",
+  "required": ["schema_version", "sdk", "sdk_version", "stages_supported"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1",
+      "description": "Conformance contract version this binary speaks."
+    },
+    "sdk": {
+      "type": "string",
+      "description": "Canonical SDK name (e.g. 'tinfoil-rs', 'tinfoil-js')."
+    },
+    "sdk_version": {
+      "type": "string",
+      "description": "SDK release version embedded in this binary."
+    },
+    "stages_supported": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "verify-sigstore",
+          "verify-attestation",
+          "verify-measurement",
+          "verify-tls-pinning",
+          "verify-cert-binding",
+          "verify-full",
+          "attestation-hash",
+          "ehbp-encrypt",
+          "ehbp-decrypt"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "sigstore": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "trust_root_loading": {
+          "enum": ["configurable", "embedded-only"],
+          "description": "Whether the SDK accepts an inline trust root, or only uses its embedded copy."
+        },
+        "verification_time_override": {
+          "enum": ["supported", "system-clock-only"],
+          "description": "Whether the SDK accepts policy.verification_time_unix instead of using the system clock."
+        },
+        "policy_fields_configurable": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "oidc_issuer": {"type": "boolean"},
+            "workflow_ref_prefix": {"type": "boolean"},
+            "workflow_repository": {"type": "boolean"},
+            "predicate_types_allowed": {"type": "boolean"},
+            "in_toto_statement_types_allowed": {"type": "boolean"},
+            "payload_type": {"type": "boolean"},
+            "tlog_entries_min": {"type": "boolean"},
+            "tlog_entries_max": {"type": "boolean"},
+            "sct_min": {"type": "boolean"},
+            "observer_timestamps_min": {"type": "boolean"}
+          }
+        },
+        "predicate_types_understood": {
+          "type": "array",
+          "items": {"type": "string", "format": "uri"},
+          "description": "Tinfoil predicate type URIs this SDK can extract a Measurement from."
+        }
+      }
+    },
+    "platforms_supported": {
+      "type": "array",
+      "items": {"enum": ["sev-snp", "tdx"]},
+      "description": "Hardware attestation platforms with native verification support."
+    },
+    "transport_modes_supported": {
+      "type": "array",
+      "items": {"enum": ["tls-pinning", "ehbp"]}
+    },
+    "flow_modes_supported": {
+      "type": "array",
+      "items": {"enum": ["standard", "bundle", "pinned"]},
+      "description": "End-to-end flow modes (SPEC §11). Relevant for verify-full."
+    },
+    "known_quirks": {
+      "type": "object",
+      "description": "Free-form bag of declared deviations from SPEC the SDK is aware of. Used for documentation, not skip logic.",
+      "additionalProperties": true
+    }
+  }
+}

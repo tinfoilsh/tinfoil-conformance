@@ -1,0 +1,19 @@
+[project]
+name = "tinfoil-conformance"
+version = "0.1.0"
+description = "Cross-SDK conformance test runner for Tinfoil attestation verification"
+requires-python = ">=3.10"
+dependencies = [
+  "pyyaml>=6.0",
+  "jsonschema>=4.0",
+]
+
+[project.scripts]
+tinfoil-conformance = "tinfoil_conformance.cli:main"
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["tinfoil_conformance*"]

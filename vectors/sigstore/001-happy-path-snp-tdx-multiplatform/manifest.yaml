@@ -1,0 +1,23 @@
+id: 001-happy-path-snp-tdx-multiplatform
+stage: verify-sigstore
+title: |
+  Happy path: real production Sigstore bundle with SnpTdxMultiPlatformV1 predicate
+  must verify and extract the three-register measurement.
+spec_refs: ["5.2", "5.3", "5.4", "5.5"]
+expects:
+  exit_code: 0
+required_capabilities:
+  sigstore.trust_root_loading: configurable
+  sigstore.verification_time_override: supported
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: real-frozen
+notes: |
+  Source: tinfoil-js/packages/verifier/test/fixtures/attestation-bundle.json
+  (the sigstoreBundle subtree). Production Sigstore trust root pinned to
+  the epoch covering Rekor integrated_time 1769121722 (2026-01-22 UTC).
+
+  verification_time_unix is set to integrated_time + 30s, which lands inside
+  the (~10 minute) Fulcio cert validity window. SDKs that use the system clock
+  instead of the supplied time will fail this fixture as soon as the cert
+  expires in wall-clock terms.

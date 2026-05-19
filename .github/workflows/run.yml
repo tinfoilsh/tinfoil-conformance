@@ -1,0 +1,66 @@
+name: Run conformance
+
+on:
+  workflow_call:
+    inputs:
+      sdk-name:
+        description: "Canonical SDK name (e.g. tinfoil-rs, tinfoil-js)"
+        required: true
+        type: string
+      sdk-binary:
+        description: "Shell command that invokes the SDK's tinfoil-conformance binary"
+        required: true
+        type: string
+      vectors-ref:
+        description: "Git ref of tinfoil-conformance to run against (branch/tag/sha)"
+        required: false
+        type: string
+        default: main
+      stages:
+        description: "Vectors subpath to run (e.g. sigstore, attestation-sev)"
+        required: false
+        type: string
+        default: sigstore
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tinfoil-conformance
+        uses: actions/checkout@v4
+        with:
+          repository: lsd-cat/tinfoil-conformance
+          ref: ${{ inputs.vectors-ref }}
+          path: tinfoil-conformance
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install harness
+        run: pip install ./tinfoil-conformance/harness
+
+      - name: Show SDK capabilities
+        run: |
+          tinfoil-conformance capabilities --sdk "${{ inputs.sdk-name }}=${{ inputs.sdk-binary }}"
+
+      - name: Run vectors
+        run: |
+          tinfoil-conformance run \
+            --sdk "${{ inputs.sdk-name }}=${{ inputs.sdk-binary }}" \
+            --vectors "tinfoil-conformance/vectors/${{ inputs.stages }}"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-results-${{ inputs.sdk-name }}
+          path: results/
+
+      - name: Show summary
+        if: always()
+        run: |
+          if [ -f results/latest/results.md ]; then
+            cat results/latest/results.md >> "$GITHUB_STEP_SUMMARY"
+          fi

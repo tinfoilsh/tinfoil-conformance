@@ -1,0 +1,18 @@
+{
+  "stage": "verify-sigstore",
+  "accepted": true,
+  "outputs": {
+    "predicate_type": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
+    "in_toto_statement_type": "https://in-toto.io/Statement/v1",
+    "subject_name": "tinfoil-deployment.json",
+    "subject_digest_sha256_hex": "5ed9d5c942528ec2eeb759919827f1bc2183c6810f80225a52147dd4020c12a0",
+    "measurement": {
+      "type": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
+      "registers": [
+        "09ef32acf90fcfeb6206d1a46c13145cef736ebbb83f18eaff680b686232031546ff5fd39c44599699ee8734cbbeb519",
+        "a7ed1bcbe696222ecf956f2c78a3b29fcc8ca24831a4751b58f5858d537fbf29666e7949e8402599c96f41a80f7fe253",
+        "ddce36c7bebf841b3a4ff0c8c2df63869f102b74904063efc24244bf5b983b44e87f610c73f963bd3e859014903508c3"
+      ]
+    }
+  }
+}
