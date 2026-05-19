@@ -114,6 +114,14 @@ class LeafCertSpec:
     build_signer_uri: str
     source_repository_uri: str | None = None
     common_name: str = "tinfoil-conformance test signer"
+    # Per-extension omission knobs. Defaults emit a full Fulcio-style cert.
+    omit_oidc_v1: bool = False
+    omit_oidc_v2: bool = False
+    omit_workflow_ref_ext: bool = False
+    omit_build_signer_uri: bool = False
+    # When non-None the V1 OIDC issuer (.1.1) carries this value while V2
+    # (.1.8) carries `oidc_issuer`. Lets fixtures probe V1-vs-V2 precedence.
+    oidc_issuer_v1_override: str | None = None
 
 
 def build_leaf_pre_sct(
@@ -220,41 +228,54 @@ def _build_leaf(
             x509.AuthorityKeyIdentifier.from_issuer_public_key(root.key.public),
             critical=False,
         )
-        # Fulcio extensions ---------------------------------------------
-        .add_extension(
+    )
+    # Fulcio extensions — emitted conditionally per LeafCertSpec flags. The
+    # default path (everything True) reproduces a normal Fulcio leaf cert;
+    # individual omissions + the V1 override let fixtures exercise SDK
+    # quirks around which fields are required and how V1-vs-V2 precedence
+    # is resolved.
+    if not spec.omit_oidc_v1:
+        v1_value = (
+            spec.oidc_issuer_v1_override
+            if spec.oidc_issuer_v1_override is not None
+            else spec.oidc_issuer
+        )
+        builder = builder.add_extension(
             x509.UnrecognizedExtension(
-                OID_FULCIO_OIDC_ISSUER_V1, spec.oidc_issuer.encode("utf-8")
+                OID_FULCIO_OIDC_ISSUER_V1, v1_value.encode("utf-8")
             ),
             critical=False,
         )
-        .add_extension(
-            x509.UnrecognizedExtension(
-                OID_FULCIO_GITHUB_WORKFLOW_REPOSITORY,
-                spec.workflow_repository.encode("utf-8"),
-            ),
-            critical=False,
-        )
-        .add_extension(
+    builder = builder.add_extension(
+        x509.UnrecognizedExtension(
+            OID_FULCIO_GITHUB_WORKFLOW_REPOSITORY,
+            spec.workflow_repository.encode("utf-8"),
+        ),
+        critical=False,
+    )
+    if not spec.omit_workflow_ref_ext:
+        builder = builder.add_extension(
             x509.UnrecognizedExtension(
                 OID_FULCIO_GITHUB_WORKFLOW_REF, spec.workflow_ref.encode("utf-8")
             ),
             critical=False,
         )
-        .add_extension(
+    if not spec.omit_oidc_v2:
+        builder = builder.add_extension(
             x509.UnrecognizedExtension(
                 OID_FULCIO_OIDC_ISSUER_V2,
                 _der_utf8_string(spec.oidc_issuer),
             ),
             critical=False,
         )
-        .add_extension(
+    if not spec.omit_build_signer_uri:
+        builder = builder.add_extension(
             x509.UnrecognizedExtension(
                 OID_FULCIO_BUILD_SIGNER_URI,
                 _der_utf8_string(spec.build_signer_uri),
             ),
             critical=False,
         )
-    )
     if spec.source_repository_uri:
         builder = builder.add_extension(
             x509.UnrecognizedExtension(

@@ -60,6 +60,32 @@ class FixtureSpec:
     # same Rekor key. Used to test SDKs that hardcode `exactly 1 tlog entry`
     # vs SDKs that accept `>= 1`.
     num_tlog_entries: int = 1
+
+    # Per-extension knobs for the leaf cert. Defaults emit a full Fulcio-style
+    # cert (V1 + V2 OIDC issuer, workflow repo + ref, BuildSignerURI). Setting
+    # the omit_* flags to True or the *_override values to non-None lets us
+    # construct certs that exercise SDK quirks around which extensions are
+    # required, V1-vs-V2 precedence, etc.
+    omit_oidc_v1: bool = False
+    omit_oidc_v2: bool = False
+    omit_workflow_ref_ext: bool = False
+    omit_build_signer_uri: bool = False
+    # When set, the V1 OIDC issuer carries this value while V2 carries
+    # `oidc_issuer`. Used to test SDK V1-vs-V2 precedence.
+    oidc_issuer_v1_override: str | None = None
+    # Number of DSSE signature entries to emit. Default 1 (real Sigstore
+    # always emits one). Setting >1 duplicates the same signature across
+    # entries — tests SDKs that hardcode `signatures.len() == 1`.
+    num_dsse_signatures: int = 1
+    # Number of subject entries in the in-toto payload. Default 1. When >1,
+    # the first subject's digest is set to all-zeros (so it mismatches the
+    # caller's expected_digest_sha256_hex) while later subjects carry the
+    # real digest — SPEC §5.4 says only subject[0] is checked, so SDKs must
+    # reject with SUBJECT_DIGEST_MISMATCH.
+    num_subjects: int = 1
+    # When set, an extra unknown field is added to the in-toto statement
+    # before signing. SDKs should tolerate (forward compat).
+    extra_statement_field: tuple[str, object] | None = None
     integrated_time: datetime = field(
         default_factory=lambda: datetime(2026, 1, 1, 0, 2, tzinfo=timezone.utc)
     )
@@ -113,6 +139,11 @@ def build_bundle_and_trust_root(spec: FixtureSpec) -> GeneratedFixture:
         workflow_repository=spec.workflow_repository,
         workflow_ref=spec.workflow_ref,
         build_signer_uri=spec.derived_build_signer_uri(),
+        omit_oidc_v1=spec.omit_oidc_v1,
+        omit_oidc_v2=spec.omit_oidc_v2,
+        omit_workflow_ref_ext=spec.omit_workflow_ref_ext,
+        omit_build_signer_uri=spec.omit_build_signer_uri,
+        oidc_issuer_v1_override=spec.oidc_issuer_v1_override,
     )
     pre_sct = build_leaf_pre_sct(
         leaf_key=leaf_key,
@@ -150,11 +181,16 @@ def build_bundle_and_trust_root(spec: FixtureSpec) -> GeneratedFixture:
         scts=scts,
     )
 
-    # 6. Sign the DSSE envelope with the leaf key.
+    # 6. Optionally mutate the in-toto payload (subjects, extra fields) before
+    # signing. The mutation is applied to the JSON-canonical form of the
+    # statement, then re-encoded so the DSSE signature covers the final bytes.
+    payload_to_sign = _maybe_mutate_payload(spec)
+
+    # Sign the DSSE envelope with the leaf key.
     envelope = sign_envelope(
         signing_key=leaf_key,
         payload_type=spec.payload_type,
-        payload=spec.payload_bytes,
+        payload=payload_to_sign,
     )
 
     # 7. Build N Rekor tree-size-1 entries (default 1). Each is a complete
@@ -173,9 +209,14 @@ def build_bundle_and_trust_root(spec: FixtureSpec) -> GeneratedFixture:
         for i in range(spec.num_tlog_entries)
     ]
 
-    # 8. Assemble bundle + matching trust root.
+    # 8. Assemble bundle + matching trust root. `num_dsse_signatures > 1`
+    # duplicates the same signature in the envelope's signatures array — tests
+    # SDKs that hardcode `signatures.len() == 1`.
     bundle = build_bundle(
-        leaf_cert_der=leaf.cert_der, envelope=envelope, rekor_entries=entries
+        leaf_cert_der=leaf.cert_der,
+        envelope=envelope,
+        rekor_entries=entries,
+        num_dsse_signatures=spec.num_dsse_signatures,
     )
     tr = trust_root.build_trust_root(
         fulcio_root=root,
@@ -185,3 +226,31 @@ def build_bundle_and_trust_root(spec: FixtureSpec) -> GeneratedFixture:
         rekor_valid_from=spec.rekor_valid_from,
     )
     return GeneratedFixture(bundle=bundle, trust_root=tr)
+
+
+def _maybe_mutate_payload(spec: "FixtureSpec") -> bytes:
+    """Apply subject-array and extra-field mutations to the in-toto payload
+    before signing. Returns the payload bytes to feed into DSSE PAE.
+    Re-encodes via JSON.dumps with sorted keys + compact separators so the
+    bytes are canonical and stable across regenerations."""
+    import json as _json
+
+    if spec.num_subjects == 1 and spec.extra_statement_field is None:
+        return spec.payload_bytes
+
+    statement = _json.loads(spec.payload_bytes.decode())
+    if spec.num_subjects > 1:
+        # First subject's digest is zeroed → mismatches caller's expected_digest.
+        # Real subject is kept at index 1+ so SPEC §5.4 "check subject[0] only"
+        # is the divergence under test.
+        canonical = statement["subject"][0]
+        zero_subject = _json.loads(_json.dumps(canonical))
+        zero_subject["digest"]["sha256"] = "0" * 64
+        zero_subject["name"] = canonical["name"] + "-spoof"
+        statement["subject"] = [zero_subject] + [
+            canonical for _ in range(spec.num_subjects - 1)
+        ]
+    if spec.extra_statement_field is not None:
+        key, value = spec.extra_statement_field
+        statement[key] = value
+    return _json.dumps(statement, separators=(",", ":"), sort_keys=True).encode()

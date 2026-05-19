@@ -1,0 +1,19 @@
+id: 073-subject-array-only-first-checked
+stage: verify-sigstore
+title: |
+  In-toto subject array with bad subject[0] and good subject[1] — must reject (only subject[0] is checked per SPEC §5.4).
+spec_refs: ["5.4"]
+expects:
+  exit_code: 10
+  rejection_code: "SUBJECT_DIGEST_MISMATCH"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  Catches SDKs that iterate the subject array and accept on any
+  match. The SPEC explicitly says only subject[0] is checked, so
+  a malicious bundle that prepends a spoof subject + a real one
+  must reject.

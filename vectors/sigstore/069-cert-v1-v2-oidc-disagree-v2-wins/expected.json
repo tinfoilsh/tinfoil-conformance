@@ -1,0 +1,7 @@
+{
+  "stage": "verify-sigstore",
+  "accepted": true,
+  "outputs": {
+    "cert_oidc_issuer": "https://token.actions.githubusercontent.com"
+  }
+}

@@ -13,6 +13,7 @@ def build_bundle(
     leaf_cert_der: bytes,
     envelope: SignedEnvelope,
     rekor_entries: list[RekorEntry],
+    num_dsse_signatures: int = 1,
 ) -> dict:
     """Build a Sigstore v0.3 bundle dict ready to JSON-serialize.
 
@@ -50,6 +51,12 @@ def build_bundle(
         "dsseEnvelope": {
             "payloadType": envelope.payload_type,
             "payload": envelope.payload_b64,
-            "signatures": [{"sig": envelope.signature_b64}],
+            # When num_dsse_signatures > 1 we emit identical-signature
+            # duplicates. All verify against the same payload + key, but
+            # SDKs that hardcode `signatures.len() == 1` will reject.
+            "signatures": [
+                {"sig": envelope.signature_b64}
+                for _ in range(max(num_dsse_signatures, 1))
+            ],
         },
     }

@@ -1,0 +1,10 @@
+{
+  "stage": "verify-sigstore",
+  "accepted": false,
+  "rejection": {
+    "code": [
+      "DSSE_SIGNATURE_INVALID",
+      "BUNDLE_MALFORMED"
+    ]
+  }
+}

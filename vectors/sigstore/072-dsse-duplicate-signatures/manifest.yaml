@@ -1,0 +1,21 @@
+id: 072-dsse-duplicate-signatures
+stage: verify-sigstore
+title: |
+  DSSE envelope with 2 identical signature entries — both SDKs must reject (count > 1) or both accept.
+spec_refs: ["5.2"]
+expects:
+  exit_code: 10
+  rejection_code: ["DSSE_SIGNATURE_INVALID", "BUNDLE_MALFORMED"]
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  Probe for SDKs that strictly require `signatures.len() == 1`
+  (Rust does) vs SDKs that iterate and accept any valid one
+  (JS via sigstore-browser may). SPEC §5.2 #1 phrases this in the
+  singular but doesn't pin a count requirement. The fixture's
+  rejection_code list documents the genuine taxonomy ambiguity
+  while still requiring both SDKs to reject (not silently accept).

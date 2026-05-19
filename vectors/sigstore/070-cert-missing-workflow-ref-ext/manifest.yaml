@@ -1,0 +1,21 @@
+id: 070-cert-missing-workflow-ref-ext
+stage: verify-sigstore
+title: |
+  Cert without GitHubWorkflowRef extension (.1.6) must reject — workflow_ref policy can't be checked.
+spec_refs: ["5.3"]
+expects:
+  exit_code: 10
+  rejection_code: "WORKFLOW_REF_PREFIX_MISMATCH"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  Recent fix migrated the workflow_ref policy check from regex-on-
+  BuildSignerURI to startsWith on the dedicated GitHubWorkflowRef
+  extension. A cert that omits .1.6 entirely cannot satisfy the
+  check at all. Both SDKs must reject. Real Fulcio always emits
+  .1.6; this fixture catches SDKs that silently fall back to
+  BuildSignerURI when the dedicated extension is missing.

@@ -455,6 +455,224 @@ def main() -> None:
         },
     )
 
+    # 068: cert with V1 OIDC issuer only ------------------------------------
+    # Older Fulcio certs only have the V1 OIDC issuer extension (.1.1, raw
+    # UTF-8 bytes). SDKs prefer V2 (.1.8) but MUST fall back to V1 when V2
+    # is absent. Both Rust and JS do this in extract_certificate_info /
+    # WrappedOIDCIssuer respectively — this fixture pins the behavior.
+    write_fixture(
+        fixture_id="068-cert-only-v1-oidc-issuer",
+        title="Cert with V1 OIDC issuer extension only (no V2) must accept.",
+        spec_refs=["5.3"],
+        notes=(
+            "Tests V1/V2 OIDC issuer extension precedence. The cert carries\n"
+            "only the V1 extension (OID .1.1) with the canonical GitHub Actions\n"
+            "issuer; the V2 extension (.1.8) is omitted. SDKs must accept by\n"
+            "falling back to V1. Particularly relevant for SDKs that read only\n"
+            "one of V1 or V2 — those would diverge here."
+        ),
+        spec=FixtureSpec(
+            payload_bytes=payload,
+            workflow_repository=DEFAULT_REPO,
+            omit_oidc_v2=True,
+        ),
+        repo=DEFAULT_REPO,
+        policy_override=None,
+        expected_exit=0,
+        rejection_code=None,
+        expected_outputs={
+            "predicate_type": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
+            "in_toto_statement_type": "https://in-toto.io/Statement/v1",
+            "cert_oidc_issuer": "https://token.actions.githubusercontent.com",
+        },
+    )
+
+    # 069: cert with V1 and V2 OIDC disagreeing -----------------------------
+    # Both extensions present but V1 says gitlab.com and V2 says GitHub.
+    # SPEC §5.3 doesn't explicitly say which to prefer; both Rust and JS
+    # prefer V2 (Rust by match order in extract_certificate_info, JS via
+    # `v2 ?? v1` in WrappedOIDCIssuer). This pins V2-wins.
+    write_fixture(
+        fixture_id="069-cert-v1-v2-oidc-disagree-v2-wins",
+        title=(
+            "Cert with V1 and V2 OIDC issuer extensions disagreeing — V2 takes precedence."
+        ),
+        spec_refs=["5.3"],
+        notes=(
+            "V1 (.1.1) carries 'https://gitlab.com/oidc'; V2 (.1.8) carries\n"
+            "the GitHub Actions issuer. Both SDKs read V2 first. The fixture\n"
+            "accepts because V2 matches the policy. A future SDK that prefers\n"
+            "V1 would reject with OIDC_ISSUER_MISMATCH — caught here."
+        ),
+        spec=FixtureSpec(
+            payload_bytes=payload,
+            workflow_repository=DEFAULT_REPO,
+            oidc_issuer_v1_override="https://gitlab.com/oidc",
+        ),
+        repo=DEFAULT_REPO,
+        policy_override=None,
+        expected_exit=0,
+        rejection_code=None,
+        expected_outputs={
+            "cert_oidc_issuer": "https://token.actions.githubusercontent.com",
+        },
+    )
+
+    # 070: cert missing GitHubWorkflowRef extension -------------------------
+    # The .1.6 extension is the SPEC §5.3 source of truth for the workflow_ref
+    # check (the fix that landed in this PR). A cert without it must reject —
+    # the SDK cannot evaluate the prefix policy.
+    write_fixture(
+        fixture_id="070-cert-missing-workflow-ref-ext",
+        title=(
+            "Cert without GitHubWorkflowRef extension (.1.6) must reject — "
+            "workflow_ref policy can't be checked."
+        ),
+        spec_refs=["5.3"],
+        notes=(
+            "Recent fix migrated the workflow_ref policy check from regex-on-\n"
+            "BuildSignerURI to startsWith on the dedicated GitHubWorkflowRef\n"
+            "extension. A cert that omits .1.6 entirely cannot satisfy the\n"
+            "check at all. Both SDKs must reject. Real Fulcio always emits\n"
+            ".1.6; this fixture catches SDKs that silently fall back to\n"
+            "BuildSignerURI when the dedicated extension is missing."
+        ),
+        spec=FixtureSpec(
+            payload_bytes=payload,
+            workflow_repository=DEFAULT_REPO,
+            omit_workflow_ref_ext=True,
+        ),
+        repo=DEFAULT_REPO,
+        policy_override=None,
+        expected_exit=10,
+        rejection_code="WORKFLOW_REF_PREFIX_MISMATCH",
+    )
+
+    # 071: cert missing BuildSignerURI extension ----------------------------
+    # The .1.9 extension is no longer required for SPEC §5.3 workflow_ref
+    # checks (that moved to .1.6). Cert without .1.9 should still be acceptable.
+    write_fixture(
+        fixture_id="071-cert-missing-build-signer-uri",
+        title=(
+            "Cert without BuildSignerURI (.1.9) must accept — extension is "
+            "informational only after the workflow_ref check moved to .1.6."
+        ),
+        spec_refs=["5.3"],
+        notes=(
+            "After the workflow_ref-check migration to .1.6, BuildSignerURI\n"
+            "(.1.9) is informational/diagnostic only. Cert without it should\n"
+            "still verify. An SDK that requires .1.9 for the workflow_ref\n"
+            "check (old Rust behavior) would reject — fixture catches\n"
+            "regression."
+        ),
+        spec=FixtureSpec(
+            payload_bytes=payload,
+            workflow_repository=DEFAULT_REPO,
+            omit_build_signer_uri=True,
+        ),
+        repo=DEFAULT_REPO,
+        policy_override=None,
+        expected_exit=0,
+        rejection_code=None,
+        expected_outputs={
+            "predicate_type": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
+            "cert_workflow_signer_uri": "",
+        },
+    )
+
+    # 072: DSSE envelope with duplicate signatures --------------------------
+    # `signatures` array has two identical entries, both verify. Rust's
+    # current verifier hardcodes `signatures.len() != 1 → reject`; JS via
+    # sigstore-browser may or may not. SPEC §5.2 #1 says "the envelope
+    # signature MUST be verified against the Fulcio-issued certificate" —
+    # singular. The list rejection_code documents the genuine ambiguity.
+    write_fixture(
+        fixture_id="072-dsse-duplicate-signatures",
+        title=(
+            "DSSE envelope with 2 identical signature entries — both SDKs "
+            "must reject (count > 1) or both accept."
+        ),
+        spec_refs=["5.2"],
+        notes=(
+            "Probe for SDKs that strictly require `signatures.len() == 1`\n"
+            "(Rust does) vs SDKs that iterate and accept any valid one\n"
+            "(JS via sigstore-browser may). SPEC §5.2 #1 phrases this in the\n"
+            "singular but doesn't pin a count requirement. The fixture's\n"
+            "rejection_code list documents the genuine taxonomy ambiguity\n"
+            "while still requiring both SDKs to reject (not silently accept)."
+        ),
+        spec=FixtureSpec(
+            payload_bytes=payload,
+            workflow_repository=DEFAULT_REPO,
+            num_dsse_signatures=2,
+        ),
+        repo=DEFAULT_REPO,
+        policy_override=None,
+        expected_exit=10,
+        rejection_code=["DSSE_SIGNATURE_INVALID", "BUNDLE_MALFORMED"],
+    )
+
+    # 073: in-toto statement with multiple subjects, subject[0] mismatches ---
+    # SPEC §5.4: "If the subject array contains multiple entries, only the
+    # first entry (subject[0]) is checked." Fixture: subject[0] has a
+    # zero-digest, subject[1] carries the real digest. SDKs MUST reject
+    # because subject[0] doesn't match.
+    write_fixture(
+        fixture_id="073-subject-array-only-first-checked",
+        title=(
+            "In-toto subject array with bad subject[0] and good subject[1] — "
+            "must reject (only subject[0] is checked per SPEC §5.4)."
+        ),
+        spec_refs=["5.4"],
+        notes=(
+            "Catches SDKs that iterate the subject array and accept on any\n"
+            "match. The SPEC explicitly says only subject[0] is checked, so\n"
+            "a malicious bundle that prepends a spoof subject + a real one\n"
+            "must reject."
+        ),
+        spec=FixtureSpec(
+            payload_bytes=payload,
+            workflow_repository=DEFAULT_REPO,
+            num_subjects=2,
+        ),
+        repo=DEFAULT_REPO,
+        policy_override=None,
+        expected_exit=10,
+        rejection_code="SUBJECT_DIGEST_MISMATCH",
+    )
+
+    # 074: in-toto statement with unknown extra field -----------------------
+    # Forward-compat: an in-toto statement that carries an extra top-level
+    # field SDKs don't know about should still verify. Tests SDKs that are
+    # too strict on schema validation.
+    write_fixture(
+        fixture_id="074-in-toto-statement-extra-field",
+        title=(
+            "In-toto statement with an unknown extra top-level field must "
+            "still verify (forward-compat)."
+        ),
+        spec_refs=["5.4"],
+        notes=(
+            "Adds `'_spec_version': 99` to the in-toto statement before signing.\n"
+            "SDKs that strict-parse the statement (rejecting unknown fields)\n"
+            "would fail; SDKs that tolerate unknown fields accept. Per\n"
+            "SPEC §5.4 the only required fields are `_type`, `predicateType`,\n"
+            "`subject`, and `predicate` — anything else should be ignored."
+        ),
+        spec=FixtureSpec(
+            payload_bytes=payload,
+            workflow_repository=DEFAULT_REPO,
+            extra_statement_field=("_spec_version", 99),
+        ),
+        repo=DEFAULT_REPO,
+        policy_override=None,
+        expected_exit=0,
+        rejection_code=None,
+        expected_outputs={
+            "predicate_type": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
+        },
+    )
+
     print("Wrote synthetic fixtures:")
     for d in sorted(VECTORS_DIR.iterdir()):
         if d.is_dir() and d.name.startswith(("06",)):

@@ -1,0 +1,19 @@
+id: 074-in-toto-statement-extra-field
+stage: verify-sigstore
+title: |
+  In-toto statement with an unknown extra top-level field must still verify (forward-compat).
+spec_refs: ["5.4"]
+expects:
+  exit_code: 0
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  Adds `'_spec_version': 99` to the in-toto statement before signing.
+  SDKs that strict-parse the statement (rejecting unknown fields)
+  would fail; SDKs that tolerate unknown fields accept. Per
+  SPEC §5.4 the only required fields are `_type`, `predicateType`,
+  `subject`, and `predicate` — anything else should be ignored.

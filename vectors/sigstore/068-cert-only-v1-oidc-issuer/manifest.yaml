@@ -1,0 +1,19 @@
+id: 068-cert-only-v1-oidc-issuer
+stage: verify-sigstore
+title: |
+  Cert with V1 OIDC issuer extension only (no V2) must accept.
+spec_refs: ["5.3"]
+expects:
+  exit_code: 0
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  Tests V1/V2 OIDC issuer extension precedence. The cert carries
+  only the V1 extension (OID .1.1) with the canonical GitHub Actions
+  issuer; the V2 extension (.1.8) is omitted. SDKs must accept by
+  falling back to V1. Particularly relevant for SDKs that read only
+  one of V1 or V2 — those would diverge here.

@@ -1,0 +1,18 @@
+id: 069-cert-v1-v2-oidc-disagree-v2-wins
+stage: verify-sigstore
+title: |
+  Cert with V1 and V2 OIDC issuer extensions disagreeing — V2 takes precedence.
+spec_refs: ["5.3"]
+expects:
+  exit_code: 0
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  V1 (.1.1) carries 'https://gitlab.com/oidc'; V2 (.1.8) carries
+  the GitHub Actions issuer. Both SDKs read V2 first. The fixture
+  accepts because V2 matches the policy. A future SDK that prefers
+  V1 would reject with OIDC_ISSUER_MISMATCH — caught here.
