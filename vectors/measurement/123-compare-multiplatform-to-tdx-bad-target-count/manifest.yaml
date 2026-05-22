@@ -1,0 +1,16 @@
+id: 123-compare-multiplatform-to-tdx-bad-target-count
+stage: verify-measurement
+title: |
+  MP→TDX with TDX target having 4 registers (not 5) must reject.
+spec_refs: ["7.3.2"]
+expects:
+  exit_code: 10
+  rejection_code: ["MEASUREMENT_REGISTER_COUNT_INVALID", "MEASUREMENT_MISMATCH"]
+required_capabilities:
+  measurement.compare_multiplatform_to_tdx_supported: true
+fixture_kind: synthetic
+notes: |
+  SPEC §7.3.2 precondition: target MUST have exactly 5 registers
+  (TDX_REGISTER_COUNT). An SDK that lazily accesses target[2]/[3]
+  without checking length first might pass on a short target — the
+  fixture forces them to validate count first.

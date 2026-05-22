@@ -1,0 +1,13 @@
+id: 100-fingerprint-sev-single-register
+stage: verify-measurement
+title: |
+  SEV single-register fingerprint equals the register value itself.
+spec_refs: ["7.2"]
+expects:
+  exit_code: 0
+required_capabilities:
+  {}
+fixture_kind: synthetic
+notes: |
+  SPEC §7.2: 'Single-register measurements (e.g., SevGuestV2):
+  The fingerprint is the register value itself (the hex string).'

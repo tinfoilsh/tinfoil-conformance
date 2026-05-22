@@ -1,0 +1,13 @@
+id: 112-compare-same-type-mismatch
+stage: verify-measurement
+title: |
+  Same-type SEV with differing snp_measurement must reject.
+spec_refs: ["7.3.1"]
+expects:
+  exit_code: 10
+  rejection_code: "MEASUREMENT_MISMATCH"
+required_capabilities:
+  {}
+fixture_kind: synthetic
+notes: |
+  SPEC §7.3.1: any register difference → MEASUREMENT_MISMATCH.

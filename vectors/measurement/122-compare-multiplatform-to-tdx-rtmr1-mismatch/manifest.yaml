@@ -1,0 +1,14 @@
+id: 122-compare-multiplatform-to-tdx-rtmr1-mismatch
+stage: verify-measurement
+title: |
+  MP→TDX with RTMR1 mismatch must reject with MEASUREMENT_MISMATCH.
+spec_refs: ["7.3.2"]
+expects:
+  exit_code: 10
+  rejection_code: "MEASUREMENT_MISMATCH"
+required_capabilities:
+  measurement.compare_multiplatform_to_tdx_supported: true
+fixture_kind: synthetic
+notes: |
+  source[1] != target[2] → mismatch. Catches an SDK that only checks
+  RTMR2 and silently skips RTMR1.

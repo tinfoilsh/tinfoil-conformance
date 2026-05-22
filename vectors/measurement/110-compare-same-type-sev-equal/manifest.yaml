@@ -1,0 +1,12 @@
+id: 110-compare-same-type-sev-equal
+stage: verify-measurement
+title: |
+  Two equal SEV measurements compare equal.
+spec_refs: ["7.3.1"]
+expects:
+  exit_code: 0
+required_capabilities:
+  {}
+fixture_kind: synthetic
+notes: |
+  SPEC §7.3.1 same-type: all registers MUST match exactly.

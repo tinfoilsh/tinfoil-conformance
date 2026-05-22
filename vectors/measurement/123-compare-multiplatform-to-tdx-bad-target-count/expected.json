@@ -1,0 +1,10 @@
+{
+  "stage": "verify-measurement",
+  "accepted": false,
+  "rejection": {
+    "code": [
+      "MEASUREMENT_REGISTER_COUNT_INVALID",
+      "MEASUREMENT_MISMATCH"
+    ]
+  }
+}

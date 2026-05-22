@@ -1,0 +1,15 @@
+id: 101-fingerprint-tdx-multi-register
+stage: verify-measurement
+title: |
+  TDX 5-register fingerprint = hex(SHA-256(type || join(registers, ''))).
+spec_refs: ["7.2"]
+expects:
+  exit_code: 0
+required_capabilities:
+  {}
+fixture_kind: synthetic
+notes: |
+  SPEC §7.2: 'Multi-register measurements: fingerprint =
+  hex(SHA-256(predicate_type_uri + join(registers, ""))).' The
+  predicate_type_uri is the literal string of the measurement's OWN
+  type — important for the cross-platform fingerprinting case (§7.2).

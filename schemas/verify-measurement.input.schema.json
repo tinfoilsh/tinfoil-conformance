@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/schemas/verify-measurement.input.schema.json",
+  "title": "verify-measurement input",
+  "description": "Input piped on stdin to `tinfoil-conformance verify-measurement`. Covers SPEC §7 measurement fingerprint and cross-platform comparison.",
+  "type": "object",
+  "required": ["schema_version", "source"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "source": {
+      "$ref": "#/$defs/measurement",
+      "description": "The source measurement. Always fingerprinted on the accept path."
+    },
+    "target": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/measurement" }
+      ],
+      "description": "Optional target measurement. If null, the SDK fingerprints `source` only. If set, the SDK applies SPEC §7.3 `assert_equal(source, target)` and accepts only when they are equivalent (or rejects with a SPEC-anchored code)."
+    }
+  },
+  "$defs": {
+    "measurement": {
+      "type": "object",
+      "required": ["type", "registers"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Predicate type URI. Per SPEC §2.3: https://tinfoil.sh/predicate/sev-snp-guest/v2, https://tinfoil.sh/predicate/tdx-guest/v2, or https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1."
+        },
+        "registers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Hex-encoded register value. SPEC §7.3 requires lowercase normalization before comparison; fixtures may submit mixed case to verify the SDK normalizes."
+          }
+        }
+      }
+    }
+  }
+}

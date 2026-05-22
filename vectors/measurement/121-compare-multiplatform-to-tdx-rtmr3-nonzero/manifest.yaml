@@ -1,0 +1,15 @@
+id: 121-compare-multiplatform-to-tdx-rtmr3-nonzero
+stage: verify-measurement
+title: |
+  MP→TDX with TDX RTMR3 != zeros must reject with MEASUREMENT_RTMR3_NONZERO.
+spec_refs: ["7.3.2", "7.3.6"]
+expects:
+  exit_code: 10
+  rejection_code: "MEASUREMENT_RTMR3_NONZERO"
+required_capabilities:
+  measurement.compare_multiplatform_to_tdx_supported: true
+fixture_kind: synthetic
+notes: |
+  SPEC §7.3.2 requires target.registers[4] (RTMR3) == RTMR3_ZERO
+  (96 hex zeros). Any other value MUST cause rejection. SPEC §7.3.6
+  fixes the canonical RTMR3_ZERO constant.

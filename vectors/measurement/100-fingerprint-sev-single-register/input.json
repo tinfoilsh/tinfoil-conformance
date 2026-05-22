@@ -1,0 +1,10 @@
+{
+  "schema_version": "1",
+  "source": {
+    "type": "https://tinfoil.sh/predicate/sev-snp-guest/v2",
+    "registers": [
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]
+  },
+  "target": null
+}

@@ -1,0 +1,12 @@
+id: 141-compare-sev-to-multiplatform-reverse-equal
+stage: verify-measurement
+title: |
+  SEV source vs MP target (reverse of §7.3.3) → swap and accept.
+spec_refs: ["7.3.4"]
+expects:
+  exit_code: 0
+required_capabilities:
+  {}
+fixture_kind: synthetic
+notes: |
+  Reverse of §7.3.3 via §7.3.4 swap rule.

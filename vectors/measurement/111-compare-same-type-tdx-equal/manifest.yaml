@@ -1,0 +1,12 @@
+id: 111-compare-same-type-tdx-equal
+stage: verify-measurement
+title: |
+  Two equal TDX measurements compare equal.
+spec_refs: ["7.3.1"]
+expects:
+  exit_code: 0
+required_capabilities:
+  {}
+fixture_kind: synthetic
+notes: |
+  SPEC §7.3.1 same-type: all 5 TDX registers MUST match exactly.

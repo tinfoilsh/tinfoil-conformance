@@ -1,0 +1,17 @@
+id: 120-compare-multiplatform-to-tdx-equal
+stage: verify-measurement
+title: |
+  MP source vs TDX target with matching RTMR1/RTMR2 and zero RTMR3 → accept.
+spec_refs: ["7.3.2"]
+expects:
+  exit_code: 0
+required_capabilities:
+  measurement.compare_multiplatform_to_tdx_supported: true
+fixture_kind: synthetic
+notes: |
+  SPEC §7.3.2: source[1]==target[2], source[2]==target[3],
+  target[4]==RTMR3_ZERO. MRTD and RTMR0 are NOT compared (they are
+  hardware-platform-dependent and verified separately via §6).
+  Gated on measurement.compare_multiplatform_to_tdx_supported —
+  tinfoil-js's compareMeasurements doesn't implement the MP↔TDX
+  path yet and skips honestly.

@@ -1,0 +1,13 @@
+id: 131-compare-multiplatform-to-sev-mismatch
+stage: verify-measurement
+title: |
+  MP→SEV with SNP measurement mismatch must reject.
+spec_refs: ["7.3.3"]
+expects:
+  exit_code: 10
+  rejection_code: "MEASUREMENT_MISMATCH"
+required_capabilities:
+  {}
+fixture_kind: synthetic
+notes: |
+  source[0] != target[0] → MEASUREMENT_MISMATCH.

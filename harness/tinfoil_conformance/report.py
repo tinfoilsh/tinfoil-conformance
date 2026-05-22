@@ -12,19 +12,29 @@ import yaml
 from .runner import FixtureResult, SdkRegistration
 
 
-# All rejection codes defined in the verify-sigstore output schema. The
+# All rejection codes across every verify-*.output.schema.json. The
 # coverage table lists each one and which fixtures exercise it.
-_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "verify-sigstore.output.schema.json"
+_SCHEMAS_DIR = Path(__file__).resolve().parents[2] / "schemas"
 
 
 def _all_rejection_codes() -> list[str]:
-    try:
-        schema = json.loads(_SCHEMA_PATH.read_text())
-        return list(
-            schema["properties"]["rejection"]["properties"]["code"]["enum"]
-        )
-    except Exception:
-        return []
+    codes: list[str] = []
+    for schema_path in sorted(_SCHEMAS_DIR.glob("verify-*.output.schema.json")):
+        try:
+            schema = json.loads(schema_path.read_text())
+            codes.extend(
+                schema["properties"]["rejection"]["properties"]["code"]["enum"]
+            )
+        except Exception:
+            continue
+    # Preserve first-seen order while de-duplicating.
+    seen: set[str] = set()
+    out: list[str] = []
+    for c in codes:
+        if c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
 
 
 def _fixture_code_mapping(vectors_root: Path) -> dict[str, list[str]]:

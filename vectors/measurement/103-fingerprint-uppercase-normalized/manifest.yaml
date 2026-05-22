@@ -1,0 +1,16 @@
+id: 103-fingerprint-uppercase-normalized
+stage: verify-measurement
+title: |
+  Uppercase register hex must produce same fingerprint as lowercase.
+spec_refs: ["7.2", "7.3"]
+expects:
+  exit_code: 0
+required_capabilities:
+  {}
+fixture_kind: synthetic
+notes: |
+  SPEC §7.3: 'Implementations MUST normalize register values to
+  lowercase before any comparison or storage.' Fingerprint output
+  is itself lowercase hex. Catches SDKs that pass mixed-case bytes
+  directly into SHA-256 without normalizing first — a real source
+  of cross-platform fingerprint divergence.

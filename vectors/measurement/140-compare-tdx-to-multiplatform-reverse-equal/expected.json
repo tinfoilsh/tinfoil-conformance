@@ -1,0 +1,8 @@
+{
+  "stage": "verify-measurement",
+  "accepted": true,
+  "outputs": {
+    "source_fingerprint_hex": "f86d23a97018a5b8c21fa935a872046f96eefafd63c2c62683f3a0c3bdf3ba9f",
+    "target_fingerprint_hex": "17dfc4736b818183434cdad86810d00a3e032be8c2f9a55bd58cbec349397849"
+  }
+}

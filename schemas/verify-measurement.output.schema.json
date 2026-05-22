@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/schemas/verify-measurement.output.schema.json",
+  "title": "verify-measurement output",
+  "description": "stdout JSON produced by `tinfoil-conformance verify-measurement`. SPEC §7 verdict.",
+  "type": "object",
+  "required": ["stage", "accepted"],
+  "additionalProperties": false,
+  "properties": {
+    "stage": {"const": "verify-measurement"},
+    "accepted": {"type": "boolean"},
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_fingerprint_hex": {
+          "type": "string",
+          "pattern": "^[0-9a-f]+$",
+          "description": "Lowercase-hex fingerprint of `source` per SPEC §7.2. Single-register: raw register value. Multi-register: SHA-256 of (source.type || join(registers, ''))."
+        },
+        "target_fingerprint_hex": {
+          "type": ["string", "null"],
+          "description": "Lowercase-hex fingerprint of `target` per SPEC §7.2, when target was supplied; null otherwise."
+        }
+      },
+      "required": ["source_fingerprint_hex"]
+    },
+    "rejection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code"],
+      "properties": {
+        "code": {
+          "enum": [
+            "MEASUREMENT_TYPE_UNKNOWN",
+            "MEASUREMENT_REGISTER_COUNT_INVALID",
+            "MEASUREMENT_TYPE_COMBINATION_UNSUPPORTED",
+            "MEASUREMENT_MISMATCH",
+            "MEASUREMENT_RTMR3_NONZERO"
+          ],
+          "description": "SPEC-anchored rejection code. UNKNOWN: predicate type URI not in §2.3. REGISTER_COUNT_INVALID: register array length doesn't match the count §7.1 requires for the type. TYPE_COMBINATION_UNSUPPORTED: source/target combo not covered by §7.3.1–§7.3.4 (§7.3.5). MISMATCH: registers compare unequal. RTMR3_NONZERO: TDX target's registers[4] != RTMR3_ZERO when comparing MultiPlatform→TDX (§7.3.2)."
+        },
+        "spec_ref": {"type": "string", "description": "Optional SPEC.md section the failing check is anchored to."}
+      }
+    }
+  },
+  "oneOf": [
+    {"properties": {"accepted": {"const": true}, "outputs": true}, "required": ["outputs"]},
+    {"properties": {"accepted": {"const": false}, "rejection": true}, "required": ["rejection"]}
+  ]
+}

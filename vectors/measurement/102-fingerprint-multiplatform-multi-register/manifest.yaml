@@ -1,0 +1,14 @@
+id: 102-fingerprint-multiplatform-multi-register
+stage: verify-measurement
+title: |
+  MultiPlatform 3-register fingerprint = hex(SHA-256(MP_URI || join)).
+spec_refs: ["7.2"]
+expects:
+  exit_code: 0
+required_capabilities:
+  {}
+fixture_kind: synthetic
+notes: |
+  Same fingerprint formula as §7.2 multi-register, with the MP type
+  as prefix. Catches an SDK that uses the wrong type prefix
+  (e.g., concatenating the target's type instead of the source's).

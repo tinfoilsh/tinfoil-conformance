@@ -53,19 +53,54 @@ The full per-subcommand schemas live in `schemas/`. `stderr` is free-form human 
 
 ## Running the harness locally
 
-```bash
-# 1) Build your SDK's tinfoil-conformance binary (varies per SDK):
-#    Rust: cargo build --release --bin tinfoil-conformance -p tinfoil
-#    JS:   npm run build -w @tinfoilsh/conformance
-#
-# 2) Run the harness, registering one or more SDK binaries:
-pip install ./harness
-tinfoil-conformance run \
-  --sdk tinfoil-rs=/path/to/target/release/tinfoil-conformance \
-  --sdk tinfoil-js=/path/to/tinfoil-js/packages/conformance/dist/cli.js \
-  --vectors vectors/sigstore/
+### 1) Build each SDK's `tinfoil-conformance` binary
 
-# 3) Inspect results
+Each SDK ships the conformance CLI under its native ecosystem's build
+tool. Run the one(s) you have checked out:
+
+```bash
+# Rust (tinfoil-rs)
+cd /path/to/tinfoil-rs
+cargo build --release --bin tinfoil-conformance
+# → target/release/tinfoil-conformance
+
+# JavaScript (tinfoil-js)
+cd /path/to/tinfoil-js
+npm ci && npm run build -w @tinfoilsh/verifier && npm run build -w @tinfoilsh/conformance
+# → packages/conformance/dist/cli.js  (invoke via `node …`)
+
+# Python (tinfoil-python)
+cd /path/to/tinfoil-python
+uv sync          # or: python -m venv .venv && pip install -e .
+# → .venv/bin/tinfoil-conformance  (or: `uv run tinfoil-conformance`)
+
+# Go (tinfoil-go)
+cd /path/to/tinfoil-go
+go build -o bin/tinfoil-conformance ./cmd/tinfoil-conformance/
+# → bin/tinfoil-conformance
+```
+
+### 2) Install the harness and run
+
+```bash
+pip install ./harness
+
+tinfoil-conformance run \
+  --sdk tinfoil-rs=/path/to/tinfoil-rs/target/release/tinfoil-conformance \
+  --sdk "tinfoil-js=node /path/to/tinfoil-js/packages/conformance/dist/cli.js" \
+  --sdk tinfoil-py=/path/to/tinfoil-python/.venv/bin/tinfoil-conformance \
+  --sdk tinfoil-go=/path/to/tinfoil-go/bin/tinfoil-conformance \
+  --vectors vectors/sigstore/
+```
+
+You can register any subset of SDKs. Each `--sdk name=cmd` registers
+one binary; `cmd` is split on whitespace, so commands with arguments
+(like `node script.js` or `uv run --no-sync tinfoil-conformance`) work
+when quoted as a single string.
+
+### 3) Inspect results
+
+```bash
 cat results/latest/results.md
 ```
 

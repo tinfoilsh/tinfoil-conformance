@@ -99,6 +99,16 @@
         }
       }
     },
+    "measurement": {
+      "type": "object",
+      "description": "Capabilities for the verify-measurement stage (SPEC §7).",
+      "properties": {
+        "compare_multiplatform_to_tdx_supported": {
+          "type": "boolean",
+          "description": "True if the SDK implements the SPEC §7.3.2 SnpTdxMultiPlatformV1 → TdxGuestV2 comparison (and its §7.3.4 reverse). tinfoil-js's compareMeasurements currently handles only same-type and MP↔SEV; MP↔TDX comparisons throw 'incompatible measurement types' — false until the lib gains the TDX path."
+        }
+      }
+    },
     "platforms_supported": {
       "type": "array",
       "items": {"enum": ["sev-snp", "tdx"]},

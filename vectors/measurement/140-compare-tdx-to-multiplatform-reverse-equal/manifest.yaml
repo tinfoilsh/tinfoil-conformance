@@ -1,0 +1,16 @@
+id: 140-compare-tdx-to-multiplatform-reverse-equal
+stage: verify-measurement
+title: |
+  TDX source vs MP target (reverse of §7.3.2) → swap and accept.
+spec_refs: ["7.3.4"]
+expects:
+  exit_code: 0
+required_capabilities:
+  measurement.compare_multiplatform_to_tdx_supported: true
+fixture_kind: synthetic
+notes: |
+  SPEC §7.3.4: 'If the source and target types are reversed (e.g.,
+  TDX source vs MultiPlatform target), the comparison is delegated
+  by swapping: target.assert_equal(source).' Catches SDKs that only
+  handle MP-as-source and reject MP-as-target. Gated on the same
+  MP↔TDX capability since the reverse path uses §7.3.2 under the hood.

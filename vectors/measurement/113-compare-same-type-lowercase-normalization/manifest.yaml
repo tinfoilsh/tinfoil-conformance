@@ -1,0 +1,15 @@
+id: 113-compare-same-type-lowercase-normalization
+stage: verify-measurement
+title: |
+  Same-type compare with uppercase target accepts (lowercase-normalized).
+spec_refs: ["7.3"]
+expects:
+  exit_code: 0
+required_capabilities:
+  {}
+fixture_kind: synthetic
+notes: |
+  SPEC §7.3: 'All measurement register values MUST be compared as
+  lowercase hex strings.' Two registers that differ only in case
+  MUST be treated as equal. Catches SDKs that do byte-for-byte
+  compares without normalizing case.
