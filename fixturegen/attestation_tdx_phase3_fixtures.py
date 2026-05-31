@@ -51,7 +51,7 @@ def make_input(
     # the SPEC §4.7.6 step 3 comparison will accept when the level's
     # tdxtcbcomponents svn ≤ quote.tee_tcb_svn byte-wise.
     if tee_tcb_svn_bytes is None:
-        tee_tcb_svn_bytes = b"\x03\x00\x05\x00" + b"\x00" * 12
+        tee_tcb_svn_bytes = b"\x00\x03\x05\x00" + b"\x00" * 12
     from lib.tdx_synth import TdBodyFields
     body = TdBodyFields(tee_tcb_svn=tee_tcb_svn_bytes)
     quote, body = build_tdx_quote_v4(chain, body=body)
@@ -107,6 +107,7 @@ def write_fixture(
     accepted: bool = False,
     rejection_code: str | list[str] | None = None,
     spec_refs: list[str] | None = None,
+    extra_caps: dict[str, Any] | None = None,
 ) -> None:
     payload, _ = make_input(tcb_status=tcb_status, pcesvn=pcesvn)
     dst = VECTORS_DIR / fixture_id
@@ -148,6 +149,10 @@ def write_fixture(
         "  attestation_tdx.supported: true\n"
         "  attestation_tdx.injected_collateral_supported: true\n"
         "  attestation_tdx.tcb_evaluation_supported: true\n"
+    )
+    for cap_path, cap_value in (extra_caps or {}).items():
+        manifest += f"  {cap_path}: {json.dumps(cap_value)}\n"
+    manifest += (
         "fixture_kind: synthetic-intel-chain\n"
         "notes: |\n"
     )
@@ -175,56 +180,47 @@ def main() -> None:
     )
 
     # 360-364 — non-terminal non-OK statuses
+    _NON_TERM_CAP = {"attestation_tdx.accepts_non_terminal_tcb_statuses": True}
+
     write_fixture(
         fixture_id="360-tcb-swhardening-needed",
-        title="TCB level SWHardeningNeeded → qv_result=SW_HARDENING_NEEDED (non-terminal).",
+        title="TCB level SWHardeningNeeded → accept (SPEC §4.7.7 non-terminal default).",
         notes=(
-            "Intel §B.1: SWHardeningNeeded is non-terminal but SDKs that\n"
-            "default to strict-only acceptance reject it. tinfoil-go's\n"
-            "current Phase 3 wiring treats any non-OK qv_result as\n"
-            "rejection. Permissive-policy fixtures land separately.\n"
+            "Tinfoil SPEC §4.7.7 lists SWHardeningNeeded as 'Yes (default)'\n"
+            "— SDKs MAY reject for stricter posture but the default is\n"
+            "acceptance. Intel §B.1: SW_HARDENING_NEEDED is a non-terminal\n"
+            "result requiring relying-party policy decision.\n"
             "\n"
-            "go-tdx-guest lib limitation: every non-UpToDate status maps\n"
-            "to the same ErrTcbStatus sentinel — the lib doesn't surface\n"
-            "the specific qv_result enum (SW_HARDENING_NEEDED vs CONFIG_\n"
-            "NEEDED vs OUT_OF_DATE etc.) the way Intel's §B.1 specifies.\n"
-            "TCB_REVOKED is the conformance code that captures this; the\n"
-            "non-terminal/terminal distinction the SPEC mandates is lost\n"
-            "at the lib boundary."
+            "Cross-SDK divergence: tinfoil-python's validate_tcb_status\n"
+            "accepts these statuses (SPEC-aligned). go-tdx-guest's\n"
+            "ErrTcbStatus rejects every non-UpToDate status. Gated on\n"
+            "accepts_non_terminal_tcb_statuses; Go skips honestly until\n"
+            "the lib gains a permissive-policy knob."
         ),
         tcb_status="SWHardeningNeeded",
-        rejection_code=[
-            "TCB_REVOKED",
-            "QV_RESULT_NOT_ACCEPTED_BY_POLICY",
-            "QV_RESULT_TERMINAL_UNSPECIFIED",
-        ],
+        accepted=True,
         spec_refs=["4.7.7"],
+        extra_caps=_NON_TERM_CAP,
     )
 
     write_fixture(
         fixture_id="361-tcb-configuration-needed",
-        title="TCB level ConfigurationNeeded → qv_result=CONFIG_NEEDED (non-terminal).",
-        notes="Intel §B.1 ConfigurationNeeded. Non-terminal under permissive policy.",
+        title="TCB level ConfigurationNeeded → accept (SPEC §4.7.7 non-terminal default).",
+        notes="Tinfoil SPEC §4.7.7 'Yes (default)'. Same gating as 360.",
         tcb_status="ConfigurationNeeded",
-        rejection_code=[
-            "TCB_REVOKED",
-            "QV_RESULT_NOT_ACCEPTED_BY_POLICY",
-            "QV_RESULT_TERMINAL_UNSPECIFIED",
-        ],
+        accepted=True,
         spec_refs=["4.7.7"],
+        extra_caps=_NON_TERM_CAP,
     )
 
     write_fixture(
         fixture_id="362-tcb-config-and-sw-hardening-needed",
-        title="TCB level ConfigurationAndSWHardeningNeeded.",
-        notes="Combined non-terminal status.",
+        title="TCB level ConfigurationAndSWHardeningNeeded → accept (SPEC §4.7.7 default).",
+        notes="Tinfoil SPEC §4.7.7 'Yes (default)'. Same gating as 360.",
         tcb_status="ConfigurationAndSWHardeningNeeded",
-        rejection_code=[
-            "TCB_REVOKED",
-            "QV_RESULT_NOT_ACCEPTED_BY_POLICY",
-            "QV_RESULT_TERMINAL_UNSPECIFIED",
-        ],
+        accepted=True,
         spec_refs=["4.7.7"],
+        extra_caps=_NON_TERM_CAP,
     )
 
     write_fixture(

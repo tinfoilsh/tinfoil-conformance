@@ -142,6 +142,7 @@ def main() -> None:
         rejection_code=[
             "PCK_REVOKED",
             "PCK_CHAIN_INVALID",
+            "TCB_REVOKED",
             "QV_RESULT_TERMINAL_UNSPECIFIED",
         ],
         spec_refs=["4.7"],
@@ -162,6 +163,7 @@ def main() -> None:
             "ROOT_CA_UNTRUSTED",
             "INTERMEDIATE_REVOKED",
             "PCK_CHAIN_INVALID",
+            "TCB_REVOKED",
             "QV_RESULT_TERMINAL_UNSPECIFIED",
         ],
         spec_refs=["4.7"],
@@ -180,6 +182,7 @@ def main() -> None:
         rejection_code=[
             "TCB_INFO_SIGNATURE_INVALID",
             "TCB_INFO_CHAIN_INVALID",
+            "TCB_REVOKED",
             "QV_RESULT_TERMINAL_UNSPECIFIED",
         ],
         spec_refs=["4.7"],
@@ -222,6 +225,7 @@ def main() -> None:
         rejection_code=[
             "QE_IDENTITY_SIGNATURE_INVALID",
             "QE_IDENTITY_FIELD_MISMATCH",
+            "TCB_REVOKED",
             "QV_RESULT_TERMINAL_UNSPECIFIED",
         ],
         spec_refs=["4.7"],
@@ -286,6 +290,7 @@ def main() -> None:
         rejection_code=[
             "QE_IDENTITY_SIGNATURE_INVALID",
             "QE_IDENTITY_MRSIGNER_MISMATCH",
+            "TCB_REVOKED",
             "QV_RESULT_TERMINAL_UNSPECIFIED",
         ],
         spec_refs=["4.7"],

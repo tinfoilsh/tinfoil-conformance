@@ -1,26 +1,24 @@
 id: 360-tcb-swhardening-needed
 stage: verify-attestation-tdx
 title: |
-  TCB level SWHardeningNeeded → qv_result=SW_HARDENING_NEEDED (non-terminal).
+  TCB level SWHardeningNeeded → accept (SPEC §4.7.7 non-terminal default).
 spec_refs: ["4.7.7"]
 expects:
-  exit_code: 10
-  rejection_code: ["TCB_REVOKED", "QV_RESULT_NOT_ACCEPTED_BY_POLICY", "QV_RESULT_TERMINAL_UNSPECIFIED"]
+  exit_code: 0
 required_capabilities:
   attestation_tdx.supported: true
   attestation_tdx.injected_collateral_supported: true
   attestation_tdx.tcb_evaluation_supported: true
+  attestation_tdx.accepts_non_terminal_tcb_statuses: true
 fixture_kind: synthetic-intel-chain
 notes: |
-  Intel §B.1: SWHardeningNeeded is non-terminal but SDKs that
-  default to strict-only acceptance reject it. tinfoil-go's
-  current Phase 3 wiring treats any non-OK qv_result as
-  rejection. Permissive-policy fixtures land separately.
+  Tinfoil SPEC §4.7.7 lists SWHardeningNeeded as 'Yes (default)'
+  — SDKs MAY reject for stricter posture but the default is
+  acceptance. Intel §B.1: SW_HARDENING_NEEDED is a non-terminal
+  result requiring relying-party policy decision.
   
-  go-tdx-guest lib limitation: every non-UpToDate status maps
-  to the same ErrTcbStatus sentinel — the lib doesn't surface
-  the specific qv_result enum (SW_HARDENING_NEEDED vs CONFIG_
-  NEEDED vs OUT_OF_DATE etc.) the way Intel's §B.1 specifies.
-  TCB_REVOKED is the conformance code that captures this; the
-  non-terminal/terminal distinction the SPEC mandates is lost
-  at the lib boundary.
+  Cross-SDK divergence: tinfoil-python's validate_tcb_status
+  accepts these statuses (SPEC-aligned). go-tdx-guest's
+  ErrTcbStatus rejects every non-UpToDate status. Gated on
+  accepts_non_terminal_tcb_statuses; Go skips honestly until
+  the lib gains a permissive-policy knob.

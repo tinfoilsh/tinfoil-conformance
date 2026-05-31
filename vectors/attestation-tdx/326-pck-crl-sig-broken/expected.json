@@ -5,6 +5,7 @@
     "code": [
       "PCK_REVOKED",
       "PCK_CHAIN_INVALID",
+      "TCB_REVOKED",
       "QV_RESULT_TERMINAL_UNSPECIFIED"
     ]
   }

@@ -5,7 +5,7 @@ title: |
 spec_refs: ["4.7"]
 expects:
   exit_code: 10
-  rejection_code: ["QE_IDENTITY_SIGNATURE_INVALID", "QE_IDENTITY_MRSIGNER_MISMATCH", "QV_RESULT_TERMINAL_UNSPECIFIED"]
+  rejection_code: ["QE_IDENTITY_SIGNATURE_INVALID", "QE_IDENTITY_MRSIGNER_MISMATCH", "TCB_REVOKED", "QV_RESULT_TERMINAL_UNSPECIFIED"]
 required_capabilities:
   attestation_tdx.supported: true
   attestation_tdx.injected_collateral_supported: true

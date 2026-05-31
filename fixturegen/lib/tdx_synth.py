@@ -372,7 +372,12 @@ def _ecdsa_sign_raw(key: P256KeyPair, message: bytes) -> bytes:
 class TdBodyFields:
     """Controllable TD Quote Body fields. Defaults give a 'clean' TD that
     passes Phase 4 policy checks too (DEBUG=0, RTMR3=0, no reserved bits)."""
-    tee_tcb_svn: bytes = b"\x03\x00\x05\x00" + b"\x00" * 12
+    # SPEC §4.7.8 step 1: module id derived from byte[1]. Set to 3 →
+    # synth TCB Info's tdxModuleIdentities entry is TDX_03 — matches.
+    # SPEC §4.7.6 step 3: when byte[1]>0 (versioned module), bytes 0-1
+    # are skipped in the TCB level comparison; byte[2]=5 then matches
+    # the synth tcbLevel's tdxtcbcomponents[2].svn=5.
+    tee_tcb_svn: bytes = b"\x00\x03\x05\x00" + b"\x00" * 12
     mr_seam: bytes = b"\xAA" * 48
     mr_signer_seam: bytes = b"\x00" * 48
     seam_attributes: bytes = b"\x00" * 8

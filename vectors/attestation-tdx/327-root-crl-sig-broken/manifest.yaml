@@ -5,7 +5,7 @@ title: |
 spec_refs: ["4.7"]
 expects:
   exit_code: 10
-  rejection_code: ["ROOT_CA_UNTRUSTED", "INTERMEDIATE_REVOKED", "PCK_CHAIN_INVALID", "QV_RESULT_TERMINAL_UNSPECIFIED"]
+  rejection_code: ["ROOT_CA_UNTRUSTED", "INTERMEDIATE_REVOKED", "PCK_CHAIN_INVALID", "TCB_REVOKED", "QV_RESULT_TERMINAL_UNSPECIFIED"]
 required_capabilities:
   attestation_tdx.supported: true
   attestation_tdx.injected_collateral_supported: true
