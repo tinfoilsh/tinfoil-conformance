@@ -136,7 +136,20 @@
             "QE_IDENTITY_FIELD_MISMATCH",
             "TCB_REVOKED",
             "QV_RESULT_TERMINAL_UNSPECIFIED",
-            "QV_RESULT_NOT_ACCEPTED_BY_POLICY"
+            "QV_RESULT_NOT_ACCEPTED_BY_POLICY",
+            "TD_ATTRIBUTES_MISMATCH",
+            "XFAM_MISMATCH",
+            "MR_SIGNER_SEAM_MISMATCH",
+            "SEAM_ATTRIBUTES_MISMATCH",
+            "MR_SEAM_NOT_ALLOWED",
+            "MRTD_MISMATCH",
+            "MR_CONFIG_ID_MISMATCH",
+            "MR_OWNER_MISMATCH",
+            "MR_OWNER_CONFIG_MISMATCH",
+            "RTMR3_NONZERO",
+            "REPORT_DATA_MISMATCH",
+            "TEE_TCB_SVN_BELOW_MINIMUM",
+            "QE_VENDOR_ID_MISMATCH"
           ],
           "description": "SPEC-anchored rejection code. Maps to Intel §B.1 result codes + §4.1.2 verification failures. Phase 4 (Extended TD Checks) and Phase 5 (Sigstore cross-verify) will extend this enum with TDATTRIBUTES_*, REPORT_DATA_BINDING_*, etc."
         },

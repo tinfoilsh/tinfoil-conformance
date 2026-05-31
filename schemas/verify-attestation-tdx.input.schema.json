@@ -64,7 +64,20 @@
         "tcb_evaluation_required": {
           "type": "boolean",
           "description": "Default true. When false, the verifier skips Intel §4.7 collateral TCB/CRL evaluation (TCB Info match, QE Identity TCB level, PCK revocation, root revocation) and only verifies the cryptographic chain (PCK leaf → intermediate → root, AK binding, quote signature, QE report signature). Used by 'structural happy path' fixtures where the available testdata's collateral is intentionally out-of-sync with the quote's SVNs (e.g. google/go-tdx-guest's testdata, designed to test the TCB-rejection path)."
-        }
+        },
+        "expected_td_attributes_hex": {"type": "string", "description": "SPEC §4.8.2. Exact-match pin on the TDATTRIBUTES (8-byte) field. Real-quote default is the Tinfoil-pinned policy (0000001000000000 = SEPT_VE_DIS only); fixture mismatches surface as TD_ATTRIBUTES_MISMATCH."},
+        "expected_xfam_hex": {"type": "string", "description": "SPEC §4.8.1. Exact-match pin on XFAM (8-byte). Default expected per §4.8.6 is `e702060000000000`. Mismatch → XFAM_MISMATCH."},
+        "expected_mr_signer_seam_hex": {"type": "string", "description": "SPEC §4.8.4. Exact-match pin on MR_SIGNER_SEAM (48 bytes). Current Intel TDX Module releases use all-zero. Mismatch → MR_SIGNER_SEAM_MISMATCH."},
+        "expected_seam_attributes_hex": {"type": "string", "description": "SPEC §4.8.3. Exact-match pin on SEAM_ATTRIBUTES (8 bytes). All-zero for current Intel TDX. Mismatch → SEAM_ATTRIBUTES_MISMATCH."},
+        "expected_mrseam_allowlist": {"type": "array", "items": {"type": "string"}, "description": "SPEC §4.8.5. List of allowed MR_SEAM hex values (48-byte each). Quote's MR_SEAM must match one. Empty list → MR_SEAM_NOT_ALLOWED for any value."},
+        "expected_mrtd_hex": {"type": "string", "description": "SPEC §4.10. Exact-match pin on MRTD (48 bytes). Used to bind verification to a specific expected TD build. Mismatch → MRTD_MISMATCH."},
+        "expected_mr_config_id_hex": {"type": "string", "description": "SPEC §4.8.6. Exact-match pin on MR_CONFIG_ID (48 bytes), default zero per §4.8.6. Mismatch → MR_CONFIG_ID_MISMATCH."},
+        "expected_mr_owner_hex": {"type": "string", "description": "SPEC §4.8.6. Default zero. Mismatch → MR_OWNER_MISMATCH."},
+        "expected_mr_owner_config_hex": {"type": "string", "description": "SPEC §4.8.6. Default zero. Mismatch → MR_OWNER_CONFIG_MISMATCH."},
+        "expected_rtmr3_hex": {"type": "string", "description": "Cross-platform invariant from SPEC §7.3.6: RTMR3 MUST be all zeros for TDX. Mismatch → RTMR3_NONZERO."},
+        "expected_report_data_hex": {"type": "string", "description": "SPEC §8.2. REPORT_DATA (64 bytes) typically binds the TLS public key (first 32 bytes = SHA-256 of TLS SPKI) and the attestation hash (bytes 32:64). Mismatch → REPORT_DATA_MISMATCH."},
+        "min_tee_tcb_svn_hex": {"type": "string", "description": "SPEC §4.8.7. 16-byte minimum, compared element-wise against quote.tee_tcb_svn. Each byte of quote MUST be ≥ corresponding byte of minimum. Default per §4.8.6: `03010200000000000000000000000000`. Mismatch → TEE_TCB_SVN_BELOW_MINIMUM."},
+        "expected_qe_vendor_id_hex": {"type": "string", "description": "SPEC §4.8.6. Exact-match pin on QE Vendor ID (16-byte UUID). Default: `939a7233f79c4ca9940a0db3957f0607` (Intel). Mismatch → QE_VENDOR_ID_MISMATCH."}
       }
     }
   }

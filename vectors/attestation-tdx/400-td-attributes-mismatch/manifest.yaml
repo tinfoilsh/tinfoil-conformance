@@ -1,0 +1,28 @@
+id: 400-td-attributes-mismatch
+stage: verify-attestation-tdx
+title: |
+  policy.expected_td_attributes=SPEC default → real quote has PKS bit set → reject.
+spec_refs: ["4.8.2"]
+expects:
+  exit_code: 10
+  rejection_code: "TD_ATTRIBUTES_MISMATCH"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.extended_td_checks_supported: true
+fixture_kind: synthetic-policy-pin
+notes: |
+  SPEC §4.8.6 default is 0000001000000000 (only SEPT_VE_DIS=1).
+  The base quote has 0000004000000000 (PKS=1, all other bits 0
+  including DEBUG=0). Mismatch under strict-pin policy → reject.
+  Empirically the JS feat/tdx-support branch's defaultTdxValidation
+  Options uses exactly this default; the same SPR E4 test quote
+  triggers the same rejection there ('TD attributes mismatch:
+  got 0000004000000000, expected 0000001000000000').
+  
+  Beyond pin enforcement: SPEC §4.8.2 requires DEBUG=0 — the real
+  quote satisfies that, so this fixture verifies the pin
+  comparison machinery, not the DEBUG bit policy specifically.
+  A DEBUG=1 fixture would need either a debug-mode quote we don't
+  have, or an extraction-only mode that bypasses AK signature
+  verification.

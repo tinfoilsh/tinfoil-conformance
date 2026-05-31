@@ -132,6 +132,10 @@
           "type": "boolean",
           "description": "True if the SDK actually runs Intel §4.7 collateral evaluation end-to-end (PCK CRL revocation check, Root CRL check, TCB Info signature + chain + nextUpdate, QE Identity signature + chain + nextUpdate, TCB level comparison). False = the SDK only does structural cryptographic verification (steps 1-5) and rejects policy.tcb_evaluation_required=true with QV_RESULT_TERMINAL_UNSPECIFIED. Phase 2B fixtures targeting collateral-layer rejections gate on this."
         },
+        "extended_td_checks_supported": {
+          "type": "boolean",
+          "description": "True if the SDK applies Intel §2.3.2 / Tinfoil SPEC §4.8 extended TD checks against policy.expected_*_hex pins (TD_ATTRIBUTES, XFAM, MR_SEAM allowlist, MR_SIGNER_SEAM, SEAM_ATTRIBUTES, MRTD, MR_CONFIG_ID, MR_OWNER, MR_OWNER_CONFIG, RTMR3, REPORT_DATA, min TEE_TCB_SVN, QE_VENDOR_ID). Phase 4 fixtures gate on this. SDKs that only extract these fields without enforcing policy declare false."
+        },
         "policy_fields_supported": {
           "type": "object",
           "description": "Per-field map of which policy.* knobs the SDK consults when verifying. False fields cause fixtures that pin those policy values to skip cleanly.",

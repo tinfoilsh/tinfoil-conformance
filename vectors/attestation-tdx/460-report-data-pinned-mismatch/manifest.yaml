@@ -1,0 +1,19 @@
+id: 460-report-data-pinned-mismatch
+stage: verify-attestation-tdx
+title: |
+  REPORT_DATA pinned to a different value → reject.
+spec_refs: ["8.2"]
+expects:
+  exit_code: 10
+  rejection_code: "REPORT_DATA_MISMATCH"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.extended_td_checks_supported: true
+fixture_kind: synthetic-policy-pin
+notes: |
+  SPEC §8.2 binds REPORT_DATA[0:32] = SHA-256(TLS public key
+  SPKI). Real quote's REPORT_DATA is 6c62dec1...; policy pins a
+  different 64-byte value. Reject confirms the verifier cross-
+  checks the binding — without this, an attacker could replay a
+  valid TDX quote against an unrelated TLS endpoint.
