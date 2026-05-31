@@ -1,0 +1,19 @@
+id: 350-tcb-uptodate
+stage: verify-attestation-tdx
+title: |
+  Synthetic chain + TCB level UpToDate → accept (qv_result=OK).
+spec_refs: ["4.7", "4.7.7"]
+expects:
+  exit_code: 0
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-intel-chain
+notes: |
+  Phase 3 happy path. Synthetic Intel-mimicking chain via
+  lib.tdx_synth; the TCB Info has a single tcbLevel whose
+  tdxtcbcomponents.svn array matches the quote's TEE_TCB_SVN
+  component-wise, with status=UpToDate. Verifies the full §4.7
+  collateral path (signature, chain, freshness, CRL, TCB level
+  matching) accepts when every check passes.
