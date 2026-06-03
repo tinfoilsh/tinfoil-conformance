@@ -1,0 +1,25 @@
+id: 401-td-attributes-debug-bit-set
+stage: verify-attestation-tdx
+title: |
+  Synthetic quote with TUD.DEBUG=1 → reject per Intel §2.3.2 / SPEC §4.8.2.
+spec_refs: ["4.8.2", "A.3.4"]
+expects:
+  exit_code: 10
+  rejection_code: "TD_ATTRIBUTES_DEBUG_SET"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+  attestation_tdx.extended_td_checks_supported: true
+fixture_kind: synthetic-spec-violation
+notes: |
+  Intel §2.3.2 step 2a: 'Verify that all TD Under Debug flags
+  (TDATTIBUTES.TUD) are set to zero. If any flag is non-zero,
+  the TD should not be trusted'.
+  
+  SPEC §4.8.2: (td_attributes & TD_ATTRIBUTES_DEBUG) == 0
+  
+  Synth quote sets bit 0 (DEBUG) of td_attributes. This is the
+  CANONICAL 'debug TD' case — the host VMM has visibility into
+  the TD's CPU state and private memory. Provisioning secrets
+  to such a TD defeats the whole point of TDX.

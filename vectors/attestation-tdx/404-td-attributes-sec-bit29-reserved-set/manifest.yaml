@@ -1,0 +1,17 @@
+id: 404-td-attributes-sec-bit29-reserved-set
+stage: verify-attestation-tdx
+title: |
+  Synth quote with SEC bit 29 (reserved) set → reject.
+spec_refs: ["4.8.2", "A.3.4"]
+expects:
+  exit_code: 10
+  rejection_code: "TD_ATTRIBUTES_RESERVED_BIT_SET"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+  attestation_tdx.extended_td_checks_supported: true
+fixture_kind: synthetic-spec-violation
+notes: |
+  Intel §A.3.4: bit 29 is reserved between SEPT_VE_DISABLE (28)
+  and PKS (30). Setting it must reject.

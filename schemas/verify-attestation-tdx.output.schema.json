@@ -149,7 +149,16 @@
             "RTMR3_NONZERO",
             "REPORT_DATA_MISMATCH",
             "TEE_TCB_SVN_BELOW_MINIMUM",
-            "QE_VENDOR_ID_MISMATCH"
+            "QE_VENDOR_ID_MISMATCH",
+            "TD_ATTRIBUTES_DEBUG_SET",
+            "TD_ATTRIBUTES_RESERVED_BIT_SET",
+            "XFAM_REQUIRED_BIT_CLEAR",
+            "XFAM_FORBIDDEN_BIT_SET",
+            "TCB_EVAL_DATA_NUMBER_TOO_LOW",
+            "PCK_CRL_EXPIRED",
+            "ROOT_CRL_EXPIRED",
+            "QE_IDENTITY_ID_INVALID",
+            "QE_IDENTITY_VERSION_INVALID"
           ],
           "description": "SPEC-anchored rejection code. Maps to Intel §B.1 result codes + §4.1.2 verification failures. Phase 4 (Extended TD Checks) and Phase 5 (Sigstore cross-verify) will extend this enum with TDATTRIBUTES_*, REPORT_DATA_BINDING_*, etc."
         },

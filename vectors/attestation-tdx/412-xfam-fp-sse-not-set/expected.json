@@ -1,0 +1,7 @@
+{
+  "stage": "verify-attestation-tdx",
+  "accepted": false,
+  "rejection": {
+    "code": "XFAM_REQUIRED_BIT_CLEAR"
+  }
+}

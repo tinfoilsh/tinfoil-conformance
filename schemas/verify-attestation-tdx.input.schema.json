@@ -77,7 +77,8 @@
         "expected_rtmr3_hex": {"type": "string", "description": "Cross-platform invariant from SPEC §7.3.6: RTMR3 MUST be all zeros for TDX. Mismatch → RTMR3_NONZERO."},
         "expected_report_data_hex": {"type": "string", "description": "SPEC §8.2. REPORT_DATA (64 bytes) typically binds the TLS public key (first 32 bytes = SHA-256 of TLS SPKI) and the attestation hash (bytes 32:64). Mismatch → REPORT_DATA_MISMATCH."},
         "min_tee_tcb_svn_hex": {"type": "string", "description": "SPEC §4.8.7. 16-byte minimum, compared element-wise against quote.tee_tcb_svn. Each byte of quote MUST be ≥ corresponding byte of minimum. Default per §4.8.6: `03010200000000000000000000000000`. Mismatch → TEE_TCB_SVN_BELOW_MINIMUM."},
-        "expected_qe_vendor_id_hex": {"type": "string", "description": "SPEC §4.8.6. Exact-match pin on QE Vendor ID (16-byte UUID). Default: `939a7233f79c4ca9940a0db3957f0607` (Intel). Mismatch → QE_VENDOR_ID_MISMATCH."}
+        "expected_qe_vendor_id_hex": {"type": "string", "description": "SPEC §4.8.6. Exact-match pin on QE Vendor ID (16-byte UUID). Default: `939a7233f79c4ca9940a0db3957f0607` (Intel). Mismatch → QE_VENDOR_ID_MISMATCH."},
+        "enforce_spec_defaults": {"type": "boolean", "description": "When true, applies SPEC §4.8.1/§4.8.2 normative checks regardless of expected_*_hex pins: DEBUG bit MUST be 0; TD_ATTRIBUTES bits outside FIXED0 (0|28|30|63) MUST be 0; XFAM bits 0+1 (FP, SSE) MUST be set; XFAM bits outside FIXED0 (0x0006DBE7) MUST NOT be set. Drives Phase 4B fixtures that test the canonical 'debug TD' and 'reserved-bit-set' cases."}
       }
     }
   }

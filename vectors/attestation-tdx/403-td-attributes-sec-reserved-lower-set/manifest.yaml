@@ -1,0 +1,18 @@
+id: 403-td-attributes-sec-reserved-lower-set
+stage: verify-attestation-tdx
+title: |
+  Synth quote with SEC reserved bit 8 set → reject (bit outside FIXED0).
+spec_refs: ["4.8.2", "A.3.4"]
+expects:
+  exit_code: 10
+  rejection_code: "TD_ATTRIBUTES_RESERVED_BIT_SET"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+  attestation_tdx.extended_td_checks_supported: true
+fixture_kind: synthetic-spec-violation
+notes: |
+  Intel §A.3.4: SEC group bits 27:8 are 'Reserved for future SEC
+  flags – must be 0'. Catches a malicious quote that sets a bit
+  the SDK doesn't recognize as policy-relevant.

@@ -140,6 +140,10 @@
           "type": "boolean",
           "description": "Per Tinfoil SPEC §4.7.7 / Intel §B.1, SDKs MAY accept SWHardeningNeeded, ConfigurationNeeded, and ConfigurationAndSWHardeningNeeded as non-terminal (default-acceptable) statuses. True = SDK accepts these by default (SPEC-aligned permissive default). False = SDK rejects every non-UpToDate status (strict-only policy, e.g. go-tdx-guest's ErrTcbStatus). Phase 3 accept-path fixtures for these statuses gate on this."
         },
+        "enforces_tcb_evaluation_data_number_minimum": {
+          "type": "boolean",
+          "description": "True if the conformance binary enforces SPEC §4.7.11's minimum tcbEvaluationDataNumber (default 18) against TCB Info / QE Identity collateral. False = the binary passes 0 (or doesn't apply the check at all) so older collateral isn't rejected. tinfoil-go's NewTDXGetter enforces this at fetch time but go-tdx-guest's verify path doesn't expose it; tinfoil-python's lib accepts a parameter but the conformance binary passes 0 to compat with Phase 2B+3 fixtures. Fixture 346 gates on this."
+        },
         "policy_fields_supported": {
           "type": "object",
           "description": "Per-field map of which policy.* knobs the SDK consults when verifying. False fields cause fixtures that pin those policy values to skip cleanly.",

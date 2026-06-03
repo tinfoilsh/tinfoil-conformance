@@ -1,0 +1,28 @@
+id: 346-tcb-eval-data-number-too-low
+stage: verify-attestation-tdx
+title: |
+  TCB Info tcbEvaluationDataNumber=10 (below SPEC §4.7.11 default 18) → reject.
+spec_refs: ["4.7.11"]
+expects:
+  exit_code: 10
+  rejection_code: ["TCB_EVAL_DATA_NUMBER_TOO_LOW", "TCB_INFO_EXPIRED", "QV_RESULT_TERMINAL_UNSPECIFIED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+  attestation_tdx.extended_td_checks_supported: true
+  attestation_tdx.enforces_tcb_evaluation_data_number_minimum: true
+fixture_kind: synthetic-spec-violation
+notes: |
+  SPEC §4.7.11: 'The default minimum TCB evaluation data number
+  is 18, corresponding to the TCB recovery event of
+  2024-11-12.' Collateral with a lower number indicates a
+  TCB recovery has occurred but the collateral predates it —
+  the platform may be vulnerable to the recovered CVE.
+  
+  tinfoil-go's NewTDXGetter enforces this via MinimumTcbEval
+  uationDataNumber. tinfoil-python's check_collateral_freshness
+  enforces via min_tcb_evaluation_data_number parameter (the
+  conformance binary currently passes 0 to allow lower numbers
+  in Phase 2B+3 fixtures; this one explicitly sets a higher
+  minimum so the lib's check fires).
