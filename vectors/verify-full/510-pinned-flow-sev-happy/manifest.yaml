@@ -1,0 +1,20 @@
+id: 510-pinned-flow-sev-happy
+stage: verify-full
+title: |
+  Pinned-measurement flow: caller-pinned SEV measurement matches fresh SEV attestation → accepted.
+spec_refs: ["11.3"]
+expects:
+  exit_code: 0
+required_capabilities:
+  attestation_sev.supported: true
+  attestation_sev.injected_collateral_supported: true
+  flow_modes_supported: "pinned"
+fixture_kind: composite
+notes: |
+  SPEC §11.3 pinned-measurement flow. No Sigstore involvement —
+  the caller supplies the trusted measurement directly (from
+  previous verification, out-of-band trust, or developer intent)
+  and the SDK only needs to verify the fresh hardware attestation
+  matches it. Common case: re-verification on every connection.
+  
+  Skips on SDKs lacking flow_modes_supported='pinned'.

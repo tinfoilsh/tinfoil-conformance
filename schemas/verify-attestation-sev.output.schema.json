@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/schemas/verify-attestation-sev.output.schema.json",
+  "title": "verify-attestation-sev output",
+  "description": "stdout JSON produced by `tinfoil-conformance verify-attestation-sev` per Tinfoil SPEC §3.",
+  "type": "object",
+  "required": ["stage", "accepted"],
+  "additionalProperties": false,
+  "properties": {
+    "stage": {"const": "verify-attestation-sev"},
+    "accepted": {"type": "boolean"},
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measurement", "body_fields"],
+      "properties": {
+        "measurement": {
+          "type": "object",
+          "description": "SevGuestV2 measurement per SPEC §7.1: single register holding the SEV measurement.",
+          "required": ["type", "registers"],
+          "additionalProperties": false,
+          "properties": {
+            "type": {"const": "https://tinfoil.sh/predicate/sev-snp-guest/v2"},
+            "registers": {"type": "array", "minItems": 1, "maxItems": 1,
+                          "items": {"type": "string", "pattern": "^[0-9a-f]{96}$"}}
+          }
+        },
+        "body_fields": {
+          "type": "object",
+          "description": "Decoded SEV-SNP report body fields per SPEC §3.1.1, used by Phase 4-style policy fixtures and Phase 5 cross-verification.",
+          "additionalProperties": false,
+          "properties": {
+            "version": {"type": "integer"},
+            "guest_svn": {"type": "integer"},
+            "policy_hex": {"type": "string"},
+            "policy_decoded": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "abi_minor": {"type": "integer"},
+                "abi_major": {"type": "integer"},
+                "smt": {"type": "boolean"},
+                "reserved_mbo": {"type": "boolean"},
+                "migrate_ma": {"type": "boolean"},
+                "debug": {"type": "boolean"},
+                "single_socket": {"type": "boolean"},
+                "cxl_allow": {"type": "boolean"},
+                "mem_aes_256_xts": {"type": "boolean"},
+                "raplmsr_dis": {"type": "boolean"},
+                "ciphertext_hiding_dram": {"type": "boolean"}
+              }
+            },
+            "family_id_hex": {"type": "string"},
+            "image_id_hex": {"type": "string"},
+            "vmpl": {"type": "integer"},
+            "signature_algo": {"type": "integer"},
+            "current_tcb_hex": {"type": "string"},
+            "current_tcb_decoded": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "bl_spl": {"type": "integer"},
+                "tee_spl": {"type": "integer"},
+                "snp_spl": {"type": "integer"},
+                "ucode_spl": {"type": "integer"}
+              }
+            },
+            "platform_info_hex": {"type": "string"},
+            "platform_info_decoded": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "smt_en": {"type": "boolean"},
+                "tsme_en": {"type": "boolean"},
+                "ecc_en": {"type": "boolean"},
+                "rapl_dis": {"type": "boolean"},
+                "ciphertext_hiding": {"type": "boolean"}
+              }
+            },
+            "signer_info_hex": {"type": "string"},
+            "report_data_hex": {"type": "string"},
+            "measurement_hex": {"type": "string"},
+            "host_data_hex": {"type": "string"},
+            "id_key_digest_hex": {"type": "string"},
+            "author_key_digest_hex": {"type": "string"},
+            "report_id_hex": {"type": "string"},
+            "report_id_ma_hex": {"type": "string"},
+            "reported_tcb_hex": {"type": "string"},
+            "chip_id_hex": {"type": "string"},
+            "committed_tcb_hex": {"type": "string"},
+            "current_build": {"type": "integer"},
+            "current_minor": {"type": "integer"},
+            "current_major": {"type": "integer"},
+            "committed_build": {"type": "integer"},
+            "committed_minor": {"type": "integer"},
+            "committed_major": {"type": "integer"},
+            "launch_tcb_hex": {"type": "string"}
+          }
+        }
+      }
+    },
+    "rejection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code"],
+      "properties": {
+        "code": {
+          "enum": [
+            "REPORT_FORMAT_UNSUPPORTED",
+            "REPORT_TRUNCATED",
+            "WRONG_REPORT_VERSION",
+            "VCEK_CHAIN_INVALID",
+            "VCEK_EXPIRED",
+            "VCEK_HWID_MISMATCH",
+            "VCEK_TCB_MISMATCH",
+            "ARK_UNTRUSTED",
+            "ASK_INVALID",
+            "REPORT_SIGNATURE_INVALID",
+            "TCB_OUT_OF_DATE",
+            "GUEST_POLICY_DEBUG_SET",
+            "GUEST_POLICY_MIGRATE_MA_SET",
+            "GUEST_POLICY_SINGLE_SOCKET_SET",
+            "GUEST_POLICY_RESERVED_BIT_SET",
+            "PLATFORM_INFO_INVALID",
+            "SIGNER_INFO_INVALID",
+            "MEASUREMENT_MISMATCH",
+            "HOST_DATA_MISMATCH",
+            "REPORT_DATA_MISMATCH",
+            "ID_KEY_DIGEST_MISMATCH",
+            "AUTHOR_KEY_DIGEST_MISMATCH",
+            "QV_RESULT_TERMINAL_UNSPECIFIED"
+          ],
+          "description": "SPEC §3 anchored rejection code."
+        },
+        "spec_ref": {"type": "string"}
+      }
+    }
+  },
+  "oneOf": [
+    {"properties": {"accepted": {"const": true}, "outputs": true}, "required": ["outputs"]},
+    {"properties": {"accepted": {"const": false}, "rejection": true}, "required": ["rejection"]}
+  ]
+}

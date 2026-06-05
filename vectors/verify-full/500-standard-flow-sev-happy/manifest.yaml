@@ -1,0 +1,33 @@
+id: 500-standard-flow-sev-happy
+stage: verify-full
+title: |
+  Standard-flow SEV-SNP: Sigstore MultiPlatform measurement matches SEV report measurement → accepted.
+spec_refs: ["11.1", "7.3.4"]
+expects:
+  exit_code: 0
+required_capabilities:
+  attestation_sev.supported: true
+  attestation_sev.injected_collateral_supported: true
+  sigstore.trust_root_loading: "configurable"
+  flow_modes_supported: "standard"
+fixture_kind: composite
+notes: |
+  Phase 1 verify-full happy path — SPEC §11.1 standard flow chained
+  end-to-end on the staged Tinfoil Genoa bundle.
+  
+  Steps:
+    1. verify-sigstore extracts MultiPlatform measurement
+       (register[0] = SEV target = 09ef32...eb519).
+    2. verify-attestation-sev extracts SEV measurement
+       (same 09ef32...eb519 — they MUST match by construction).
+    3. verify-measurement compares MultiPlatform → SEV via SPEC §7.3.4
+       reduction; register[0] equality means the enclave the SDK is
+       talking to matches the artifact the publisher signed.
+  
+  Any sub-stage divergence (sigstore bundle invalid, SEV report
+  invalid, measurement mismatch) MUST surface as a rejection with
+  the originating stage's SPEC-anchored rejection code.
+  
+  Gates on sigstore.trust_root_loading=configurable (so the staged
+  production trust root is honored) + attestation_sev.supported
+  (SDKs without SEV verification skip the entire chain).

@@ -24,6 +24,7 @@
       "items": {
         "enum": [
           "verify-sigstore",
+          "verify-attestation-sev",
           "verify-attestation-tdx",
           "verify-hardware-measurements",
           "verify-attestation",
@@ -108,6 +109,33 @@
         "compare_multiplatform_to_tdx_supported": {
           "type": "boolean",
           "description": "True if the SDK implements the SPEC §7.3.2 SnpTdxMultiPlatformV1 → TdxGuestV2 comparison (and its §7.3.4 reverse). tinfoil-js's compareMeasurements currently handles only same-type and MP↔SEV; MP↔TDX comparisons throw 'incompatible measurement types' — false until the lib gains the TDX path."
+        }
+      }
+    },
+    "attestation_sev": {
+      "type": "object",
+      "description": "Capabilities for the verify-attestation-sev stage (SPEC §3 AMD SEV-SNP).",
+      "properties": {
+        "supported": {
+          "type": "boolean",
+          "description": "True if the SDK can verify SEV-SNP attestation reports given an attestation document + VCEK certificate inline. False = the verify-attestation-sev fixtures skip cleanly."
+        },
+        "injected_collateral_supported": {
+          "type": "boolean",
+          "description": "True if the SDK's SEV verifier accepts an inline VCEK cert instead of fetching from AMD's KDS. All four SDKs do support this — VCEK injection is the canonical API."
+        },
+        "extended_checks_supported": {
+          "type": "boolean",
+          "description": "True if the SDK applies SPEC §3.7 policy validation against policy.expected_*_hex pins (measurement, host_data, report_data, id_key_digest, etc.) and policy.enforce_spec_defaults (guest_policy.debug, reserved bit checks). False = structural verification only."
+        },
+        "amd_root_ca_injection_supported": {
+          "type": "boolean",
+          "description": "True if the SDK's SEV verifier accepts inline ARK + ASK PEMs (via input.amd_root_ca_pem / input.ask_pem) instead of using its embedded AMD chain. Required for Phase 4B-SEV synthetic-violation fixtures that re-sign reports under a synthetic ARK→ASK→VCEK chain. False = the SDK is locked to its embedded ARK_CERT/ASK_CERT (e.g. tinfoil-js, which freezes them as bundled constants); 4B fixtures skip cleanly."
+        },
+        "verification_time_override": {
+          "type": "string",
+          "enum": ["supported", "system-clock-only"],
+          "description": "Where the SDK sources VCEK validity time from."
         }
       }
     },
