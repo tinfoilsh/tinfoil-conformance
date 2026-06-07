@@ -19,6 +19,7 @@ Sources:
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -72,6 +73,8 @@ def write_fixture(
     )
     if not accepted:
         manifest += f"  rejection_code: {json.dumps(rejection_code)}\n"
+        if rejection_stage:
+            manifest += f"  rejection_stage: {json.dumps(rejection_stage)}\n"
     manifest += "required_capabilities:\n"
     default_caps = {
         "attestation_sev.supported": True,
@@ -142,6 +145,66 @@ def main() -> None:
             "Gates on sigstore.trust_root_loading=configurable (so the staged\n"
             "production trust root is honored) + attestation_sev.supported\n"
             "(SDKs without SEV verification skip the entire chain)."
+        ),
+    )
+
+    # 501 — Standard flow, Sigstore sub-stage rejects.
+    sigstore_reject_payload = deepcopy(standard_payload)
+    sigstore_reject_payload["sigstore"]["expected_digest_sha256_hex"] = "0" * 64
+    write_fixture(
+        fixture_id="501-standard-flow-sigstore-digest-mismatch",
+        title="Standard-flow SEV-SNP: Sigstore subject digest mismatch rejects before attestation.",
+        spec_refs=["11.1", "5.4"],
+        payload=sigstore_reject_payload,
+        accepted=False,
+        rejection_code="SUBJECT_DIGEST_MISMATCH",
+        rejection_stage="verify-sigstore",
+        required_caps={
+            "sigstore.trust_root_loading": "configurable",
+            "flow_modes_supported": "standard",
+        },
+        notes=(
+            "SPEC §11.1 composition must preserve the failing sub-stage.\n"
+            "This vector starts from the standard happy path, but pins the\n"
+            "caller-supplied expected artifact digest to all-zeroes. The\n"
+            "Sigstore bundle itself is otherwise valid, so verify-full MUST\n"
+            "reject with SUBJECT_DIGEST_MISMATCH and rejection.stage=\n"
+            "'verify-sigstore' before consulting hardware attestation.\n"
+            "\n"
+            "This is the full-flow counterpart of sigstore/016."
+        ),
+    )
+
+    # 502 — Standard flow, SEV attestation sub-stage rejects.
+    sev_reject_payload = deepcopy(standard_payload)
+    sev_reject_payload["attestation_sev"]["policy"] = {
+        "expected_measurement_hex": "f" * 96,
+    }
+    write_fixture(
+        fixture_id="502-standard-flow-sev-attestation-pin-mismatch",
+        title="Standard-flow SEV-SNP: SEV measurement policy mismatch propagates from attestation stage.",
+        spec_refs=["11.1", "3.8"],
+        payload=sev_reject_payload,
+        accepted=False,
+        rejection_code="MEASUREMENT_MISMATCH",
+        rejection_stage="verify-attestation-sev",
+        required_caps={
+            "attestation_sev.supported": True,
+            "attestation_sev.injected_collateral_supported": True,
+            "attestation_sev.extended_checks_supported": True,
+            "sigstore.trust_root_loading": "configurable",
+            "flow_modes_supported": "standard",
+        },
+        notes=(
+            "SPEC §11.1 composition must preserve SEV-SNP attestation\n"
+            "failures instead of flattening them into a generic verify-full\n"
+            "error. The Sigstore stage succeeds, then the nested SEV policy\n"
+            "pins expected_measurement_hex to all-0xff. The real report\n"
+            "measurement is 09ef32...eb519, so the SEV sub-stage MUST reject\n"
+            "with MEASUREMENT_MISMATCH and rejection.stage=\n"
+            "'verify-attestation-sev'.\n"
+            "\n"
+            "This is the full-flow counterpart of attestation-sev/400."
         ),
     )
 
@@ -231,6 +294,8 @@ def main() -> None:
     print("Wrote Phase 1 verify-full fixtures:")
     for fid in (
         "500-standard-flow-sev-happy",
+        "501-standard-flow-sigstore-digest-mismatch",
+        "502-standard-flow-sev-attestation-pin-mismatch",
         "510-pinned-flow-sev-happy",
         "520-pinned-flow-measurement-mismatch",
     ):

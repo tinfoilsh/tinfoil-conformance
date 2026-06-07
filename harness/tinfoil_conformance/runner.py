@@ -52,17 +52,26 @@ def load_sdk_capabilities(sdk: SdkRegistration, timeout_s: float = 10.0) -> dict
 def required_capabilities_satisfied(
     required: dict[str, Any], have: dict[str, Any]
 ) -> tuple[bool, str]:
-    """Each key in `required` is a dotted path into `have`. If the required
-    value is a list, ANY element matching the SDK's declared value is
-    sufficient (lets fixtures accept e.g. either 'supported' or
-    'bundle-supplied-only' for verification_time_override)."""
+    """Each key in `required` is a dotted path into `have`.
+
+    Scalar SDK capabilities must exactly match. List-valued SDK capabilities
+    are treated as supported sets, so a scalar fixture requirement means
+    membership. If the fixture requirement is itself a list, any matching value
+    is sufficient.
+    """
     for path, expected in required.items():
         cur: Any = have
         for segment in path.split("."):
             if not isinstance(cur, dict) or segment not in cur:
                 return False, f"capability path '{path}' not declared"
             cur = cur[segment]
-        if isinstance(expected, list):
+        if isinstance(cur, list):
+            acceptable = expected if isinstance(expected, list) else [expected]
+            if not any(item in cur for item in acceptable):
+                return False, (
+                    f"capability '{path}' = {cur!r}, fixture wants any of {acceptable!r}"
+                )
+        elif isinstance(expected, list):
             if cur not in expected:
                 return False, (
                     f"capability '{path}' = {cur!r}, fixture wants one of {expected!r}"
@@ -127,7 +136,8 @@ def run_fixture(
 
     if got_exit == EXIT_REJECT:
         want_code = expects.get("rejection_code")
-        got_code = (got_output or {}).get("rejection", {}).get("code")
+        got_rejection = (got_output or {}).get("rejection", {})
+        got_code = got_rejection.get("code")
         if want_code is not None:
             # `rejection_code` may be a single string OR a list of acceptable
             # codes. The list form is for fixtures where the underlying
@@ -146,6 +156,18 @@ def run_fixture(
                     stderr_excerpt=stderr_excerpt,
                     reason=f"rejection.code={got_code!r}, want one of {acceptable!r}",
                 )
+        want_stage = expects.get("rejection_stage")
+        if want_stage is not None and got_rejection.get("stage") != want_stage:
+            return FixtureResult(
+                status="fail",
+                got_exit=got_exit,
+                got_output=got_output,
+                stderr_excerpt=stderr_excerpt,
+                reason=(
+                    f"rejection.stage={got_rejection.get('stage')!r}, "
+                    f"want {want_stage!r}"
+                ),
+            )
         return FixtureResult(status="pass", got_exit=got_exit, got_output=got_output)
 
     if got_exit == EXIT_ACCEPT:

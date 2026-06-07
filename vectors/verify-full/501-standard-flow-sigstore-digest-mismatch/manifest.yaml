@@ -1,0 +1,22 @@
+id: 501-standard-flow-sigstore-digest-mismatch
+stage: verify-full
+title: |
+  Standard-flow SEV-SNP: Sigstore subject digest mismatch rejects before attestation.
+spec_refs: ["11.1", "5.4"]
+expects:
+  exit_code: 10
+  rejection_code: "SUBJECT_DIGEST_MISMATCH"
+  rejection_stage: "verify-sigstore"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  flow_modes_supported: "standard"
+fixture_kind: composite
+notes: |
+  SPEC §11.1 composition must preserve the failing sub-stage.
+  This vector starts from the standard happy path, but pins the
+  caller-supplied expected artifact digest to all-zeroes. The
+  Sigstore bundle itself is otherwise valid, so verify-full MUST
+  reject with SUBJECT_DIGEST_MISMATCH and rejection.stage=
+  'verify-sigstore' before consulting hardware attestation.
+  
+  This is the full-flow counterpart of sigstore/016.

@@ -1,0 +1,26 @@
+id: 502-standard-flow-sev-attestation-pin-mismatch
+stage: verify-full
+title: |
+  Standard-flow SEV-SNP: SEV measurement policy mismatch propagates from attestation stage.
+spec_refs: ["11.1", "3.8"]
+expects:
+  exit_code: 10
+  rejection_code: "MEASUREMENT_MISMATCH"
+  rejection_stage: "verify-attestation-sev"
+required_capabilities:
+  attestation_sev.supported: true
+  attestation_sev.injected_collateral_supported: true
+  attestation_sev.extended_checks_supported: true
+  sigstore.trust_root_loading: "configurable"
+  flow_modes_supported: "standard"
+fixture_kind: composite
+notes: |
+  SPEC §11.1 composition must preserve SEV-SNP attestation
+  failures instead of flattening them into a generic verify-full
+  error. The Sigstore stage succeeds, then the nested SEV policy
+  pins expected_measurement_hex to all-0xff. The real report
+  measurement is 09ef32...eb519, so the SEV sub-stage MUST reject
+  with MEASUREMENT_MISMATCH and rejection.stage=
+  'verify-attestation-sev'.
+  
+  This is the full-flow counterpart of attestation-sev/400.
