@@ -30,6 +30,7 @@ VECTORS_DIR = REPO_ROOT / "vectors" / "attestation-tdx"
 sys.path.insert(0, str(REPO_ROOT / "fixturegen"))
 
 from lib.tdx_synth import (  # noqa: E402
+    TdBodyFields,
     build_synth_chain,
     build_tdx_quote_v4,
     build_tcb_info_response,
@@ -43,6 +44,7 @@ def make_input(
     tcb_status: str,
     pcesvn: int = 11,
     tee_tcb_svn_bytes: bytes | None = None,
+    body: TdBodyFields | None = None,
     tcb_evaluation_data_number: int = 18,
 ) -> tuple[dict[str, Any], str]:
     """Build a synthetic input.json. Returns (payload, tcb_status_returned)."""
@@ -52,8 +54,8 @@ def make_input(
     # tdxtcbcomponents svn ≤ quote.tee_tcb_svn byte-wise.
     if tee_tcb_svn_bytes is None:
         tee_tcb_svn_bytes = b"\x00\x03\x05\x00" + b"\x00" * 12
-    from lib.tdx_synth import TdBodyFields
-    body = TdBodyFields(tee_tcb_svn=tee_tcb_svn_bytes)
+    if body is None:
+        body = TdBodyFields(tee_tcb_svn=tee_tcb_svn_bytes)
     quote, body = build_tdx_quote_v4(chain, body=body)
 
     tcb_levels = [
@@ -107,12 +109,16 @@ def write_fixture(
     accepted: bool = False,
     rejection_code: str | list[str] | None = None,
     policy: dict[str, Any] | None = None,
+    execution_mode: str | None = None,
+    body: TdBodyFields | None = None,
     spec_refs: list[str] | None = None,
     extra_caps: dict[str, Any] | None = None,
 ) -> None:
-    payload, _ = make_input(tcb_status=tcb_status, pcesvn=pcesvn)
+    payload, _ = make_input(tcb_status=tcb_status, pcesvn=pcesvn, body=body)
     if policy:
         payload["policy"].update(policy)
+    if execution_mode is not None:
+        payload["execution_mode"] = execution_mode
     dst = VECTORS_DIR / fixture_id
     dst.mkdir(parents=True, exist_ok=True)
     (dst / "input.json").write_text(json.dumps(payload, indent=2))
@@ -151,9 +157,15 @@ def write_fixture(
         "required_capabilities:\n"
         "  attestation_tdx.supported: true\n"
         "  attestation_tdx.injected_collateral_supported: true\n"
-        "  attestation_tdx.tcb_evaluation_supported: true\n"
     )
-    for cap_path, cap_value in (extra_caps or {}).items():
+    extra_caps = dict(extra_caps or {})
+    if "attestation_tdx.public_api_hooks_supported" in extra_caps:
+        manifest += (
+            "  attestation_tdx.public_api_hooks_supported: "
+            f"{json.dumps(extra_caps.pop('attestation_tdx.public_api_hooks_supported'))}\n"
+        )
+    manifest += "  attestation_tdx.tcb_evaluation_supported: true\n"
+    for cap_path, cap_value in extra_caps.items():
         manifest += f"  {cap_path}: {json.dumps(cap_value)}\n"
     manifest += (
         "fixture_kind: synthetic-intel-chain\n"
@@ -180,6 +192,36 @@ def main() -> None:
         tcb_status="UpToDate",
         accepted=True,
         spec_refs=["4.7", "4.7.7"],
+    )
+
+    write_fixture(
+        fixture_id="390-public-api-tcb-uptodate",
+        title="Public verifier hook path with synthetic UpToDate TDX collateral → accept.",
+        notes=(
+            "Runs the SDK public TDX verifier/orchestration entry point rather\n"
+            "than the conformance adapter's lower-level validation sequence.\n"
+            "The only injected pieces are external dependencies: synthetic\n"
+            "PCS HTTP responses, synthetic Intel root, and fixture verification\n"
+            "time. Its TD body uses a production-accepted MR_SEAM and the\n"
+            "default Tinfoil TD_ATTRIBUTES/XFAM/minimum TEE_TCB_SVN policy\n"
+            "values so public verifiers do not need a weakened policy mode."
+        ),
+        tcb_status="UpToDate",
+        accepted=True,
+        policy={"min_tcb_evaluation_data_number": 18},
+        execution_mode="public_api",
+        body=TdBodyFields(
+            tee_tcb_svn=b"\x03\x03\x05\x00" + b"\x00" * 12,
+            mr_seam=bytes.fromhex(
+                "476a2997c62bccc78370913d0a80b956"
+                "e3721b24272bc66c4d6307ced4be2865"
+                "c40e26afac75f12df3425b03eb59ea7c"
+            ),
+            td_attributes=bytes.fromhex("0000001000000000"),
+            xfam=bytes.fromhex("e702060000000000"),
+        ),
+        spec_refs=["4.9", "11"],
+        extra_caps={"attestation_tdx.public_api_hooks_supported": True},
     )
 
     # 360-364 — non-terminal non-OK statuses
@@ -297,7 +339,7 @@ def main() -> None:
 
     print("Wrote Phase 3 attestation-tdx fixtures:")
     for d in sorted(VECTORS_DIR.iterdir()):
-        if d.is_dir() and d.name.startswith(("350-", "36")):
+        if d.is_dir() and d.name.startswith(("350-", "36", "390-")):
             print(f"  {d.relative_to(REPO_ROOT)}")
 
 

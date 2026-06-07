@@ -1,0 +1,8 @@
+{
+  "stage": "verify-attestation-tdx",
+  "accepted": true,
+  "outputs": {
+    "tee_type": "TDX",
+    "quote_version": 4
+  }
+}

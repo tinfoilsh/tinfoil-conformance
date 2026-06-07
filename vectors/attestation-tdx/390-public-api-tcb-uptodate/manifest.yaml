@@ -1,0 +1,21 @@
+id: 390-public-api-tcb-uptodate
+stage: verify-attestation-tdx
+title: |
+  Public verifier hook path with synthetic UpToDate TDX collateral → accept.
+spec_refs: ["4.9", "11"]
+expects:
+  exit_code: 0
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.public_api_hooks_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-intel-chain
+notes: |
+  Runs the SDK public TDX verifier/orchestration entry point rather
+  than the conformance adapter's lower-level validation sequence.
+  The only injected pieces are external dependencies: synthetic
+  PCS HTTP responses, synthetic Intel root, and fixture verification
+  time. Its TD body uses a production-accepted MR_SEAM and the
+  default Tinfoil TD_ATTRIBUTES/XFAM/minimum TEE_TCB_SVN policy
+  values so public verifiers do not need a weakened policy mode.

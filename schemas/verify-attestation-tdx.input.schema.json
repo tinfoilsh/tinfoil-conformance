@@ -8,6 +8,11 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {"const": "1"},
+    "execution_mode": {
+      "enum": ["adapter", "public_api"],
+      "default": "adapter",
+      "description": "Verification surface to exercise. `adapter` allows an SDK-owned conformance adapter to orchestrate lower-level primitives with injected collateral. `public_api` requires the SDK to call its normal public verifier/orchestration path while injecting only external dependencies such as PCS HTTP responses, trust root, and verification time."
+    },
     "quote_b64": {
       "type": "string",
       "contentEncoding": "base64",
@@ -40,6 +45,18 @@
         "intel_root_ca_pem": {
           "type": "string",
           "description": "Optional PEM-encoded Intel SGX Root CA certificate. If omitted, SDKs use their embedded copy (most SDKs `go:embed` or bundle it). Override exists for synthetic-root fixtures in later phases."
+        },
+        "tcb_info_issuer_chain_pem": {
+          "type": "string",
+          "description": "Optional PEM-encoded TCB Info issuer chain. Public-API hook fixtures expose it through the Intel PCS `TCB-Info-Issuer-Chain` response header."
+        },
+        "qe_identity_issuer_chain_pem": {
+          "type": "string",
+          "description": "Optional PEM-encoded QE Identity issuer chain. Public-API hook fixtures expose it through the Intel PCS `SGX-Enclave-Identity-Issuer-Chain` response header."
+        },
+        "pck_crl_issuer_chain_pem": {
+          "type": "string",
+          "description": "Optional PEM-encoded PCK CRL issuer chain. Public-API hook fixtures expose it through the Intel PCS `SGX-PCK-CRL-Issuer-Chain` response header."
         }
       }
     },
