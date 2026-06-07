@@ -1,0 +1,7 @@
+{
+  "stage": "verify-attestation-tdx",
+  "accepted": false,
+  "rejection": {
+    "code": "QE_IDENTITY_ID_INVALID"
+  }
+}

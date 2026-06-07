@@ -179,6 +179,10 @@
             "expected_fmspc_hex": {
               "type": "boolean",
               "description": "True if the SDK reads policy.expected_fmspc_hex and rejects a quote whose PCK leaf FMSPC differs. False = the SDK doesn't pin FMSPC; fixture 325-pck-fmspc-mismatch skips."
+            },
+            "accepted_qv_results": {
+              "type": "boolean",
+              "description": "True if the SDK reads policy.accepted_qv_results after deriving the Intel QV result and rejects non-terminal results outside that allowlist with QV_RESULT_NOT_ACCEPTED_BY_POLICY. False = the SDK either has no policy hook or rejects before exposing non-terminal QV results."
             }
           }
         }

@@ -1,0 +1,18 @@
+id: 329-root-crl-expired
+stage: verify-attestation-tdx
+title: |
+  Synthetic Root CRL nextUpdate before verification time → ROOT_CRL_EXPIRED.
+spec_refs: ["4.7.4"]
+expects:
+  exit_code: 10
+  rejection_code: "ROOT_CRL_EXPIRED"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-intel-chain
+notes: |
+  The Root CRL is correctly signed by the synthetic Root CA, but
+  its nextUpdate is before the fixture verification time. This
+  catches SDKs that verify PCK CRLs but forget Root CA CRL
+  freshness.

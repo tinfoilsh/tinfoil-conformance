@@ -1,0 +1,10 @@
+{
+  "stage": "verify-attestation-tdx",
+  "accepted": false,
+  "rejection": {
+    "code": [
+      "AK_MISMATCH",
+      "QUOTE_SIGNATURE_INVALID"
+    ]
+  }
+}

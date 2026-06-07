@@ -1,0 +1,22 @@
+id: 365-tcb-swhardening-needed-policy-rejected
+stage: verify-attestation-tdx
+title: |
+  TCB level SWHardeningNeeded with accepted_qv_results=[OK] → reject by policy.
+spec_refs: ["4.7.7"]
+expects:
+  exit_code: 10
+  rejection_code: "QV_RESULT_NOT_ACCEPTED_BY_POLICY"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+  attestation_tdx.accepts_non_terminal_tcb_statuses: true
+  attestation_tdx.policy_fields_supported.accepted_qv_results: true
+fixture_kind: synthetic-intel-chain
+notes: |
+  SWHardeningNeeded is non-terminal, so a verifier with a
+  permissive default can accept it. This fixture tightens the
+  relying-party policy to accepted_qv_results=[OK], so reaching
+  the non-terminal result is not enough: the SDK must reject
+  with QV_RESULT_NOT_ACCEPTED_BY_POLICY rather than accepting or
+  misclassifying it as a terminal TCB revocation.

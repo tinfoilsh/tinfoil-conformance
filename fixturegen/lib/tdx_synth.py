@@ -414,13 +414,17 @@ def _build_qe_report(
     misc_select: int,
     attributes: bytes,
     ak_pubkey_raw: bytes,
+    report_data: bytes | None = None,
 ) -> bytes:
     """Build a 384-byte SGX EnclaveReport (per §A.3.10). MRSIGNER is the
     field the QE Identity JSON validates against."""
     assert len(mrsigner) == 32
     assert len(attributes) == 16
     # ReportData = SHA-256(AK pubkey raw) ‖ 32 zero bytes — binds AK to QE.
-    report_data = hashlib.sha256(ak_pubkey_raw).digest() + b"\x00" * 32
+    # Negative fixtures may override this while keeping the QE report
+    # signature valid, isolating the AK-binding check from signature checks.
+    if report_data is None:
+        report_data = hashlib.sha256(ak_pubkey_raw).digest() + b"\x00" * 32
     assert len(report_data) == 64
 
     cpu_svn = b"\x00" * 16
@@ -445,11 +449,14 @@ def build_tdx_quote_v4(
     chain: SynthChain,
     *,
     body: TdBodyFields | None = None,
+    quote_signing_key: P256KeyPair | None = None,
+    attestation_key: P256KeyPair | None = None,
     qe_mrsigner: bytes = b"\xDC" * 32,
     qe_isv_prod_id: int = 2,
     qe_isv_svn: int = 8,
     qe_misc_select: int = 0,
     qe_attributes: bytes = b"\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+    qe_report_data: bytes | None = None,
 ) -> tuple[bytes, TdBodyFields]:
     """Pack a complete synthetic v4 TDX quote signed by chain.ak_key with
     PCK chain extracted from chain.pck_leaf → platform_ca → root_ca.
@@ -474,8 +481,10 @@ def build_tdx_quote_v4(
     signed_region = header + body_bytes
 
     # --- Quote signature: AK signs SHA-256(header || body) ---
-    quote_sig_raw = _ecdsa_sign_raw(chain.ak_key, signed_region)
-    ak_pubkey_raw = _raw_pubkey_xy(chain.ak_key)
+    signing_key = quote_signing_key or chain.ak_key
+    embedded_key = attestation_key or chain.ak_key
+    quote_sig_raw = _ecdsa_sign_raw(signing_key, signed_region)
+    ak_pubkey_raw = _raw_pubkey_xy(embedded_key)
 
     # --- QE Report (384 bytes) ---
     qe_report = _build_qe_report(
@@ -485,6 +494,7 @@ def build_tdx_quote_v4(
         misc_select=qe_misc_select,
         attributes=qe_attributes,
         ak_pubkey_raw=ak_pubkey_raw,
+        report_data=qe_report_data,
     )
 
     # --- QE Report signature: PCK leaf signs the QE Report ---
@@ -607,14 +617,16 @@ def build_qe_identity_response(
     mrsigner_hex: str,
     isv_prod_id: int,
     isv_svn: int,
+    identity_id: str = "TD_QE",
+    version: int = 2,
     issue_date: str = "2023-06-08T07:24:59Z",
     next_update: str = "2030-07-08T07:24:59Z",
     tcb_evaluation_data_number: int = 18,
     tcb_status: str = "UpToDate",
 ) -> str:
     qe_identity = {
-        "id": "TD_QE",
-        "version": 2,
+        "id": identity_id,
+        "version": version,
         "issueDate": issue_date,
         "nextUpdate": next_update,
         "tcbEvaluationDataNumber": tcb_evaluation_data_number,
@@ -636,7 +648,8 @@ def build_qe_identity_response(
 def build_empty_crl(issuer: SynthCert,
                     *,
                     not_before: datetime | None = None,
-                    not_after: datetime | None = None) -> bytes:
+                    not_after: datetime | None = None,
+                    revoked_certs: list[SynthCert] | None = None) -> bytes:
     """An empty X.509 CRL signed by `issuer`. DER bytes."""
     if not_before is None:
         not_before = datetime(2023, 1, 1, tzinfo=timezone.utc)
@@ -648,6 +661,14 @@ def build_empty_crl(issuer: SynthCert,
         .last_update(not_before.replace(tzinfo=None))
         .next_update(not_after.replace(tzinfo=None))
     )
+    for revoked_cert in revoked_certs or []:
+        revoked = (
+            x509.RevokedCertificateBuilder()
+            .serial_number(revoked_cert.cert.serial_number)
+            .revocation_date(not_before.replace(tzinfo=None))
+            .build()
+        )
+        builder = builder.add_revoked_certificate(revoked)
     crl = builder.sign(issuer.key.private, hashes.SHA256())
     return crl.public_bytes(serialization.Encoding.DER)
 

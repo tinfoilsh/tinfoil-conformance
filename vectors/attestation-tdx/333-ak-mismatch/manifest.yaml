@@ -1,0 +1,20 @@
+id: 333-ak-mismatch
+stage: verify-attestation-tdx
+title: |
+  Quote signature made by a different AK than the quote embeds → AK_MISMATCH ideal.
+spec_refs: ["4.3", "4.5"]
+expects:
+  exit_code: 10
+  rejection_code: ["AK_MISMATCH", "QUOTE_SIGNATURE_INVALID"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-intel-chain
+notes: |
+  The quote embeds AK A and the QE report data correctly binds AK A,
+  but the quote signature over header || body is produced by AK B.
+  A verifier can only prove the embedded AK did not sign the quote;
+  most SDKs surface that as QUOTE_SIGNATURE_INVALID. The fixture
+  keeps AK_MISMATCH as the ideal taxonomy code and allows the
+  cryptographically equivalent quote-signature collapse.

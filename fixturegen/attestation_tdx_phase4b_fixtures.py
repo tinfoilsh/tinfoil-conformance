@@ -267,6 +267,7 @@ def main() -> None:
             "minimum so the lib's check fires)."
         ),
         tcb_eval_data_number=10,
+        policy={"min_tcb_evaluation_data_number": 18},
         rejection_code=[
             "TCB_EVAL_DATA_NUMBER_TOO_LOW",
             "TCB_INFO_EXPIRED",

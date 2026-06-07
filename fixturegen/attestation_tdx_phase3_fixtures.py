@@ -106,10 +106,13 @@ def write_fixture(
     pcesvn: int = 11,
     accepted: bool = False,
     rejection_code: str | list[str] | None = None,
+    policy: dict[str, Any] | None = None,
     spec_refs: list[str] | None = None,
     extra_caps: dict[str, Any] | None = None,
 ) -> None:
     payload, _ = make_input(tcb_status=tcb_status, pcesvn=pcesvn)
+    if policy:
+        payload["policy"].update(policy)
     dst = VECTORS_DIR / fixture_id
     dst.mkdir(parents=True, exist_ok=True)
     (dst / "input.json").write_text(json.dumps(payload, indent=2))
@@ -221,6 +224,27 @@ def main() -> None:
         accepted=True,
         spec_refs=["4.7.7"],
         extra_caps=_NON_TERM_CAP,
+    )
+
+    write_fixture(
+        fixture_id="365-tcb-swhardening-needed-policy-rejected",
+        title="TCB level SWHardeningNeeded with accepted_qv_results=[OK] → reject by policy.",
+        notes=(
+            "SWHardeningNeeded is non-terminal, so a verifier with a\n"
+            "permissive default can accept it. This fixture tightens the\n"
+            "relying-party policy to accepted_qv_results=[OK], so reaching\n"
+            "the non-terminal result is not enough: the SDK must reject\n"
+            "with QV_RESULT_NOT_ACCEPTED_BY_POLICY rather than accepting or\n"
+            "misclassifying it as a terminal TCB revocation."
+        ),
+        tcb_status="SWHardeningNeeded",
+        policy={"accepted_qv_results": ["OK"]},
+        rejection_code="QV_RESULT_NOT_ACCEPTED_BY_POLICY",
+        spec_refs=["4.7.7"],
+        extra_caps={
+            "attestation_tdx.accepts_non_terminal_tcb_statuses": True,
+            "attestation_tdx.policy_fields_supported.accepted_qv_results": True,
+        },
     )
 
     write_fixture(

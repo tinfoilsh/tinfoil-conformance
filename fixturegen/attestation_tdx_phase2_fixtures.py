@@ -390,11 +390,28 @@ def main() -> None:
         spec_refs=["4.3"],
     )
 
+    # 332 — QE report signature broken
+    write_fixture(
+        fixture_id="332-qe-report-sig-broken",
+        title="QE report signature byte mutated → PCK signature over QE report fails.",
+        notes=(
+            "Byte 0x482 is the first byte of the QE Report Signature inside\n"
+            "the v4 quote's Type-6 QE Report Certification Data. The quote\n"
+            "signature and PCK chain remain intact, but the PCK leaf's\n"
+            "signature over the 384-byte QE report no longer verifies.\n"
+            "This isolates Intel §4.4 from the earlier AK quote-signature\n"
+            "check in 330/331."
+        ),
+        quote_bytes=quote_with_byte(0x482, 0x32),
+        rejection_code="QE_REPORT_SIGNATURE_INVALID",
+        spec_refs=["4.4", "A.3.11"],
+    )
+
     print("Wrote Phase 2A attestation-tdx fixtures:")
     for d in sorted(VECTORS_DIR.iterdir()):
         if d.is_dir() and d.name[:3] in ("310", "311", "312", "313", "314", "315",
                                           "320", "321", "322", "323", "324", "325",
-                                          "330", "331"):
+                                          "330", "331", "332"):
             print(f"  {d.relative_to(REPO_ROOT)}")
 
 

@@ -1,0 +1,18 @@
+id: 328-pck-crl-expired
+stage: verify-attestation-tdx
+title: |
+  Synthetic PCK CRL nextUpdate before verification time → PCK_CRL_EXPIRED.
+spec_refs: ["4.7.4"]
+expects:
+  exit_code: 10
+  rejection_code: "PCK_CRL_EXPIRED"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-intel-chain
+notes: |
+  The PCK CRL is correctly signed by the synthetic Platform CA,
+  but its nextUpdate is 2023-06-01 while verification time is
+  2023-06-30. This isolates CRL freshness from CRL signature and
+  revocation-entry checks.

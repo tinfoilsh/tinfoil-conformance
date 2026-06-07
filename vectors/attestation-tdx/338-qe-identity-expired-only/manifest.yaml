@@ -1,0 +1,19 @@
+id: 338-qe-identity-expired-only
+stage: verify-attestation-tdx
+title: |
+  Synthetic QE Identity nextUpdate before verification time while TCB Info is fresh → QE_IDENTITY_EXPIRED.
+spec_refs: ["4.7"]
+expects:
+  exit_code: 10
+  rejection_code: ["QE_IDENTITY_EXPIRED", "QE_IDENTITY_FIELD_MISMATCH", "QV_RESULT_TERMINAL_UNSPECIFIED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-intel-chain
+notes: |
+  The synthetic TCB Info is still fresh at verification time,
+  but QE Identity nextUpdate is 2023-06-01 while verification
+  time is 2023-06-30. This isolates QE Identity freshness from
+  TCB Info freshness so SDKs cannot legitimately stop first at
+  TCB_INFO_EXPIRED.
