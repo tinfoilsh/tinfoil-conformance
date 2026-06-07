@@ -16,7 +16,7 @@ have at least one hermetic vector, or an explicit reason why it is out of scope.
 | `verify-measurement` | 17 | §7.1-§7.3 | Strong |
 | `verify-attestation-sev` | 26 | §3, selected §8 bindings | Broad, gaps remain |
 | `verify-attestation-tdx` | 51 | §4, selected §8 bindings | Broad, gaps remain |
-| `verify-full` | 5 | §11 composition | Early, now checks sub-stage propagation |
+| `verify-full` | 7 | §11 composition | Partial, checks sub-stage propagation and envelope presence |
 
 ## Coverage By SPEC Section
 
@@ -58,7 +58,7 @@ have at least one hermetic vector, or an explicit reason why it is out of scope.
 | §8 Report data / nonce binding | SEV host/report data pins and TDX report data pin. HPKE layout is not fully isolated. | `attestation-sev/410-host-data-pin-mismatch`, `420-report-data-pin-mismatch`, `461-all-pins-match`, `attestation-tdx/460-report-data-pinned-mismatch` | Partial |
 | §9 Enclave certificate verification | Not a first-class conformance stage yet. | N/A | Gap |
 | §10 Attestation bundle format | Some `verify-full` fixtures use bundle envelopes; schema edge cases are minimal. | `verify-full/500-standard-flow-sev-happy`, `510-pinned-flow-sev-happy` | Partial |
-| §11 End-to-end verification flows | Standard SEV happy path, Sigstore rejection propagation, SEV attestation rejection propagation, pinned happy path, pinned mismatch. | `verify-full/500-standard-flow-sev-happy`, `501-standard-flow-sigstore-digest-mismatch`, `502-standard-flow-sev-attestation-pin-mismatch`, `510-pinned-flow-sev-happy`, `520-pinned-flow-measurement-mismatch` | Partial |
+| §11 End-to-end verification flows | Standard SEV happy path, Sigstore rejection propagation, SEV attestation rejection propagation, missing standard-flow blocks, pinned happy path, pinned mismatch. | `verify-full/500-standard-flow-sev-happy`, `501-standard-flow-sigstore-digest-mismatch`, `502-standard-flow-sev-attestation-pin-mismatch`, `503-standard-flow-missing-sigstore-block`, `504-standard-flow-missing-attestation-block`, `510-pinned-flow-sev-happy`, `520-pinned-flow-measurement-mismatch` | Partial |
 | §12 Infrastructure | Proxy/discovery/GitHub/cache behavior not covered by hermetic core suite. | N/A | Out of current scope |
 | §13 Constants | Exercised indirectly by SEV/TDX/Sigstore vectors. No constant-audit stage. | N/A | Partial |
 | §14 SDK client architecture | Not covered by core conformance suite. | N/A | Out of current scope |
@@ -78,7 +78,7 @@ fixture.
    - Done: SEV attestation rejects and `rejection.stage` is `verify-attestation-sev`.
    - Done in pinned mode: measurement mismatch and `rejection.stage` is `verify-measurement`.
    - Remaining: standard-flow measurement mismatch and `rejection.stage` is `verify-measurement`.
-   - Missing `sigstore` block and missing `attestation_sev` block.
+   - Done: missing `sigstore` block and missing attestation block reject at `verify-full`.
 
 2. Add `verify-full` TDX coverage or declare it unsupported by capability:
    - TDX standard happy path.

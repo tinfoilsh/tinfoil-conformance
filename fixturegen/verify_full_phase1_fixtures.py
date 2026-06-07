@@ -208,6 +208,59 @@ def main() -> None:
         ),
     )
 
+    # 503 — Standard flow requires a Sigstore block.
+    missing_sigstore_payload = deepcopy(standard_payload)
+    del missing_sigstore_payload["sigstore"]
+    write_fixture(
+        fixture_id="503-standard-flow-missing-sigstore-block",
+        title="Standard-flow SEV-SNP: missing sigstore block rejects as malformed full-flow input.",
+        spec_refs=["11.1"],
+        payload=missing_sigstore_payload,
+        accepted=False,
+        rejection_code="BUNDLE_MALFORMED",
+        rejection_stage="verify-full",
+        required_caps={
+            "flow_modes_supported": "standard",
+        },
+        notes=(
+            "SPEC §11.1 standard mode requires a Sigstore-attested source of\n"
+            "truth before the hardware attestation can be cross-checked. This\n"
+            "fixture omits the sigstore block entirely. The SDK MUST reject at\n"
+            "the verify-full envelope layer with BUNDLE_MALFORMED and\n"
+            "rejection.stage='verify-full'.\n"
+            "\n"
+            "This prevents implementations from silently treating standard\n"
+            "mode like pinned mode or crashing before emitting JSON."
+        ),
+    )
+
+    # 504 — Standard flow requires an attestation block.
+    missing_attestation_payload = deepcopy(standard_payload)
+    del missing_attestation_payload["attestation_sev"]
+    write_fixture(
+        fixture_id="504-standard-flow-missing-attestation-block",
+        title="Standard-flow SEV-SNP: missing attestation block rejects after Sigstore succeeds.",
+        spec_refs=["11.1"],
+        payload=missing_attestation_payload,
+        accepted=False,
+        rejection_code="BUNDLE_MALFORMED",
+        rejection_stage="verify-full",
+        required_caps={
+            "sigstore.trust_root_loading": "configurable",
+            "flow_modes_supported": "standard",
+        },
+        notes=(
+            "SPEC §11.1 standard mode needs both sides of the binding: the\n"
+            "Sigstore-attested measurement and a fresh hardware attestation.\n"
+            "This fixture keeps the Sigstore block valid but omits the SEV/TDX\n"
+            "attestation block. The SDK MUST reject at the verify-full envelope\n"
+            "layer with BUNDLE_MALFORMED and rejection.stage='verify-full'.\n"
+            "\n"
+            "This catches SDKs that verify the artifact but forget to require\n"
+            "the per-enclave proof before accepting the full flow."
+        ),
+    )
+
     # 510 — Pinned-measurement flow (SPEC §11.3)
     pinned_payload = {
         "schema_version": "1",
@@ -296,6 +349,8 @@ def main() -> None:
         "500-standard-flow-sev-happy",
         "501-standard-flow-sigstore-digest-mismatch",
         "502-standard-flow-sev-attestation-pin-mismatch",
+        "503-standard-flow-missing-sigstore-block",
+        "504-standard-flow-missing-attestation-block",
         "510-pinned-flow-sev-happy",
         "520-pinned-flow-measurement-mismatch",
     ):

@@ -1,0 +1,21 @@
+id: 503-standard-flow-missing-sigstore-block
+stage: verify-full
+title: |
+  Standard-flow SEV-SNP: missing sigstore block rejects as malformed full-flow input.
+spec_refs: ["11.1"]
+expects:
+  exit_code: 10
+  rejection_code: "BUNDLE_MALFORMED"
+  rejection_stage: "verify-full"
+required_capabilities:
+  flow_modes_supported: "standard"
+fixture_kind: composite
+notes: |
+  SPEC §11.1 standard mode requires a Sigstore-attested source of
+  truth before the hardware attestation can be cross-checked. This
+  fixture omits the sigstore block entirely. The SDK MUST reject at
+  the verify-full envelope layer with BUNDLE_MALFORMED and
+  rejection.stage='verify-full'.
+  
+  This prevents implementations from silently treating standard
+  mode like pinned mode or crashing before emitting JSON.

@@ -1,0 +1,22 @@
+id: 504-standard-flow-missing-attestation-block
+stage: verify-full
+title: |
+  Standard-flow SEV-SNP: missing attestation block rejects after Sigstore succeeds.
+spec_refs: ["11.1"]
+expects:
+  exit_code: 10
+  rejection_code: "BUNDLE_MALFORMED"
+  rejection_stage: "verify-full"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  flow_modes_supported: "standard"
+fixture_kind: composite
+notes: |
+  SPEC §11.1 standard mode needs both sides of the binding: the
+  Sigstore-attested measurement and a fresh hardware attestation.
+  This fixture keeps the Sigstore block valid but omits the SEV/TDX
+  attestation block. The SDK MUST reject at the verify-full envelope
+  layer with BUNDLE_MALFORMED and rejection.stage='verify-full'.
+  
+  This catches SDKs that verify the artifact but forget to require
+  the per-enclave proof before accepting the full flow.
