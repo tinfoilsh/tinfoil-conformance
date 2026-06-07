@@ -18,6 +18,23 @@ EXIT_UNSUPPORTED = 20
 EXIT_BAD_INPUT = 30
 
 
+PUBLIC_API_PRE_POLICY_REJECTION_CODES = {
+    "QUOTE_FORMAT_UNSUPPORTED",
+    "QUOTE_TRUNCATED",
+    "WRONG_TEE_TYPE",
+    "ATTESTATION_KEY_TYPE_UNSUPPORTED",
+    "QE_VENDOR_UNKNOWN",
+    "PCK_CHAIN_INVALID",
+    "PCK_CHAIN_INCOMPLETE",
+    "ROOT_CA_UNTRUSTED",
+    "PCK_EXPIRED",
+    "QUOTE_SIGNATURE_INVALID",
+    "QE_REPORT_SIGNATURE_INVALID",
+    "AK_BINDING_INVALID",
+    "AK_MISMATCH",
+}
+
+
 @dataclass
 class SdkRegistration:
     name: str
@@ -32,6 +49,13 @@ class FixtureResult:
     got_output: dict[str, Any] | None = None
     stderr_excerpt: str = ""
     reason: str = ""
+
+
+@dataclass(frozen=True)
+class FixtureCase:
+    fixture_dir: Path
+    id: str
+    execution_mode: str | None = None
 
 
 def load_sdk_capabilities(sdk: SdkRegistration, timeout_s: float = 10.0) -> dict[str, Any]:
@@ -82,13 +106,18 @@ def required_capabilities_satisfied(
 
 
 def run_fixture(
-    fixture_dir: Path, sdk: SdkRegistration, timeout_s: float = 30.0
+    fixture_dir: Path,
+    sdk: SdkRegistration,
+    timeout_s: float = 30.0,
+    execution_mode: str | None = None,
 ) -> FixtureResult:
     """Run one fixture against one SDK and return the verdict."""
     manifest = yaml.safe_load((fixture_dir / "manifest.yaml").read_text())
     stage = manifest["stage"]
     expects = manifest["expects"]
-    required_caps: dict[str, Any] = manifest.get("required_capabilities") or {}
+    required_caps: dict[str, Any] = dict(manifest.get("required_capabilities") or {})
+    if execution_mode == "public_api":
+        required_caps["attestation_tdx.public_api_hooks_supported"] = True
 
     stages_supported = sdk.capabilities.get("stages_supported", []) or []
     if stage not in stages_supported:
@@ -101,7 +130,12 @@ def run_fixture(
     if not ok:
         return FixtureResult(status="skip", reason=reason)
 
-    stdin_bytes = (fixture_dir / "input.json").read_bytes()
+    if execution_mode is None:
+        stdin_bytes = (fixture_dir / "input.json").read_bytes()
+    else:
+        stdin_obj = json.loads((fixture_dir / "input.json").read_text())
+        stdin_obj["execution_mode"] = execution_mode
+        stdin_bytes = json.dumps(stdin_obj, separators=(",", ":")).encode()
     try:
         proc = subprocess.run(
             sdk.binary + [stage],
@@ -209,6 +243,73 @@ def discover_fixtures(vectors_root: Path) -> list[Path]:
     return sorted(
         p.parent for p in vectors_root.rglob("manifest.yaml") if p.is_file()
     )
+
+
+def _expected_rejection_codes(expects: dict[str, Any]) -> set[str]:
+    want_code = expects.get("rejection_code")
+    if want_code is None:
+        return set()
+    if isinstance(want_code, str):
+        return {want_code}
+    return {str(code) for code in want_code}
+
+
+def tdx_public_api_variant_applicable(manifest: dict[str, Any]) -> bool:
+    """Whether an adapter fixture should also run through the full public path.
+
+    Most TDX adapter fixtures intentionally isolate one verifier function by
+    relaxing or pinning surrounding state. The public verifier applies its
+    default production policy first, so auto-generating public variants for
+    every fixture can create misleading passes where an unrelated early policy
+    check fires. Default to the pre-policy failures that are semantically valid
+    for both paths; fixtures can opt in or out explicitly with
+    `public_api_variant: true|false`.
+    """
+    explicit = manifest.get("public_api_variant")
+    if explicit is not None:
+        return bool(explicit)
+
+    expects = manifest.get("expects") or {}
+    if int(expects.get("exit_code", -1)) != EXIT_REJECT:
+        return False
+
+    expected_codes = _expected_rejection_codes(expects)
+    return bool(expected_codes) and expected_codes <= PUBLIC_API_PRE_POLICY_REJECTION_CODES
+
+
+def discover_fixture_cases(
+    vectors_root: Path,
+    *,
+    tdx_public_api_variants: bool = False,
+) -> list[FixtureCase]:
+    cases: list[FixtureCase] = []
+    for fixture_dir in discover_fixtures(vectors_root):
+        rel_id = str(fixture_dir.relative_to(vectors_root))
+        cases.append(FixtureCase(fixture_dir=fixture_dir, id=rel_id))
+
+        if not tdx_public_api_variants:
+            continue
+
+        try:
+            manifest = yaml.safe_load((fixture_dir / "manifest.yaml").read_text())
+            input_obj = json.loads((fixture_dir / "input.json").read_text())
+        except Exception:
+            continue
+        if manifest.get("stage") != "verify-attestation-tdx":
+            continue
+        if input_obj.get("execution_mode") == "public_api":
+            continue
+        if not tdx_public_api_variant_applicable(manifest):
+            continue
+
+        cases.append(
+            FixtureCase(
+                fixture_dir=fixture_dir,
+                id=f"{rel_id}::public_api",
+                execution_mode="public_api",
+            )
+        )
+    return cases
 
 
 def parse_sdk_spec(spec: str) -> SdkRegistration:

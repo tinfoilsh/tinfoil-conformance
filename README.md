@@ -93,6 +93,14 @@ tinfoil-conformance run \
   --vectors vectors/sigstore/
 ```
 
+For TDX, add `--tdx-public-api-variants` to keep the adapter/lower-level
+fixture and also run a `::public_api` variant through the SDK's whole verifier
+entrypoint with only external dependencies hooked. The harness only auto-adds
+public variants for fixtures whose expected failure is valid before production
+policy/collateral gates. Deeper collateral and policy-pin cases stay adapter
+fixtures unless the manifest opts in with `public_api_variant: true` or the
+fixture is already authored for `execution_mode: public_api`.
+
 You can register any subset of SDKs. Each `--sdk name=cmd` registers
 one binary; `cmd` is split on whitespace, so commands with arguments
 (like `node script.js` or `uv run --no-sync tinfoil-conformance`) work

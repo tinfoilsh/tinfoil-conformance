@@ -22,7 +22,10 @@ def cmd_run(args: argparse.Namespace) -> int:
             print(f"ERROR: {sdk.name}: cannot load capabilities: {e}", file=sys.stderr)
             return 2
 
-    fixtures = runner.discover_fixtures(Path(args.vectors))
+    fixtures = runner.discover_fixture_cases(
+        Path(args.vectors),
+        tdx_public_api_variants=args.tdx_public_api_variants,
+    )
     if not fixtures:
         print(f"No fixtures found under {args.vectors}", file=sys.stderr)
         return 2
@@ -32,10 +35,14 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     results: dict[str, dict[str, runner.FixtureResult]] = {}
     for fix in fixtures:
-        key = str(fix.relative_to(args.vectors))
+        key = fix.id
         results[key] = {}
         for sdk in sdks:
-            r = runner.run_fixture(fix, sdk)
+            r = runner.run_fixture(
+                fix.fixture_dir,
+                sdk,
+                execution_mode=fix.execution_mode,
+            )
             results[key][sdk.name] = r
             sym = {"pass": "✓", "fail": "✗", "skip": "·", "error": "!"}[r.status]
             print(f"  [{sdk.name:14s}] {sym} {key}", file=sys.stderr)
@@ -99,6 +106,16 @@ def main(argv: list[str] | None = None) -> int:
     pr.add_argument("--vectors", required=True, type=Path,
                     help="Path to vectors directory (recursive).")
     pr.add_argument("--output-dir", default="results", type=Path)
+    pr.add_argument(
+        "--tdx-public-api-variants",
+        action="store_true",
+        help=(
+            "For verify-attestation-tdx adapter fixtures, also run a "
+            "'::public_api' variant with execution_mode=public_api. This keeps "
+            "lower-level adapter coverage while exercising compatible fixtures "
+            "through the whole verifier entrypoint with dependency hooks."
+        ),
+    )
     pr.set_defaults(func=cmd_run)
 
     pc = sub.add_parser("capabilities", help="Dump one SDK's capabilities JSON")

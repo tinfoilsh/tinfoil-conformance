@@ -79,8 +79,15 @@ def _fixture_codes_from_manifests(
         except Exception:
             continue
         fid = m.get("id") or m_path.parent.name
-        out[fid] = (m.get("expects") or {}).get("rejection_code")
+        rel = str(m_path.parent.relative_to(vectors_root))
+        code = (m.get("expects") or {}).get("rejection_code")
+        out[fid] = code
+        out[rel] = code
     return out
+
+
+def _base_fixture_id(fid: str) -> str:
+    return fid.split("::", 1)[0]
 
 
 def analyze(
@@ -129,9 +136,13 @@ def analyze(
             if code:
                 per_sdk[n] = code
         if len(set(per_sdk.values())) > 1:
+            base_fid = _base_fixture_id(fid)
             # fixture-ids stored in results.json are paths
-            # ("sigstore/021-..."); manifest lookup keys on the basename only.
-            allowed = fix_codes.get(fid) or fix_codes.get(fid.rsplit("/", 1)[-1])
+            # ("sigstore/021-..."); manifest lookup keys on the basename too.
+            allowed = (
+                fix_codes.get(base_fid)
+                or fix_codes.get(base_fid.rsplit("/", 1)[-1])
+            )
             rejection_div.append({
                 "fixture": fid,
                 "allowed": allowed,
