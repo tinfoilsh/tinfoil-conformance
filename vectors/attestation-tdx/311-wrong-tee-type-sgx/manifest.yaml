@@ -1,0 +1,20 @@
+id: 311-wrong-tee-type-sgx
+stage: verify-attestation-tdx
+title: |
+  Quote header.tee_type set to 0x00000000 (SGX) — must reject as TDX-only.
+spec_refs: ["4", "A.3"]
+expects:
+  exit_code: 10
+  rejection_code: ["WRONG_TEE_TYPE", "QUOTE_FORMAT_UNSUPPORTED", "QUOTE_SIGNATURE_INVALID"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Quote header bytes 4..7 (TEE Type field) zeroed. The TDX path
+  (verify-attestation-tdx) MUST refuse to process a quote whose
+  tee_type isn't 0x81 — accepting one would let an SGX enclave
+  spoof a TDX attestation. The exact failure code depends on the
+  SDK: some refuse at parse, some at signature verification (the
+  tampered header invalidates the signed bytes). Both are honest
+  rejections.

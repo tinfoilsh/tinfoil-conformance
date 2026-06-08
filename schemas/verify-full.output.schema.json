@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/schemas/verify-full.output.schema.json",
+  "title": "verify-full output",
+  "description": "stdout JSON produced by `tinfoil-conformance verify-full` per Tinfoil SPEC §11.",
+  "type": "object",
+  "required": ["stage", "accepted"],
+  "additionalProperties": false,
+  "properties": {
+    "stage": {"const": "verify-full"},
+    "accepted": {"type": "boolean"},
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"enum": ["standard", "bundle", "pinned"]},
+        "platform": {"enum": ["sev-snp", "tdx"]},
+        "sigstore_measurement": {
+          "type": "object",
+          "description": "Measurement extracted from the Sigstore-attested predicate (SPEC §5.5)."
+        },
+        "attestation_measurement": {
+          "type": "object",
+          "description": "Measurement extracted from the hardware attestation report (SPEC §3.8 or §4 step 6)."
+        },
+        "matched_hardware": {
+          "type": "object",
+          "description": "Matched entry from hardware_measurements when MP→TDX reduction was performed (SPEC §6.3)."
+        },
+        "final_measurement_fingerprint_hex": {
+          "type": "string",
+          "description": "SHA-256 fingerprint of the accepted measurement per SPEC §7.2."
+        }
+      }
+    },
+    "rejection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code"],
+      "properties": {
+        "code": {
+          "description": "SPEC-anchored rejection code from whichever sub-stage failed. Union of all upstream rejection codes plus a few cross-stage ones.",
+          "type": "string"
+        },
+        "stage": {
+          "enum": ["verify-sigstore", "verify-attestation-sev", "verify-attestation-tdx", "verify-hardware-measurements", "verify-measurement", "verify-full"],
+          "description": "Which sub-stage produced the rejection. 'verify-full' = a cross-stage assertion (e.g. final fingerprint mismatch)."
+        },
+        "spec_ref": {"type": "string"},
+        "message": {"type": "string"}
+      }
+    }
+  },
+  "oneOf": [
+    {"properties": {"accepted": {"const": true}, "outputs": true}, "required": ["outputs"]},
+    {"properties": {"accepted": {"const": false}, "rejection": true}, "required": ["rejection"]}
+  ]
+}

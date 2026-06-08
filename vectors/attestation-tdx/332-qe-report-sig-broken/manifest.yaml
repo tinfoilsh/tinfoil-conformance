@@ -1,0 +1,19 @@
+id: 332-qe-report-sig-broken
+stage: verify-attestation-tdx
+title: |
+  QE report signature byte mutated → PCK signature over QE report fails.
+spec_refs: ["4.4", "A.3.11"]
+expects:
+  exit_code: 10
+  rejection_code: "QE_REPORT_SIGNATURE_INVALID"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Byte 0x482 is the first byte of the QE Report Signature inside
+  the v4 quote's Type-6 QE Report Certification Data. The quote
+  signature and PCK chain remain intact, but the PCK leaf's
+  signature over the 384-byte QE report no longer verifies.
+  This isolates Intel §4.4 from the earlier AK quote-signature
+  check in 330/331.

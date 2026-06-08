@@ -1,0 +1,18 @@
+id: 327-root-crl-sig-broken
+stage: verify-attestation-tdx
+title: |
+  Root CRL DER byte flipped → Root CRL signature verification fails.
+spec_refs: ["4.7"]
+expects:
+  exit_code: 10
+  rejection_code: ["ROOT_CA_UNTRUSTED", "INTERMEDIATE_REVOKED", "PCK_CHAIN_INVALID", "TCB_REVOKED", "QV_RESULT_TERMINAL_UNSPECIFIED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Symmetric to 326 but for the Intel SGX Root CA CRL. Tests that
+  the lib won't trust a tampered Root CRL — protects against an
+  attacker substituting an empty/forged Root CRL to mask
+  intermediate revocation.

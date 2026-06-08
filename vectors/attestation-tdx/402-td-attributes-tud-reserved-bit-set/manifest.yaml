@@ -1,0 +1,22 @@
+id: 402-td-attributes-tud-reserved-bit-set
+stage: verify-attestation-tdx
+title: |
+  Synth quote with TUD reserved bit 7 set → reject (bit outside FIXED0).
+spec_refs: ["4.8.2", "A.3.4"]
+expects:
+  exit_code: 10
+  rejection_code: "TD_ATTRIBUTES_RESERVED_BIT_SET"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+  attestation_tdx.extended_td_checks_supported: true
+fixture_kind: synthetic-spec-violation
+notes: |
+  Intel §A.3.4: TUD group bits 7:1 are 'Reserved for future TUD
+  flags – must be 0'.
+  
+  SPEC §4.8.2 FIXED0 mask test: bit 7 isn't in FIXED0 (bits
+  {0, 28, 30, 63}), so this bit being set fails (td_attr &
+  ~FIXED0) == 0. Guards against future spec drift where a new
+  TUD flag would unintentionally pass verification.

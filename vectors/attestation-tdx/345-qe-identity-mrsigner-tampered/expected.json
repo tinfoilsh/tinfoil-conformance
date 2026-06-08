@@ -1,0 +1,12 @@
+{
+  "stage": "verify-attestation-tdx",
+  "accepted": false,
+  "rejection": {
+    "code": [
+      "QE_IDENTITY_SIGNATURE_INVALID",
+      "QE_IDENTITY_MRSIGNER_MISMATCH",
+      "TCB_REVOKED",
+      "QV_RESULT_TERMINAL_UNSPECIFIED"
+    ]
+  }
+}

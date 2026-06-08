@@ -1,0 +1,19 @@
+id: 420-mrsignerseam-pinned-mismatch
+stage: verify-attestation-tdx
+title: |
+  policy.expected_mr_signer_seam pinned non-zero; real quote has all-zero → reject.
+spec_refs: ["4.8.4"]
+expects:
+  exit_code: 10
+  rejection_code: "MR_SIGNER_SEAM_MISMATCH"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.extended_td_checks_supported: true
+fixture_kind: synthetic-policy-pin
+notes: |
+  SPEC §4.8.4 requires MR_SIGNER_SEAM be all-zero for current
+  Intel TDX module releases. Real quote satisfies that. Pinning
+  the policy to a non-zero expected value triggers a mismatch,
+  demonstrating the binary enforces the pin even when the SPEC
+  default would have been satisfied.

@@ -1,0 +1,23 @@
+id: 341-tcb-info-expired
+stage: verify-attestation-tdx
+title: |
+  expiration_check_date past TCB Info nextUpdate → tcb info expired.
+spec_refs: ["4.7"]
+expects:
+  exit_code: 10
+  rejection_code: ["TCB_INFO_EXPIRED", "QV_RESULT_TERMINAL_UNSPECIFIED", "TCB_REVOKED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  No mutation. TCB Info nextUpdate is 2023-07-18. Setting
+  expiration_check_date_unix to 2024-07-19 puts us past it.
+  Per Intel §4.1.2 expired collateral does NOT by itself fail
+  verification — it sets p_collateral_expiration_status. SDKs
+  vary in policy on whether to surface this as a terminal
+  rejection or a warning. The list-form rejection_code accepts
+  both interpretations, plus QV_RESULT_OUT_OF_DATE since the
+  TCB Info's tcbEvaluationDataNumber (15) may be below tinfoil-
+  go's MinimumTcbEvaluationDataNumber threshold by now.

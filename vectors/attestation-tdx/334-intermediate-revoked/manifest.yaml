@@ -1,0 +1,17 @@
+id: 334-intermediate-revoked
+stage: verify-attestation-tdx
+title: |
+  Synthetic Root CRL revokes the Platform CA → INTERMEDIATE_REVOKED.
+spec_refs: ["4.7.4"]
+expects:
+  exit_code: 10
+  rejection_code: ["INTERMEDIATE_REVOKED", "PCK_REVOKED", "TCB_REVOKED", "QV_RESULT_TERMINAL_UNSPECIFIED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-intel-chain
+notes: |
+  The Root CRL is correctly signed and fresh, but it contains the
+  synthetic Platform CA serial number. This isolates the Root CRL
+  revocation-entry path from Root CRL signature and freshness.

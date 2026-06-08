@@ -1,0 +1,20 @@
+id: 322-pck-root-byte-changed
+stage: verify-attestation-tdx
+title: |
+  Byte inside the embedded Root CA cert (in quote sig data) → root rejected.
+spec_refs: ["4.2"]
+expects:
+  exit_code: 10
+  rejection_code: ["PCK_CHAIN_INVALID", "ROOT_CA_UNTRUSTED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Byte 0x1329 (inside the Root CA cert in the quote's PCK chain)
+  mutated. The mutated root cert doesn't match the trusted Intel
+  SGX Root CA, so the chain is rejected. SDKs may surface this as
+  PCK_CHAIN_INVALID (chain doesn't anchor) or ROOT_CA_UNTRUSTED
+  (the root in the chain doesn't match the embedded one).
+  Anchor: go-tdx-guest test 'Root Certificate byte Changed'
+  (verify_test.go:309).

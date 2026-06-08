@@ -1,0 +1,11 @@
+{
+  "stage": "verify-attestation-tdx",
+  "accepted": false,
+  "rejection": {
+    "code": [
+      "TCB_INFO_CHAIN_INVALID",
+      "TCB_INFO_SIGNATURE_INVALID",
+      "QV_RESULT_TERMINAL_UNSPECIFIED"
+    ]
+  }
+}

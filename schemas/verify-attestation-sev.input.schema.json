@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/schemas/verify-attestation-sev.input.schema.json",
+  "title": "verify-attestation-sev input",
+  "description": "Input piped on stdin to `tinfoil-conformance verify-attestation-sev`. Covers AMD SEV-SNP attestation verification (Tinfoil SPEC §3).",
+  "type": "object",
+  "required": ["schema_version", "attestation_doc_b64", "vcek_der_b64"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1"},
+    "attestation_doc_b64": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "description": "Standard base64-encoded gzipped 1184-byte SEV-SNP attestation report (per SPEC §3.1)."
+    },
+    "vcek_der_b64": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "description": "Standard base64-encoded DER VCEK certificate (Versioned Chip Endorsement Key, per SPEC §3.3.3). Signs the SEV-SNP report; chains to AMD SEV Key (ASK) → AMD Root Key (ARK)."
+    },
+    "amd_root_ca_pem": {
+      "type": "string",
+      "description": "Optional PEM-encoded AMD Root Key (ARK). When set, swaps the SDK's embedded ARK during verification — used by Phase 2C synthetic-chain fixtures."
+    },
+    "ask_pem": {
+      "type": "string",
+      "description": "Optional PEM-encoded AMD SEV Key (ASK). When set, overrides the SDK's embedded ASK."
+    },
+    "expiration_check_date_unix": {
+      "type": "integer",
+      "description": "Trusted current time (seconds since epoch). Compared against VCEK cert NotAfter and any CRL nextUpdate fields."
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "expected_measurement_hex": {"type": "string", "description": "Pin on body.measurement (48 bytes). Mismatch → MEASUREMENT_MISMATCH."},
+        "expected_host_data_hex": {"type": "string", "description": "Pin on body.host_data (32 bytes — SPEC §8.3 TLS pinning lives here). Mismatch → HOST_DATA_MISMATCH."},
+        "expected_report_data_hex": {"type": "string", "description": "Pin on body.report_data (64 bytes — TLS pubkey fingerprint + HPKE pubkey per Tinfoil convention). Mismatch → REPORT_DATA_MISMATCH."},
+        "expected_id_key_digest_hex": {"type": "string", "description": "Pin on body.id_key_digest (48 bytes)."},
+        "expected_author_key_digest_hex": {"type": "string", "description": "Pin on body.author_key_digest (48 bytes)."},
+        "min_tcb_bl_spl": {"type": "integer", "description": "Minimum bootloader SVN for §3.7 TCB validation."},
+        "min_tcb_tee_spl": {"type": "integer", "description": "Minimum TEE SVN."},
+        "min_tcb_snp_spl": {"type": "integer", "description": "Minimum SNP firmware SVN."},
+        "min_tcb_ucode_spl": {"type": "integer", "description": "Minimum microcode SVN."},
+        "enforce_spec_defaults": {"type": "boolean", "description": "Apply SPEC §3.7 default policy: guest_policy.debug MUST be 0; guest_policy.single_socket should be checked; mask sanity per §3.2.2."}
+      }
+    }
+  }
+}

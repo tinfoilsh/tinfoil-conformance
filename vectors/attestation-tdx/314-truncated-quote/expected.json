@@ -1,0 +1,10 @@
+{
+  "stage": "verify-attestation-tdx",
+  "accepted": false,
+  "rejection": {
+    "code": [
+      "QUOTE_TRUNCATED",
+      "QUOTE_FORMAT_UNSUPPORTED"
+    ]
+  }
+}

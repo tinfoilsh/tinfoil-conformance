@@ -1,0 +1,8 @@
+{
+  "stage": "verify-full",
+  "accepted": false,
+  "rejection": {
+    "code": "BUNDLE_MALFORMED",
+    "stage": "verify-full"
+  }
+}

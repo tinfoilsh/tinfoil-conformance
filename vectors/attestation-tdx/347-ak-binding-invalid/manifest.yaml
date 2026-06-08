@@ -1,0 +1,19 @@
+id: 347-ak-binding-invalid
+stage: verify-attestation-tdx
+title: |
+  QE report data signed by PCK but not SHA256(AK) → AK_BINDING_INVALID.
+spec_refs: ["4.5", "A.3.10"]
+expects:
+  exit_code: 10
+  rejection_code: "AK_BINDING_INVALID"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-intel-chain
+notes: |
+  Synthetic quote keeps both signatures valid: the quote is
+  signed by the embedded AK and the QE report is signed by the
+  PCK leaf. Only QE.ReportData is wrong. A verifier that checks
+  signatures but skips the AK ↔ QE report binding would accept a
+  substituted attestation key.

@@ -1,0 +1,18 @@
+id: 315-wrong-signed-data-size
+stage: verify-attestation-tdx
+title: |
+  Quote Signature Data Len byte changed → size mismatch must reject.
+spec_refs: ["4", "A.3"]
+expects:
+  exit_code: 10
+  rejection_code: ["QUOTE_FORMAT_UNSUPPORTED", "QUOTE_TRUNCATED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  go-tdx-guest's parser cross-checks the declared signature-data
+  size against actual remaining bytes. Mutation at byte 0x278
+  (within the sig_len field) makes the declared size inconsistent.
+  Anchor: go-tdx-guest test 'Signed data size byte Changed'
+  (verify_test.go:299).

@@ -1,0 +1,15 @@
+id: 364-tcb-out-of-date-config-needed
+stage: verify-attestation-tdx
+title: |
+  TCB level OutOfDateConfigurationNeeded → SPEC §4.7.7 always reject.
+spec_refs: ["4.7.7"]
+expects:
+  exit_code: 10
+  rejection_code: ["TCB_REVOKED", "QV_RESULT_TERMINAL_UNSPECIFIED", "QV_RESULT_NOT_ACCEPTED_BY_POLICY"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-intel-chain
+notes: |
+  Combined OutOfDate + Configuration. SPEC §4.7.7 always reject.

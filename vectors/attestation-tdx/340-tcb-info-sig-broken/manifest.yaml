@@ -1,0 +1,17 @@
+id: 340-tcb-info-sig-broken
+stage: verify-attestation-tdx
+title: |
+  TCB Info JSON signature field byte flipped → TCB_INFO_SIGNATURE_INVALID.
+spec_refs: ["4.7"]
+expects:
+  exit_code: 10
+  rejection_code: ["TCB_INFO_SIGNATURE_INVALID", "TCB_INFO_CHAIN_INVALID", "TCB_REVOKED", "QV_RESULT_TERMINAL_UNSPECIFIED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Flips one hex char inside the trailing 'signature' field of
+  the TCB Info JSON. Intel's signature over the inner tcbInfo no
+  longer verifies. Must reject before any TCB level matching.

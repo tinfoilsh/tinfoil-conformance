@@ -1,0 +1,16 @@
+id: 314-truncated-quote
+stage: verify-attestation-tdx
+title: |
+  Quote truncated to 64 bytes (header + 16 body bytes) — must reject as truncated.
+spec_refs: ["4", "A.3"]
+expects:
+  exit_code: 10
+  rejection_code: ["QUOTE_TRUNCATED", "QUOTE_FORMAT_UNSUPPORTED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  v4 quote minimum size is 48 (header) + 584 (body) + 4 (sig len) +
+  ≥some signature data. 64 bytes can't possibly parse. Anchor: any
+  SDK's bounds-check during parsing.

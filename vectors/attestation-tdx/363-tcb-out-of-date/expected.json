@@ -1,0 +1,11 @@
+{
+  "stage": "verify-attestation-tdx",
+  "accepted": false,
+  "rejection": {
+    "code": [
+      "TCB_REVOKED",
+      "QV_RESULT_TERMINAL_UNSPECIFIED",
+      "QV_RESULT_NOT_ACCEPTED_BY_POLICY"
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "stage": "verify-full",
+  "accepted": false,
+  "rejection": {
+    "code": "SUBJECT_DIGEST_MISMATCH",
+    "stage": "verify-sigstore"
+  }
+}

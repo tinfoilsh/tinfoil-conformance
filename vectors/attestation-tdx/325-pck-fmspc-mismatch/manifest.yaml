@@ -1,0 +1,21 @@
+id: 325-pck-fmspc-mismatch
+stage: verify-attestation-tdx
+title: |
+  policy.expected_fmspc_hex pinned to a different value → PCK_FMSPC_MISMATCH.
+spec_refs: ["4.6"]
+expects:
+  exit_code: 10
+  rejection_code: ["PCK_FMSPC_MISMATCH", "QV_RESULT_TERMINAL_UNSPECIFIED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.policy_fields_supported.expected_fmspc_hex: true
+fixture_kind: synthetic-mutation
+notes: |
+  The base quote's PCK leaf cert encodes FMSPC '50806f000000'
+  (Sapphire Rapids E4). Pinning expected_fmspc_hex to '000000000000'
+  in policy makes the verifier reject — guards against platform
+  substitution where a valid PCK chain is for the wrong silicon.
+  Gated on attestation_tdx.policy_fields_supported.expected_fmspc_hex
+  because reading the FMSPC out of the PCK leaf requires either
+  lib-internal API access or a hand-rolled PEM/X.509 ext parser.

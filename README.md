@@ -93,6 +93,14 @@ tinfoil-conformance run \
   --vectors vectors/sigstore/
 ```
 
+For TDX, add `--tdx-public-api-variants` to keep the adapter/lower-level
+fixture and also run a `::public_api` variant through the SDK's whole verifier
+entrypoint with only external dependencies hooked. The harness only auto-adds
+public variants for fixtures whose expected failure is valid before production
+policy/collateral gates. Deeper collateral and policy-pin cases stay adapter
+fixtures unless the manifest opts in with `public_api_variant: true` or the
+fixture is already authored for `execution_mode: public_api`.
+
 You can register any subset of SDKs. Each `--sdk name=cmd` registers
 one binary; `cmd` is split on whitespace, so commands with arguments
 (like `node script.js` or `uv run --no-sync tinfoil-conformance`) work
@@ -103,6 +111,28 @@ when quoted as a single string.
 ```bash
 cat results/latest/results.md
 ```
+
+### 4) Surface cross-SDK divergences
+
+```bash
+tinfoil-conformance divergence            # markdown, paste-into-PR friendly
+tinfoil-conformance divergence --json     # machine-readable
+```
+
+Auto-generated digest of the three things this suite is designed to
+expose:
+
+* **Capability divergences** — flags where SDKs disagree (false on a
+  single SDK = candidate real gap; multi-way splits = honest lib
+  differences).
+* **Rejection-code divergences** — fixtures where SDKs emit different
+  but each-allowed codes from the manifest's `rejection_code` list.
+  Pure SPEC taxonomy ambiguity.
+* **Skip causes** — per-capability matrix of which SDK skipped which
+  fixture, so the gating pattern is visible at a glance.
+
+Pure transform on `results/latest/results.json` — no SDK invocation, no
+fixture re-running.
 
 ## Adding a new fixture
 

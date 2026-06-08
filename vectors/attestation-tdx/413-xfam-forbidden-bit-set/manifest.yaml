@@ -1,0 +1,18 @@
+id: 413-xfam-forbidden-bit-set
+stage: verify-attestation-tdx
+title: |
+  Synth quote with XFAM bit outside FIXED0 mask set → reject.
+spec_refs: ["4.8.1"]
+expects:
+  exit_code: 10
+  rejection_code: "XFAM_FORBIDDEN_BIT_SET"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+  attestation_tdx.extended_td_checks_supported: true
+fixture_kind: synthetic-spec-violation
+notes: |
+  SPEC §4.8.1: XFAM_FIXED0 = 0x0006DBE7. Only these bits may be
+  set. Synth quote sets bit 31 (outside FIXED0): xfam=0x80000003
+  (FP + SSE + forbidden bit 31). Fails forbidden-bit check.

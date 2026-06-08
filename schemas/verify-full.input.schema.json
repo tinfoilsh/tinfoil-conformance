@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/schemas/verify-full.input.schema.json",
+  "title": "verify-full input",
+  "description": "Input piped on stdin to `tinfoil-conformance verify-full`. Covers SPEC §11 end-to-end orchestration: Sigstore-attested measurement (the public source of truth) is cross-checked against a freshly-fetched hardware attestation (the per-enclave proof) so that the SDK accepts only when both agree.",
+  "type": "object",
+  "required": ["schema_version", "mode"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1"},
+    "mode": {
+      "enum": ["standard", "bundle", "pinned"],
+      "description": "SPEC §11 flow mode. 'standard' (§11.1): fetch attestation + verify sigstore + cross-compare. 'bundle' (§11.2): all materials pre-assembled in one envelope. 'pinned' (§11.3): skip sigstore + hw lookup; require attestation to match a caller-pinned measurement."
+    },
+    "sigstore": {
+      "type": "object",
+      "description": "Sigstore stage inputs — mirrors verify-sigstore.input.schema.json. Required for mode='standard' and 'bundle'.",
+      "additionalProperties": false,
+      "required": ["bundle_b64", "expected_digest_sha256_hex", "repo", "policy", "trust_root_b64"],
+      "properties": {
+        "bundle_b64": {"type": "string"},
+        "expected_digest_sha256_hex": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "repo": {"type": "string"},
+        "policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "oidc_issuer": {"type": "string"},
+            "workflow_ref_prefix": {"type": "string"},
+            "predicate_types_allowed": {"type": "array", "items": {"type": "string"}},
+            "in_toto_statement_types_allowed": {"type": "array", "items": {"type": "string"}},
+            "payload_type": {"type": "string"}
+          }
+        },
+        "trust_root_b64": {"type": "string"},
+        "verification_time_unix": {"type": "integer"}
+      }
+    },
+    "attestation_sev": {
+      "type": "object",
+      "description": "SEV-SNP attestation inputs — mirrors verify-attestation-sev.input.schema.json. Required when the enclave platform is SEV-SNP.",
+      "additionalProperties": false,
+      "required": ["attestation_doc_b64", "vcek_der_b64"],
+      "properties": {
+        "attestation_doc_b64": {"type": "string"},
+        "vcek_der_b64": {"type": "string"},
+        "amd_root_ca_pem": {"type": "string"},
+        "ask_pem": {"type": "string"},
+        "expiration_check_date_unix": {"type": "integer"},
+        "policy": {"type": "object", "additionalProperties": true}
+      }
+    },
+    "attestation_tdx": {
+      "type": "object",
+      "description": "TDX attestation inputs — mirrors verify-attestation-tdx.input.schema.json. Required when the enclave platform is TDX.",
+      "additionalProperties": false,
+      "required": ["quote_b64"],
+      "properties": {
+        "quote_b64": {"type": "string"},
+        "collateral": {"type": "object", "additionalProperties": true},
+        "expiration_check_date_unix": {"type": "integer"},
+        "policy": {"type": "object", "additionalProperties": true}
+      }
+    },
+    "hardware_measurements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "mrtd", "rtmr0"],
+        "properties": {
+          "id": {"type": "string"},
+          "mrtd": {"type": "string"},
+          "rtmr0": {"type": "string"}
+        }
+      },
+      "description": "Hardware measurement list (SPEC §6 / §11.1 step 4). Only consulted when the sigstore-extracted MultiPlatform measurement reduces against a TDX attestation."
+    },
+    "pinned_measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "registers"],
+      "properties": {
+        "type": {"type": "string"},
+        "registers": {"type": "array", "items": {"type": "string"}}
+      },
+      "description": "Used only when mode='pinned'. The caller-supplied measurement that the hardware attestation MUST match (SPEC §11.3 — skips sigstore + hw lookup; suitable for re-verification or out-of-band pinning)."
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"mode": {"enum": ["standard", "bundle"]}}},
+      "then": {"required": ["sigstore"]}
+    },
+    {
+      "if": {"properties": {"mode": {"const": "pinned"}}},
+      "then": {"required": ["pinned_measurement"]}
+    }
+  ]
+}

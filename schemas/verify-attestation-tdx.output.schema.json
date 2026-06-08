@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/schemas/verify-attestation-tdx.output.schema.json",
+  "title": "verify-attestation-tdx output",
+  "description": "stdout JSON produced by `tinfoil-conformance verify-attestation-tdx`. Captures verification verdict (Intel §2.3), the SPEC §4 TDX-measurement extraction (mrtd, rtmrs), and decoded quote body fields used by Phase 4 extended-TD checks (TD Attributes bits, XFAM bits, etc.).",
+  "type": "object",
+  "required": ["stage", "accepted"],
+  "additionalProperties": false,
+  "properties": {
+    "stage": {"const": "verify-attestation-tdx"},
+    "accepted": {"type": "boolean"},
+    "outputs": {
+      "type": "object",
+      "description": "Populated when `accepted=true`. Body fields are emitted so the harness can diff cross-SDK and so Phase 5 cross-verification (Sigstore measurement vs TDX RTMRs) has them at hand.",
+      "additionalProperties": false,
+      "required": ["measurement", "qv_result", "body_fields"],
+      "properties": {
+        "measurement": {
+          "type": "object",
+          "description": "TDX-shaped Measurement per SPEC §7.1: 5 registers in TDX order [mrtd, rtmr0, rtmr1, rtmr2, rtmr3].",
+          "required": ["type", "registers"],
+          "additionalProperties": false,
+          "properties": {
+            "type": {"const": "https://tinfoil.sh/predicate/tdx-guest/v2"},
+            "registers": {
+              "type": "array",
+              "minItems": 5,
+              "maxItems": 5,
+              "items": {"type": "string", "pattern": "^[0-9a-f]{96}$"}
+            }
+          }
+        },
+        "qv_result": {
+          "enum": [
+            "OK",
+            "SW_HARDENING_NEEDED",
+            "CONFIG_NEEDED",
+            "CONFIG_AND_SW_HARDENING_NEEDED",
+            "OUT_OF_DATE",
+            "OUT_OF_DATE_CONFIG_NEEDED",
+            "TD_RELAUNCH_ADVISED",
+            "TD_RELAUNCH_ADVISED_CONFIG_NEEDED"
+          ],
+          "description": "Non-terminal verification result per Intel §B.1. Terminal results (INVALID_SIGNATURE, REVOKED, UNSPECIFIED) appear in `rejection.code` instead."
+        },
+        "tcb_status": {
+          "type": "string",
+          "description": "Optional pass-through of the TCBLevel.tcbStatus string the QVL matched (e.g. \"UpToDate\", \"OutOfDate\", \"ConfigurationNeeded\", \"Revoked\"). SDKs that don't surface this may omit."
+        },
+        "collateral_expired": {
+          "type": "boolean",
+          "description": "Mirror of Intel's `p_collateral_expiration_status` (non-zero ⇒ true). Set when expiration_check_date is past any of: X.509 NotAfter, CRL NextUpdate, JSON nextUpdate. Per Intel §4.1.2 this does not by itself fail verification."
+        },
+        "quote_version": {"type": "integer", "enum": [4, 5]},
+        "tee_type": {"const": "TDX"},
+        "fmspc_hex": {
+          "type": "string",
+          "description": "FMSPC extracted from the PCK leaf cert (hex). Useful for cross-SDK consistency checks."
+        },
+        "header_fields": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "attestation_key_type": {"type": "integer"},
+            "qe_vendor_id_hex": {"type": "string"},
+            "user_data_hex": {"type": "string"}
+          }
+        },
+        "body_fields": {
+          "type": "object",
+          "description": "Decoded TD Quote Body fields used by Phase 4 extended-TD checks and Phase 5 cross-verification. The harness diffs these across SDKs to catch parser divergence.",
+          "additionalProperties": false,
+          "required": ["mrtd_hex", "mrseam_hex", "td_attributes_hex", "xfam_hex", "report_data_hex", "rtmrs_hex"],
+          "properties": {
+            "tee_tcb_svn_hex": {"type": "string"},
+            "mrseam_hex": {"type": "string"},
+            "mrsignerseam_hex": {"type": "string"},
+            "seam_attributes_hex": {"type": "string"},
+            "td_attributes_hex": {"type": "string"},
+            "td_attributes_decoded": {
+              "type": "object",
+              "description": "Bit-decoded TDATTRIBUTES per Intel §A.3.4. Phase 4 fixtures pin individual bits.",
+              "additionalProperties": false,
+              "properties": {
+                "tud_debug":                 {"type": "boolean", "description": "Bit 0. If true, the TD runs in debug mode and is untrusted."},
+                "tud_reserved_nonzero":      {"type": "boolean", "description": "Any of bits 7:1 set."},
+                "sec_reserved_lower_nonzero":{"type": "boolean", "description": "Any of bits 27:8 set."},
+                "sec_sept_ve_disable":       {"type": "boolean", "description": "Bit 28."},
+                "sec_reserved_bit29":        {"type": "boolean", "description": "Bit 29 (reserved — must be 0)."},
+                "sec_pks":                   {"type": "boolean", "description": "Bit 30. Supervisor Protection Keys."},
+                "sec_kl":                    {"type": "boolean", "description": "Bit 31. Key Locker."},
+                "other_reserved_nonzero":    {"type": "boolean", "description": "Any of bits 62:32 set."},
+                "other_perfmon":             {"type": "boolean", "description": "Bit 63. Perfmon + PERF_METRICS."}
+              }
+            },
+            "xfam_hex": {"type": "string"},
+            "mrtd_hex": {"type": "string"},
+            "mrconfigid_hex": {"type": "string"},
+            "mrowner_hex": {"type": "string"},
+            "mrownerconfig_hex": {"type": "string"},
+            "rtmrs_hex": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "string"}},
+            "report_data_hex": {"type": "string"}
+          }
+        }
+      }
+    },
+    "rejection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code"],
+      "properties": {
+        "code": {
+          "enum": [
+            "QUOTE_FORMAT_UNSUPPORTED",
+            "QUOTE_TRUNCATED",
+            "WRONG_TEE_TYPE",
+            "ATTESTATION_KEY_TYPE_UNSUPPORTED",
+            "QE_VENDOR_UNKNOWN",
+            "PCK_CHAIN_INVALID",
+            "PCK_CHAIN_INCOMPLETE",
+            "PCK_FMSPC_MISMATCH",
+            "ROOT_CA_UNTRUSTED",
+            "PCK_EXPIRED",
+            "PCK_REVOKED",
+            "INTERMEDIATE_REVOKED",
+            "QUOTE_SIGNATURE_INVALID",
+            "QE_REPORT_SIGNATURE_INVALID",
+            "AK_BINDING_INVALID",
+            "AK_MISMATCH",
+            "TCB_INFO_SIGNATURE_INVALID",
+            "TCB_INFO_EXPIRED",
+            "TCB_INFO_CHAIN_INVALID",
+            "QE_IDENTITY_SIGNATURE_INVALID",
+            "QE_IDENTITY_EXPIRED",
+            "QE_IDENTITY_MRSIGNER_MISMATCH",
+            "QE_IDENTITY_FIELD_MISMATCH",
+            "TCB_REVOKED",
+            "QV_RESULT_TERMINAL_UNSPECIFIED",
+            "QV_RESULT_NOT_ACCEPTED_BY_POLICY",
+            "TD_ATTRIBUTES_MISMATCH",
+            "XFAM_MISMATCH",
+            "MR_SIGNER_SEAM_MISMATCH",
+            "SEAM_ATTRIBUTES_MISMATCH",
+            "MR_SEAM_NOT_ALLOWED",
+            "MRTD_MISMATCH",
+            "MR_CONFIG_ID_MISMATCH",
+            "MR_OWNER_MISMATCH",
+            "MR_OWNER_CONFIG_MISMATCH",
+            "RTMR3_NONZERO",
+            "REPORT_DATA_MISMATCH",
+            "TEE_TCB_SVN_BELOW_MINIMUM",
+            "QE_VENDOR_ID_MISMATCH",
+            "TD_ATTRIBUTES_DEBUG_SET",
+            "TD_ATTRIBUTES_RESERVED_BIT_SET",
+            "XFAM_REQUIRED_BIT_CLEAR",
+            "XFAM_FORBIDDEN_BIT_SET",
+            "TCB_EVAL_DATA_NUMBER_TOO_LOW",
+            "PCK_CRL_EXPIRED",
+            "ROOT_CRL_EXPIRED",
+            "QE_IDENTITY_ID_INVALID",
+            "QE_IDENTITY_VERSION_INVALID"
+          ],
+          "description": "SPEC-anchored rejection code. Maps to Intel §B.1 result codes + §4.1.2 verification failures. Phase 4 (Extended TD Checks) and Phase 5 (Sigstore cross-verify) will extend this enum with TDATTRIBUTES_*, REPORT_DATA_BINDING_*, etc."
+        },
+        "spec_ref": {"type": "string", "description": "Intel doc §X.Y.Z or Tinfoil SPEC §X.Y the failing check is anchored to."}
+      }
+    }
+  },
+  "oneOf": [
+    {"properties": {"accepted": {"const": true}, "outputs": true}, "required": ["outputs"]},
+    {"properties": {"accepted": {"const": false}, "rejection": true}, "required": ["rejection"]}
+  ]
+}

@@ -1,0 +1,18 @@
+id: 440-mrtd-pinned-mismatch
+stage: verify-attestation-tdx
+title: |
+  MRTD pinned to a different build digest → reject.
+spec_refs: ["4.10"]
+expects:
+  exit_code: 10
+  rejection_code: "MRTD_MISMATCH"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.extended_td_checks_supported: true
+fixture_kind: synthetic-policy-pin
+notes: |
+  Real quote's MRTD is the SPR E4 test TD's build hash. Policy
+  pins a different 48-byte value, representing 'expected a
+  different release.' Catches the case where the TLS pinning is
+  wired but the verifier doesn't actually cross-check the build.

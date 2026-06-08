@@ -1,0 +1,20 @@
+id: 313-wrong-qe-vendor
+stage: verify-attestation-tdx
+title: |
+  Quote header.qe_vendor_id != Intel UUID — should reject; some libs may silently accept.
+spec_refs: ["4", "A.3"]
+expects:
+  exit_code: 10
+  rejection_code: ["QE_VENDOR_UNKNOWN", "QUOTE_SIGNATURE_INVALID", "QUOTE_FORMAT_UNSUPPORTED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Quote header bytes 12..27 (QE Vendor ID, 16-byte UUID) zeroed.
+  Intel §A.3.1 fixes this field to 939A7233F79C4CA9940A0DB3957F0607
+  for Intel-issued QEs. SDKs SHOULD reject non-Intel vendor IDs
+  (prevents impersonation), but many today don't check this field
+  and rely on PCK chain trust anchor. Either rejection (at
+  vendor-check or at signature) or honest acceptance is a real
+  documented behavior.

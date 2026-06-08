@@ -1,0 +1,10 @@
+{
+  "stage": "verify-attestation-tdx",
+  "accepted": false,
+  "rejection": {
+    "code": [
+      "PCK_CHAIN_INVALID",
+      "ROOT_CA_UNTRUSTED"
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+id: 344-tcb-info-fmspc-tampered
+stage: verify-attestation-tdx
+title: |
+  TCB Info inner fmspc field tampered → signature mismatch.
+spec_refs: ["4.7"]
+expects:
+  exit_code: 10
+  rejection_code: ["TCB_INFO_SIGNATURE_INVALID", "PCK_FMSPC_MISMATCH", "QV_RESULT_TERMINAL_UNSPECIFIED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Modifies tcbInfo.fmspc from 50806f000000 to 000000000000.
+  Intel's signature over the canonical tcbInfo JSON no longer
+  verifies. Naturally collapses into TCB_INFO_SIGNATURE_INVALID
+  (we can't re-sign with Intel's key). Documents that field-
+  level mismatch and signature failure are indistinguishable
+  without synthetic-Intel-root fixturegen.

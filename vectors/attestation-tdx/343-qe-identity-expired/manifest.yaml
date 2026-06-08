@@ -1,0 +1,17 @@
+id: 343-qe-identity-expired
+stage: verify-attestation-tdx
+title: |
+  expiration_check_date past QE Identity nextUpdate → qe identity expired.
+spec_refs: ["4.7"]
+expects:
+  exit_code: 10
+  rejection_code: ["QE_IDENTITY_EXPIRED", "TCB_INFO_EXPIRED", "QV_RESULT_TERMINAL_UNSPECIFIED", "TCB_REVOKED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  QE Identity nextUpdate is 2023-07-08. expiration_check_date_
+  unix=2024-07-19 puts us past it. Same nuance as 341: per Intel
+  §4.1.2 expiration alone is non-terminal; SDKs vary.

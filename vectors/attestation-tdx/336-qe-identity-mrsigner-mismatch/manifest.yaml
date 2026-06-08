@@ -1,0 +1,17 @@
+id: 336-qe-identity-mrsigner-mismatch
+stage: verify-attestation-tdx
+title: |
+  Signed QE Identity MRSIGNER differs from QE report → QE_IDENTITY_MRSIGNER_MISMATCH.
+spec_refs: ["4.7.9"]
+expects:
+  exit_code: 10
+  rejection_code: ["QE_IDENTITY_MRSIGNER_MISMATCH", "QE_IDENTITY_FIELD_MISMATCH", "QV_RESULT_TERMINAL_UNSPECIFIED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-intel-chain
+notes: |
+  The QE Identity envelope is signed and fresh, but its MRSIGNER
+  field is all-zero while the QE report carries the synthetic DC*
+  MRSIGNER. This reaches the field comparison path directly.

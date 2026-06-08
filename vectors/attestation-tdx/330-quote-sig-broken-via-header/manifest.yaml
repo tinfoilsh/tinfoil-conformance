@@ -1,0 +1,17 @@
+id: 330-quote-sig-broken-via-header
+stage: verify-attestation-tdx
+title: |
+  Header byte mutated → quote signature verification fails (signed-bytes integrity).
+spec_refs: ["4.3"]
+expects:
+  exit_code: 10
+  rejection_code: "QUOTE_SIGNATURE_INVALID"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Byte 0x1E (inside the header, signed by the AK) mutated. The
+  AK signature over (header || body) no longer matches → quote
+  signature invalid. Anchor: go-tdx-guest test 'Header Byte
+  Changed' (verify_test.go:324).

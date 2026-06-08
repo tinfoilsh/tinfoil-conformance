@@ -1,0 +1,21 @@
+id: 326-pck-crl-sig-broken
+stage: verify-attestation-tdx
+title: |
+  PCK CRL DER byte flipped → CRL signature verification fails (revocation path unreachable).
+spec_refs: ["4.7"]
+expects:
+  exit_code: 10
+  rejection_code: ["PCK_REVOKED", "PCK_CHAIN_INVALID", "TCB_REVOKED", "QV_RESULT_TERMINAL_UNSPECIFIED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Byte mutation inside the PCK CRL DER (toward the end, in the
+  Intel intermediate's signature region). We can't add a real
+  revocation entry (would require Intel's intermediate key);
+  this fixture instead exercises the lib's CRL signature
+  validation, which must reject before any revocation match is
+  considered. Real-world incident analog: an attacker corrupting
+  the cached CRL to bypass revocation.

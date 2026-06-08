@@ -1,0 +1,49 @@
+id: 300-tdx-v4-happy
+stage: verify-attestation-tdx
+title: |
+  Real Intel-signed TDX v4 quote (SPR E4) verifies with full collateral.
+spec_refs: ["4", "A.3"]
+expects:
+  exit_code: 0
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+fixture_kind: real-frozen-bundle
+notes: |
+  Phase 1 happy path — the foundation fixture for verify-attestation-tdx.
+
+  Sourced from google/go-tdx-guest@v0.3.1 testdata (Apache-2.0,
+  testing/testdata/tdx_prod_quote_SPR_E4.dat). This is a real
+  production TDX quote signed by an Intel SGX Quoting Enclave on a
+  Sapphire Rapids E4 platform, with the matching real Intel-signed
+  collateral (TCB Info for FMSPC 50806f000000, QE Identity, PCK CRL,
+  Root CA CRL).
+
+  expiration_check_date_unix = 1688083200 (2023-06-30 00:00:00 UTC) is
+  inside the intersection of TCB Info validity (2023-06-18..2023-07-18)
+  and QE Identity validity (2023-06-08..2023-07-08). Using a date
+  outside this window would set collateral_expired=true; per Intel
+  §4.1.2 that does NOT by itself fail the verification.
+
+  Pinned outputs are only those deterministically derivable from the
+  quote bytes (parser-side): quote_version, tee_type, the measurement
+  array (mrtd + rtmr0..3), and the decoded TD Quote Body fields.
+  qv_result, tcb_status, and collateral_expired are SDK/collateral-
+  evaluation outputs and left unpinned in Phase 1 — they get pinned
+  in Phase 3 (TCB evaluation) where each result code gets a dedicated
+  fixture.
+
+  Notable body fields (parser sanity check):
+    * DEBUG bit         = 0           (TD is not in debug mode — trustable)
+    * TUD reserved      = 0           (no future-flag noise)
+    * SEC reserved      = 0           (lower SEC reserved range clean)
+    * SEPT_VE_DISABLE   = 0           (test quote; production Tinfoil pins =1)
+    * PKS               = 1           (Supervisor Protection Keys enabled)
+    * KL                = 0           (Key Locker disabled)
+    * PERFMON           = 0
+    * RTMR3             = all zeros   (SPEC §7.3.6 invariant carries to TDX)
+
+  Gated on `platforms_supported includes "tdx"`. tinfoil-js declares
+  platforms_supported=["sev-snp"] only (PredicateType.TdxGuestV2 not in
+  the verifier enum), so this fixture skips cleanly on JS until a
+  TDX-aware verifier ships there.

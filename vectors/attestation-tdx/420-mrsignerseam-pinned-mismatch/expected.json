@@ -1,0 +1,7 @@
+{
+  "stage": "verify-attestation-tdx",
+  "accepted": false,
+  "rejection": {
+    "code": "MR_SIGNER_SEAM_MISMATCH"
+  }
+}

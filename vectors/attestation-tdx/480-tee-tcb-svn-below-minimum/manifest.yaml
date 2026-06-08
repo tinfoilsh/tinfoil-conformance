@@ -1,0 +1,18 @@
+id: 480-tee-tcb-svn-below-minimum
+stage: verify-attestation-tdx
+title: |
+  policy.min_tee_tcb_svn higher than quote's components → reject (SPEC §4.8.7).
+spec_refs: ["4.8.7"]
+expects:
+  exit_code: 10
+  rejection_code: "TEE_TCB_SVN_BELOW_MINIMUM"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.extended_td_checks_supported: true
+fixture_kind: synthetic-policy-pin
+notes: |
+  Real quote has tee_tcb_svn=03000400000000000000000000000000.
+  Min policy pins each byte to 0xFF — the quote's byte 0 (3) is
+  below 0xFF, triggering rejection on the very first comparison.
+  Verifies the component-wise comparison runs left-to-right.

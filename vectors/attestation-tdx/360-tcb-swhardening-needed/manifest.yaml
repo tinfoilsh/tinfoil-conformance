@@ -1,0 +1,24 @@
+id: 360-tcb-swhardening-needed
+stage: verify-attestation-tdx
+title: |
+  TCB level SWHardeningNeeded → accept (SPEC §4.7.7 non-terminal default).
+spec_refs: ["4.7.7"]
+expects:
+  exit_code: 0
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+  attestation_tdx.accepts_non_terminal_tcb_statuses: true
+fixture_kind: synthetic-intel-chain
+notes: |
+  Tinfoil SPEC §4.7.7 lists SWHardeningNeeded as 'Yes (default)'
+  — SDKs MAY reject for stricter posture but the default is
+  acceptance. Intel §B.1: SW_HARDENING_NEEDED is a non-terminal
+  result requiring relying-party policy decision.
+  
+  Cross-SDK divergence: tinfoil-python's validate_tcb_status
+  accepts these statuses (SPEC-aligned). go-tdx-guest's
+  ErrTcbStatus rejects every non-UpToDate status. Gated on
+  accepts_non_terminal_tcb_statuses; Go skips honestly until
+  the lib gains a permissive-policy knob.

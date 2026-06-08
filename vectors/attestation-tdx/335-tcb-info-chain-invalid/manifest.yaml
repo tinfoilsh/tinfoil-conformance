@@ -1,0 +1,18 @@
+id: 335-tcb-info-chain-invalid
+stage: verify-attestation-tdx
+title: |
+  Synthetic TCB Info issuer chain uses an untrusted root → TCB_INFO_CHAIN_INVALID.
+spec_refs: ["4.7.3"]
+expects:
+  exit_code: 10
+  rejection_code: ["TCB_INFO_CHAIN_INVALID", "TCB_INFO_SIGNATURE_INVALID", "QV_RESULT_TERMINAL_UNSPECIFIED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-intel-chain
+notes: |
+  The TCB Info JSON itself is signed by the quote's synthetic TCB
+  signer, but the supplied TCB Info issuer chain is from a
+  different synthetic root. Verifiers must reject the collateral
+  issuer chain before trusting the signed TCB payload.

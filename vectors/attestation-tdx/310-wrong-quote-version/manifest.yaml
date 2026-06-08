@@ -1,0 +1,18 @@
+id: 310-wrong-quote-version
+stage: verify-attestation-tdx
+title: |
+  Quote header.version byte set to 3 → must reject as format unsupported.
+spec_refs: ["4", "A.3"]
+expects:
+  exit_code: 10
+  rejection_code: "QUOTE_FORMAT_UNSUPPORTED"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Single-byte mutation at offset 0x00 → 0x03. go-tdx-guest's parser
+  rejects at QuoteToProto with 'quote format not supported'. We only
+  support v4 (§A.3) and v5 (§A.4) — versions 1-3 are EPID-era SGX
+  quotes that aren't applicable to TDX. Anchor: go-tdx-guest test
+  'Version byte Changed' (verify_test.go:294).

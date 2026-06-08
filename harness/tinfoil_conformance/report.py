@@ -47,14 +47,17 @@ def _fixture_code_mapping(vectors_root: Path) -> dict[str, list[str]]:
         except Exception:
             continue
         fid = m.get("id") or manifest_path.parent.name
+        rel = str(manifest_path.parent.relative_to(vectors_root))
         expects = m.get("expects", {}) or {}
         code = expects.get("rejection_code")
         if code is None:
-            out[fid] = []
+            codes = []
         elif isinstance(code, str):
-            out[fid] = [code]
+            codes = [code]
         else:
-            out[fid] = list(code)
+            codes = list(code)
+        out[fid] = codes
+        out[rel] = codes
     return out
 
 
@@ -76,6 +79,11 @@ def write_results_json(
                         "status": r.status,
                         "got_exit": r.got_exit,
                         "reason": r.reason,
+                        # Body (parsed stdout JSON) is captured so post-hoc
+                        # analyses — divergence reports, regression diffs —
+                        # can read the SDK's actual rejection.code / outputs
+                        # without re-running the suite.
+                        "body": r.got_output,
                     }
                     for name, r in per_sdk.items()
                 },
@@ -148,7 +156,9 @@ def _render_coverage_section(
 
     # code -> list of (fixture_id, per-sdk status dict)
     by_code: dict[str, list[tuple[str, dict[str, str]]]] = defaultdict(list)
-    for fid, codes_for_fix in fixture_codes.items():
+    for fid in results:
+        base_fid = fid.split("::", 1)[0]
+        codes_for_fix = fixture_codes.get(base_fid, [])
         if not codes_for_fix:
             continue
         per_sdk_status = {

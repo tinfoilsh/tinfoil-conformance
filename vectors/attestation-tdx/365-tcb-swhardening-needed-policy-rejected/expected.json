@@ -1,0 +1,7 @@
+{
+  "stage": "verify-attestation-tdx",
+  "accepted": false,
+  "rejection": {
+    "code": "QV_RESULT_NOT_ACCEPTED_BY_POLICY"
+  }
+}

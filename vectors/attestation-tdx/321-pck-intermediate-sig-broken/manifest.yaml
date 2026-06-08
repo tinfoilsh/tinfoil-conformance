@@ -1,0 +1,17 @@
+id: 321-pck-intermediate-sig-broken
+stage: verify-attestation-tdx
+title: |
+  Byte inside the Intermediate Platform CA cert flipped → chain verification fails.
+spec_refs: ["4.2"]
+expects:
+  exit_code: 10
+  rejection_code: "PCK_CHAIN_INVALID"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Byte 0xF5F (inside Intermediate CA cert's signed portion) mutated.
+  The Root CA's signature over the Intermediate no longer verifies
+  → PCK_CHAIN_INVALID. Anchor: go-tdx-guest test 'Intermediate
+  Certificate byte Changed' (verify_test.go:314).

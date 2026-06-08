@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import runner
+from .divergence import analyze, render_markdown
 from .report import write_markdown, write_results_json
 
 
@@ -21,7 +22,10 @@ def cmd_run(args: argparse.Namespace) -> int:
             print(f"ERROR: {sdk.name}: cannot load capabilities: {e}", file=sys.stderr)
             return 2
 
-    fixtures = runner.discover_fixtures(Path(args.vectors))
+    fixtures = runner.discover_fixture_cases(
+        Path(args.vectors),
+        tdx_public_api_variants=args.tdx_public_api_variants,
+    )
     if not fixtures:
         print(f"No fixtures found under {args.vectors}", file=sys.stderr)
         return 2
@@ -31,10 +35,14 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     results: dict[str, dict[str, runner.FixtureResult]] = {}
     for fix in fixtures:
-        key = str(fix.relative_to(args.vectors))
+        key = fix.id
         results[key] = {}
         for sdk in sdks:
-            r = runner.run_fixture(fix, sdk)
+            r = runner.run_fixture(
+                fix.fixture_dir,
+                sdk,
+                execution_mode=fix.execution_mode,
+            )
             results[key][sdk.name] = r
             sym = {"pass": "✓", "fail": "✗", "skip": "·", "error": "!"}[r.status]
             print(f"  [{sdk.name:14s}] {sym} {key}", file=sys.stderr)
@@ -66,6 +74,27 @@ def cmd_capabilities(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_divergence(args: argparse.Namespace) -> int:
+    """Analyze a results.json and surface cross-SDK divergences.
+
+    Pure transform — no SDK invocation, no fixture running. Reads
+    `results/latest/results.json` by default; pass `--results` to point at a
+    specific run. Output is markdown (default, paste-into-PR friendly) or
+    machine-readable JSON with `--json`."""
+    results_path = args.results or (Path("results") / "latest" / "results.json")
+    if not results_path.exists():
+        print(f"results.json not found at {results_path}", file=sys.stderr)
+        return 2
+    vectors_root = args.vectors  # may be None — rejection-code allowed-list lookup is best-effort
+    report = analyze(results_path, vectors_root=vectors_root)
+    if args.json:
+        json.dump(report, sys.stdout, indent=2, sort_keys=True, default=str)
+        sys.stdout.write("\n")
+    else:
+        sys.stdout.write(render_markdown(report))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="tinfoil-conformance",
                                 description="Cross-SDK conformance test runner")
@@ -77,11 +106,41 @@ def main(argv: list[str] | None = None) -> int:
     pr.add_argument("--vectors", required=True, type=Path,
                     help="Path to vectors directory (recursive).")
     pr.add_argument("--output-dir", default="results", type=Path)
+    pr.add_argument(
+        "--tdx-public-api-variants",
+        action="store_true",
+        help=(
+            "For verify-attestation-tdx adapter fixtures, also run a "
+            "'::public_api' variant with execution_mode=public_api. This keeps "
+            "lower-level adapter coverage while exercising compatible fixtures "
+            "through the whole verifier entrypoint with dependency hooks."
+        ),
+    )
     pr.set_defaults(func=cmd_run)
 
     pc = sub.add_parser("capabilities", help="Dump one SDK's capabilities JSON")
     pc.add_argument("--sdk", required=True, metavar="NAME=CMD")
     pc.set_defaults(func=cmd_capabilities)
+
+    pd = sub.add_parser(
+        "divergence",
+        help="Analyze a results.json and surface cross-SDK divergences "
+             "(capability flags, rejection codes, skip causes).",
+    )
+    pd.add_argument(
+        "--results", type=Path, default=None,
+        help="Path to results.json (default: results/latest/results.json).",
+    )
+    pd.add_argument(
+        "--vectors", type=Path, default=Path("vectors"),
+        help="Path to vectors directory — used to look up each fixture's "
+             "allowed rejection_code list. Best-effort; omit if vectors aren't local.",
+    )
+    pd.add_argument(
+        "--json", action="store_true",
+        help="Emit machine-readable JSON instead of markdown.",
+    )
+    pd.set_defaults(func=cmd_divergence)
 
     args = p.parse_args(argv)
     return args.func(args)

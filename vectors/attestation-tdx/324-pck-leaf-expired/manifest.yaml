@@ -1,0 +1,22 @@
+id: 324-pck-leaf-expired
+stage: verify-attestation-tdx
+title: |
+  expiration_check_date past PCK leaf NotAfter → cert expired rejection.
+spec_refs: ["4.2"]
+expects:
+  exit_code: 10
+  rejection_code: ["PCK_EXPIRED", "PCK_CHAIN_INVALID"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.verification_time_override: "supported"
+fixture_kind: synthetic-mutation
+notes: |
+  No byte mutation. The base quote's PCK leaf cert NotAfter is
+  2029-09-20 (from the cert chain). Setting
+  expiration_check_date_unix to 2100-01-01 (far past) triggers
+  the expiration check during chain validation. Some SDKs surface
+  this as PCK_EXPIRED, others fold it into PCK_CHAIN_INVALID.
+  Gated on attestation_tdx.verification_time_override='supported'
+  — SDKs whose verifier reads datetime.now() unconditionally (e.g.
+  tinfoil-python's cert_utils.verify_intel_chain) skip cleanly.

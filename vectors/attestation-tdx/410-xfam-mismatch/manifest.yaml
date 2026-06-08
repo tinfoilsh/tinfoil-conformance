@@ -1,0 +1,18 @@
+id: 410-xfam-mismatch
+stage: verify-attestation-tdx
+title: |
+  policy.expected_xfam pinned to a value the quote doesn't match → reject.
+spec_refs: ["4.8.1"]
+expects:
+  exit_code: 10
+  rejection_code: "XFAM_MISMATCH"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.extended_td_checks_supported: true
+fixture_kind: synthetic-policy-pin
+notes: |
+  Real quote has xfam=e71a060000000000. Policy pins
+  0000000000000000 (all zero — would violate SPEC §4.8.1
+  XFAM_FIXED1 requirement that FP+SSE bits be set). The fixture
+  verifies the pin comparison works.

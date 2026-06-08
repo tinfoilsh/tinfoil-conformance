@@ -1,0 +1,22 @@
+id: 520-pinned-flow-measurement-mismatch
+stage: verify-full
+title: |
+  Pinned measurement doesn't match SEV attestation → MEASUREMENT_MISMATCH.
+spec_refs: ["11.3", "7.3"]
+expects:
+  exit_code: 10
+  rejection_code: "MEASUREMENT_MISMATCH"
+  rejection_stage: "verify-measurement"
+required_capabilities:
+  attestation_sev.supported: true
+  attestation_sev.injected_collateral_supported: true
+  flow_modes_supported: "pinned"
+fixture_kind: composite
+notes: |
+  Negative pinned-flow fixture: pin all-0xff SEV measurement,
+  fresh attestation reports the real Genoa measurement. The
+  verify-measurement sub-stage MUST reject as MEASUREMENT_MISMATCH
+  with rejection.stage='verify-measurement'.
+  
+  Confirms the verify-full chain doesn't short-circuit on sigstore
+  or attestation success — the final cross-check is normative.

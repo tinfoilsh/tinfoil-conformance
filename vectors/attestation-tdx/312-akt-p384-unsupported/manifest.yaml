@@ -1,0 +1,17 @@
+id: 312-akt-p384-unsupported
+stage: verify-attestation-tdx
+title: |
+  Quote header.attestation_key_type set to 3 (P-384) — must reject (not supported).
+spec_refs: ["4", "A.3"]
+expects:
+  exit_code: 10
+  rejection_code: ["ATTESTATION_KEY_TYPE_UNSUPPORTED", "QUOTE_FORMAT_UNSUPPORTED", "QUOTE_SIGNATURE_INVALID"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Intel §A.3.1 lists AKT=3 (ECDSA-P-384) but marks it 'currently
+  not supported'. AKT=2 (P-256) is the only one in the wild. SDKs
+  must either reject the AKT value up-front or fail at signature
+  verification when the supposed P-384 key fails to load as P-256.

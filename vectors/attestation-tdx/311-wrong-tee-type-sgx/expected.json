@@ -1,0 +1,11 @@
+{
+  "stage": "verify-attestation-tdx",
+  "accepted": false,
+  "rejection": {
+    "code": [
+      "WRONG_TEE_TYPE",
+      "QUOTE_FORMAT_UNSUPPORTED",
+      "QUOTE_SIGNATURE_INVALID"
+    ]
+  }
+}

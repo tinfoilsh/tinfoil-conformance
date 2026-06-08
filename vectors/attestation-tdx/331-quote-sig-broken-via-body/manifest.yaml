@@ -1,0 +1,18 @@
+id: 331-quote-sig-broken-via-body
+stage: verify-attestation-tdx
+title: |
+  TD body byte mutated → quote signature verification fails.
+spec_refs: ["4.3"]
+expects:
+  exit_code: 10
+  rejection_code: "QUOTE_SIGNATURE_INVALID"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Byte 0x3C (inside the TD Quote Body, also signed by the AK)
+  mutated. Symmetric to 330 but exercises body integrity: a
+  single bit-flip inside MR_SEAM / MR_TD / RTMRs invalidates the
+  AK signature. Anchor: go-tdx-guest test 'TD Quote Body Changed'
+  (verify_test.go:329).

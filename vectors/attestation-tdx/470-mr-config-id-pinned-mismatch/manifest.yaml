@@ -1,0 +1,15 @@
+id: 470-mr-config-id-pinned-mismatch
+stage: verify-attestation-tdx
+title: |
+  MR_CONFIG_ID pinned non-zero; real is all-zero → reject.
+spec_refs: ["4.8.6"]
+expects:
+  exit_code: 10
+  rejection_code: "MR_CONFIG_ID_MISMATCH"
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.extended_td_checks_supported: true
+fixture_kind: synthetic-policy-pin
+notes: |
+  SPEC §4.8.6 default is all-zero. Real satisfies. Pin non-zero → mismatch.

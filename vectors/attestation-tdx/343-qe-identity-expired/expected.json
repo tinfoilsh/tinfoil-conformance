@@ -1,0 +1,12 @@
+{
+  "stage": "verify-attestation-tdx",
+  "accepted": false,
+  "rejection": {
+    "code": [
+      "QE_IDENTITY_EXPIRED",
+      "TCB_INFO_EXPIRED",
+      "QV_RESULT_TERMINAL_UNSPECIFIED",
+      "TCB_REVOKED"
+    ]
+  }
+}

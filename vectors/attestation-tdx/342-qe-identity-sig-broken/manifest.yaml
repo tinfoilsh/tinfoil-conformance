@@ -1,0 +1,17 @@
+id: 342-qe-identity-sig-broken
+stage: verify-attestation-tdx
+title: |
+  QE Identity JSON signature field byte flipped → QE_IDENTITY_SIGNATURE_INVALID.
+spec_refs: ["4.7"]
+expects:
+  exit_code: 10
+  rejection_code: ["QE_IDENTITY_SIGNATURE_INVALID", "QE_IDENTITY_FIELD_MISMATCH", "TCB_REVOKED", "QV_RESULT_TERMINAL_UNSPECIFIED"]
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Same idea as 340. Intel's signature over the inner
+  enclaveIdentity no longer verifies; the lib must reject
+  before any QE identity field comparison.

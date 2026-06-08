@@ -1,0 +1,15 @@
+id: 361-tcb-configuration-needed
+stage: verify-attestation-tdx
+title: |
+  TCB level ConfigurationNeeded → accept (SPEC §4.7.7 non-terminal default).
+spec_refs: ["4.7.7"]
+expects:
+  exit_code: 0
+required_capabilities:
+  attestation_tdx.supported: true
+  attestation_tdx.injected_collateral_supported: true
+  attestation_tdx.tcb_evaluation_supported: true
+  attestation_tdx.accepts_non_terminal_tcb_statuses: true
+fixture_kind: synthetic-intel-chain
+notes: |
+  Tinfoil SPEC §4.7.7 'Yes (default)'. Same gating as 360.

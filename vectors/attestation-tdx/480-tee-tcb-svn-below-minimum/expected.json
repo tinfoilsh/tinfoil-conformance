@@ -1,0 +1,7 @@
+{
+  "stage": "verify-attestation-tdx",
+  "accepted": false,
+  "rejection": {
+    "code": "TEE_TCB_SVN_BELOW_MINIMUM"
+  }
+}
