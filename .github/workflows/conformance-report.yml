@@ -1,0 +1,197 @@
+name: Conformance report
+
+# Manually-triggered pipeline that builds each SDK's tinfoil-conformance binary,
+# runs the full cross-SDK suite, and generates the homogenization report
+# (HTML heatmap + markdown + CSV) via gen_report.py. The markdown report is
+# also rendered into the run summary, and all artifacts are uploaded.
+#
+# Cross-repo checkout: if the SDK repos are private, add a repo secret
+# SDK_TOKEN (a PAT / fine-grained token with read access to the tinfoil-* SDK
+# repos). For public repos the default GITHUB_TOKEN is sufficient.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sdks:
+        description: "SDKs to include (comma-separated: go,py,rs,js,js-tdx)"
+        default: "go,py,rs,js,js-tdx"
+        type: string
+      go_ref:
+        description: "tinfoil-go ref"
+        default: "feat/tinfoil-conformance"
+        type: string
+      python_ref:
+        description: "tinfoil-python ref"
+        default: "feat/tinfoil-conformance"
+        type: string
+      rust_ref:
+        description: "tinfoil-rs ref"
+        default: "feat/tinfoil-conformance"
+        type: string
+      js_ref:
+        description: "tinfoil-js ref (no-TDX variant)"
+        default: "feat/tinfoil-conformance"
+        type: string
+      js_tdx_ref:
+        description: "tinfoil-js ref (TDX variant)"
+        default: "feat/tdx-support"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    env:
+      # Comma-wrapped so we can match whole tokens (',js,' won't match 'js-tdx').
+      SELECTED: ",${{ inputs.sdks }},"
+    steps:
+      - name: Check out conformance suite
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Rust (cargo) is preinstalled on ubuntu-latest runners.
+
+      # --- Check out the SDK repos (best-effort; a failure is tolerated so the
+      #     report still runs for whatever SDKs are available) ---
+      - name: Check out tinfoil-go
+        if: contains(env.SELECTED, ',go,')
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: tinfoilsh/tinfoil-go
+          ref: ${{ inputs.go_ref }}
+          path: sdks/tinfoil-go
+          token: ${{ secrets.SDK_TOKEN || github.token }}
+
+      - name: Check out tinfoil-python
+        if: contains(env.SELECTED, ',py,')
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: tinfoilsh/tinfoil-python
+          ref: ${{ inputs.python_ref }}
+          path: sdks/tinfoil-python
+          token: ${{ secrets.SDK_TOKEN || github.token }}
+
+      - name: Check out tinfoil-rs
+        if: contains(env.SELECTED, ',rs,')
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: tinfoilsh/tinfoil-rs
+          ref: ${{ inputs.rust_ref }}
+          path: sdks/tinfoil-rs
+          token: ${{ secrets.SDK_TOKEN || github.token }}
+
+      - name: Check out tinfoil-js (no-TDX)
+        if: contains(env.SELECTED, ',js,')
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: tinfoilsh/tinfoil-js
+          ref: ${{ inputs.js_ref }}
+          path: sdks/tinfoil-js
+          token: ${{ secrets.SDK_TOKEN || github.token }}
+
+      - name: Check out tinfoil-js (TDX)
+        if: contains(env.SELECTED, ',js-tdx,')
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: tinfoilsh/tinfoil-js
+          ref: ${{ inputs.js_tdx_ref }}
+          path: sdks/tinfoil-js-tdx
+          token: ${{ secrets.SDK_TOKEN || github.token }}
+
+      # --- Build each SDK's conformance binary (best-effort) ---
+      - name: Build tinfoil-go
+        if: contains(env.SELECTED, ',go,') && hashFiles('sdks/tinfoil-go/go.mod') != ''
+        continue-on-error: true
+        working-directory: sdks/tinfoil-go
+        run: go build -tags tinfoil_conformance -o bin/tinfoil-conformance ./cmd/tinfoil-conformance/
+
+      - name: Build tinfoil-python
+        if: contains(env.SELECTED, ',py,') && hashFiles('sdks/tinfoil-python/pyproject.toml') != ''
+        continue-on-error: true
+        run: |
+          python -m venv sdks/tinfoil-python/.venv
+          sdks/tinfoil-python/.venv/bin/pip install --quiet -e sdks/tinfoil-python
+
+      - name: Build tinfoil-rs
+        if: contains(env.SELECTED, ',rs,') && hashFiles('sdks/tinfoil-rs/Cargo.toml') != ''
+        continue-on-error: true
+        working-directory: sdks/tinfoil-rs
+        run: cargo build --release --bin tinfoil-conformance
+
+      - name: Build tinfoil-js (no-TDX)
+        if: contains(env.SELECTED, ',js,') && hashFiles('sdks/tinfoil-js/package.json') != ''
+        continue-on-error: true
+        working-directory: sdks/tinfoil-js
+        run: |
+          npm ci
+          npm run build -w @tinfoilsh/verifier
+          npm run build -w @tinfoilsh/conformance
+
+      - name: Build tinfoil-js (TDX)
+        if: contains(env.SELECTED, ',js-tdx,') && hashFiles('sdks/tinfoil-js-tdx/package.json') != ''
+        continue-on-error: true
+        working-directory: sdks/tinfoil-js-tdx
+        run: |
+          npm ci
+          npm run build -w @tinfoilsh/verifier
+          npm run build -w @tinfoilsh/conformance
+
+      # --- Install the harness + report deps in their own venv ---
+      - name: Install harness
+        run: |
+          python -m venv .harness-venv
+          .harness-venv/bin/pip install --quiet ./harness pyyaml
+
+      # --- Run the suite against whatever binaries built, then the report ---
+      - name: Run suite + generate report
+        run: |
+          set -euo pipefail
+          args=()
+          go_bin="$PWD/sdks/tinfoil-go/bin/tinfoil-conformance"
+          py_bin="$PWD/sdks/tinfoil-python/.venv/bin/tinfoil-conformance"
+          rs_bin="$PWD/sdks/tinfoil-rs/target/release/tinfoil-conformance"
+          js_cli="$PWD/sdks/tinfoil-js/packages/conformance/dist/cli.js"
+          js_tdx_cli="$PWD/sdks/tinfoil-js-tdx/packages/conformance/dist/cli.js"
+          [ -x "$go_bin" ]     && args+=(--sdk "tinfoil-go=$go_bin")
+          [ -x "$py_bin" ]     && args+=(--sdk "tinfoil-py=$py_bin")
+          [ -x "$rs_bin" ]     && args+=(--sdk "tinfoil-rs=$rs_bin")
+          [ -f "$js_cli" ]     && args+=(--sdk "tinfoil-js=node $js_cli")
+          [ -f "$js_tdx_cli" ] && args+=(--sdk "tinfoil-js-tdx=node $js_tdx_cli")
+          if [ ${#args[@]} -eq 0 ]; then
+            echo "::error::No SDK conformance binaries were built — check the SDK checkout/build steps (private repos need the SDK_TOKEN secret)."
+            exit 1
+          fi
+          echo "Registered SDKs: ${args[*]}"
+          .harness-venv/bin/tinfoil-conformance run "${args[@]}" \
+            --vectors vectors/ --tdx-public-api-variants
+          .harness-venv/bin/python gen_report.py \
+            --results results/latest/results.json \
+            --vectors vectors/ \
+            --out results/latest/report
+
+      - name: Render report into job summary
+        if: always() && hashFiles('results/latest/report/report.md') != ''
+        run: cat results/latest/report/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report artifacts
+        if: always() && hashFiles('results/latest/report/*') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-report
+          path: results/latest/report/
+          if-no-files-found: warn
