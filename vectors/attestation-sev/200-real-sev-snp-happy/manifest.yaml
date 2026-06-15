@@ -9,6 +9,7 @@ required_capabilities:
   attestation_sev.supported: true
   attestation_sev.injected_collateral_supported: true
 fixture_kind: real-frozen-bundle
+public_api_variant: true
 notes: |
   Phase 1 happy path — the foundation fixture for verify-attestation-sev.
   

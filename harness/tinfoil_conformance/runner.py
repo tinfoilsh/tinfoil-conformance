@@ -18,7 +18,13 @@ EXIT_UNSUPPORTED = 20
 EXIT_BAD_INPUT = 30
 
 
-PUBLIC_API_PRE_POLICY_REJECTION_CODES = {
+# Rejection codes whose failure is semantically valid *before* the verifier's
+# production policy/collateral gates fire. A public-api variant is only
+# auto-generated for an adapter fixture whose expected failure is in this set,
+# so the full public path can't produce a misleading pass from an unrelated
+# early gate (or skip a check the adapter isolated). Per stage, since the
+# verification pipelines differ.
+TDX_PUBLIC_API_PRE_POLICY_REJECTION_CODES = {
     "QUOTE_FORMAT_UNSUPPORTED",
     "QUOTE_TRUNCATED",
     "WRONG_TEE_TYPE",
@@ -32,6 +38,39 @@ PUBLIC_API_PRE_POLICY_REJECTION_CODES = {
     "QE_REPORT_SIGNATURE_INVALID",
     "AK_BINDING_INVALID",
     "AK_MISMATCH",
+}
+
+# SEV-SNP structural / signature / VCEK-chain failures — everything the SDK's
+# real verifier (report parse + signature + VCEK chain against the embedded
+# AMD root) rejects on its own, before any Tinfoil §3.7 policy-pin check. The
+# §3.7 policy-pin codes (MEASUREMENT_MISMATCH, HOST_DATA_MISMATCH, …) are
+# intentionally excluded: the SDK's public verifier doesn't enforce them, so
+# those fixtures stay adapter-only.
+SEV_PUBLIC_API_PRE_POLICY_REJECTION_CODES = {
+    "REPORT_FORMAT_UNSUPPORTED",
+    "REPORT_SIGNATURE_INVALID",
+    "REPORT_TRUNCATED",
+    "WRONG_REPORT_VERSION",
+    "VCEK_CHAIN_INVALID",
+    "VCEK_HWID_MISMATCH",
+    "VCEK_TCB_MISMATCH",
+    # VCEK_EXPIRED is intentionally excluded: it is time-dependent and the
+    # public verifier path generally can't override the verification clock, so
+    # it would spuriously accept. Stays adapter-only.
+}
+
+# Stages that support an execution_mode=public_api variant: the capability flag
+# an SDK must declare true, and the pre-policy code set above. Adding a stage
+# here generalizes the variant mechanism to it.
+PUBLIC_API_STAGES: dict[str, dict[str, Any]] = {
+    "verify-attestation-tdx": {
+        "capability": "attestation_tdx.public_api_hooks_supported",
+        "pre_policy_codes": TDX_PUBLIC_API_PRE_POLICY_REJECTION_CODES,
+    },
+    "verify-attestation-sev": {
+        "capability": "attestation_sev.public_api_hooks_supported",
+        "pre_policy_codes": SEV_PUBLIC_API_PRE_POLICY_REJECTION_CODES,
+    },
 }
 
 
@@ -117,7 +156,9 @@ def run_fixture(
     expects = manifest["expects"]
     required_caps: dict[str, Any] = dict(manifest.get("required_capabilities") or {})
     if execution_mode == "public_api":
-        required_caps["attestation_tdx.public_api_hooks_supported"] = True
+        stage_cfg = PUBLIC_API_STAGES.get(stage)
+        if stage_cfg:
+            required_caps[stage_cfg["capability"]] = True
 
     stages_supported = sdk.capabilities.get("stages_supported", []) or []
     if stage not in stages_supported:
@@ -254,17 +295,21 @@ def _expected_rejection_codes(expects: dict[str, Any]) -> set[str]:
     return {str(code) for code in want_code}
 
 
-def tdx_public_api_variant_applicable(manifest: dict[str, Any]) -> bool:
+def public_api_variant_applicable(manifest: dict[str, Any]) -> bool:
     """Whether an adapter fixture should also run through the full public path.
 
-    Most TDX adapter fixtures intentionally isolate one verifier function by
-    relaxing or pinning surrounding state. The public verifier applies its
-    default production policy first, so auto-generating public variants for
-    every fixture can create misleading passes where an unrelated early policy
-    check fires. Default to the pre-policy failures that are semantically valid
-    for both paths; fixtures can opt in or out explicitly with
+    Adapter fixtures intentionally isolate one verifier function by relaxing or
+    pinning surrounding state. The public verifier applies its default
+    production policy first, so auto-generating public variants for every
+    fixture can create misleading passes where an unrelated early policy check
+    fires. Default to the pre-policy failures that are semantically valid for
+    both paths (per-stage code set); fixtures can opt in or out explicitly with
     `public_api_variant: true|false`.
     """
+    stage_cfg = PUBLIC_API_STAGES.get(manifest.get("stage"))
+    if stage_cfg is None:
+        return False
+
     explicit = manifest.get("public_api_variant")
     if explicit is not None:
         return bool(explicit)
@@ -274,20 +319,26 @@ def tdx_public_api_variant_applicable(manifest: dict[str, Any]) -> bool:
         return False
 
     expected_codes = _expected_rejection_codes(expects)
-    return bool(expected_codes) and expected_codes <= PUBLIC_API_PRE_POLICY_REJECTION_CODES
+    return bool(expected_codes) and expected_codes <= stage_cfg["pre_policy_codes"]
+
+
+# Back-compat alias (the mechanism was originally TDX-only).
+tdx_public_api_variant_applicable = public_api_variant_applicable
 
 
 def discover_fixture_cases(
     vectors_root: Path,
     *,
-    tdx_public_api_variants: bool = False,
+    public_api_variants: bool = False,
+    tdx_public_api_variants: bool = False,  # back-compat alias
 ) -> list[FixtureCase]:
+    enable_public_api = public_api_variants or tdx_public_api_variants
     cases: list[FixtureCase] = []
     for fixture_dir in discover_fixtures(vectors_root):
         rel_id = str(fixture_dir.relative_to(vectors_root))
         cases.append(FixtureCase(fixture_dir=fixture_dir, id=rel_id))
 
-        if not tdx_public_api_variants:
+        if not enable_public_api:
             continue
 
         try:
@@ -295,11 +346,11 @@ def discover_fixture_cases(
             input_obj = json.loads((fixture_dir / "input.json").read_text())
         except Exception:
             continue
-        if manifest.get("stage") != "verify-attestation-tdx":
+        if manifest.get("stage") not in PUBLIC_API_STAGES:
             continue
         if input_obj.get("execution_mode") == "public_api":
             continue
-        if not tdx_public_api_variant_applicable(manifest):
+        if not public_api_variant_applicable(manifest):
             continue
 
         cases.append(

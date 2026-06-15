@@ -24,7 +24,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     fixtures = runner.discover_fixture_cases(
         Path(args.vectors),
-        tdx_public_api_variants=args.tdx_public_api_variants,
+        public_api_variants=args.public_api_variants,
     )
     if not fixtures:
         print(f"No fixtures found under {args.vectors}", file=sys.stderr)
@@ -107,13 +107,16 @@ def main(argv: list[str] | None = None) -> int:
                     help="Path to vectors directory (recursive).")
     pr.add_argument("--output-dir", default="results", type=Path)
     pr.add_argument(
-        "--tdx-public-api-variants",
+        "--public-api-variants",
+        "--tdx-public-api-variants",  # back-compat alias (was TDX-only)
+        dest="public_api_variants",
         action="store_true",
         help=(
-            "For verify-attestation-tdx adapter fixtures, also run a "
-            "'::public_api' variant with execution_mode=public_api. This keeps "
-            "lower-level adapter coverage while exercising compatible fixtures "
-            "through the whole verifier entrypoint with dependency hooks."
+            "For attestation adapter fixtures (verify-attestation-tdx and "
+            "verify-attestation-sev), also run a '::public_api' variant with "
+            "execution_mode=public_api. This keeps lower-level adapter coverage "
+            "while exercising compatible pre-policy fixtures through the whole "
+            "verifier entrypoint with only external dependencies hooked."
         ),
     )
     pr.set_defaults(func=cmd_run)

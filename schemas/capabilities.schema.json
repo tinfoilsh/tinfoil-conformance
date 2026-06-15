@@ -137,6 +137,10 @@
           "type": "string",
           "enum": ["supported", "system-clock-only"],
           "description": "Where the SDK sources VCEK validity time from."
+        },
+        "public_api_hooks_supported": {
+          "type": "boolean",
+          "description": "True if execution_mode=public_api fixtures call the SDK's normal public SEV verifier entrypoint (e.g. Document.VerifyWithVCEK) while hooking only external dependencies (injected VCEK, embedded or injected AMD root, verification time), rather than the conformance binary's lower-level adapter path. False means the binary still uses the adapter path for SEV; its '::public_api' variants skip cleanly. Mirrors attestation_tdx.public_api_hooks_supported."
         }
       }
     },
