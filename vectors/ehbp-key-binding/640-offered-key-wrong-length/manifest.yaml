@@ -1,0 +1,15 @@
+id: 640-offered-key-wrong-length
+stage: verify-ehbp-key-binding
+title: |
+  Offered HPKE key is not a well-formed 32-byte X25519 key -> malformed input (exit 30).
+spec_refs: ["14.2"]
+expects:
+  exit_code: 30
+required_capabilities:
+  ehbp.key_binding_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  The offered key is 33 bytes (one trailing byte too many), so it is not
+  a valid X25519 public key. Routed through the SDK's real HPKE key
+  parser (the one its EHBP transport uses), it MUST be rejected as
+  malformed input (exit 30) rather than compared raw.

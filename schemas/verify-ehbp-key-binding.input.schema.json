@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/schemas/verify-ehbp-key-binding.input.schema.json",
+  "title": "verify-ehbp-key-binding input",
+  "description": "Input piped on stdin to `tinfoil-conformance verify-ehbp-key-binding`. Exercises Tinfoil SPEC §14.2: the EHBP HPKE public key used for the encrypted transport MUST equal the attested key carried in report_data[32:64]. Hermetic — no network; the SDK extracts the attested key from report_data using its real attestation layout constants and validates the offered key with the same HPKE key parser its EHBP transport uses.",
+  "type": "object",
+  "required": ["schema_version", "report_data_hex", "offered_hpke_public_key_hex"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "report_data_hex": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]*$",
+      "description": "Hex-encoded attestation report_data. Per Tinfoil SPEC §14.2 the canonical layout is 64 bytes: [0:32] = TLS SPKI fingerprint, [32:64] = HPKE X25519 public key. Fixtures may submit a wrong length to verify the SDK fails closed on malformed report_data (exit 30)."
+    },
+    "offered_hpke_public_key_hex": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]*$",
+      "description": "Hex-encoded HPKE X25519 public key that a server/proxy offered for the EHBP transport (e.g. via /.well-known/hpke-keys). The SDK MUST accept it only if it equals report_data[32:64]; any other value is a key-swap and MUST be rejected. 32 bytes when well-formed; fixtures may submit a wrong length to verify the SDK rejects a malformed key."
+    }
+  }
+}

@@ -1,0 +1,19 @@
+id: 610-key-binding-mismatch
+stage: verify-ehbp-key-binding
+title: |
+  Offered HPKE key differs from report_data[32:64] (key swap / MITM) -> reject, fail closed.
+spec_refs: ["14.2"]
+expects:
+  exit_code: 10
+  rejection_code: "EHBP_KEY_BINDING_MISMATCH"
+required_capabilities:
+  ehbp.key_binding_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  The core SPEC §14.2 security property and the exact point where the
+  Tinfoil spec diverges from the EHBP protocol spec: EHBP alone trusts
+  whatever key the /.well-known/hpke-keys endpoint serves, but Tinfoil
+  REQUIRES the transport key equal the attested key from
+  report_data[32:64]. Here a proxy/MITM offered a different (but
+  well-formed) X25519 key. The SDK MUST fail closed rather than encrypt
+  to the attacker's key.
