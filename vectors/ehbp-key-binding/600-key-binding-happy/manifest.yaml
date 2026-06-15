@@ -1,0 +1,24 @@
+id: 600-key-binding-happy
+stage: verify-ehbp-key-binding
+title: |
+  Offered HPKE key equals the attested key in report_data[32:64] -> EHBP key binding holds, accept.
+spec_refs: ["14.2"]
+expects:
+  exit_code: 0
+required_capabilities:
+  ehbp.key_binding_supported: true
+fixture_kind: synthetic
+notes: |
+  Tinfoil SPEC §14.2 happy path for the EHBP transport key binding.
+
+  report_data is the canonical 64-byte layout: [0:32] = TLS SPKI
+  fingerprint, [32:64] = HPKE X25519 public key. The server offered
+  exactly the attested HPKE key, so the SDK binds the EHBP transport to
+  it and accepts. The SDK MUST surface the key it extracted from
+  report_data[32:64] (attested_hpke_public_key_hex) so a wrong-offset
+  extraction would be caught here, and the TLS fingerprint from
+  report_data[0:32].
+
+  The offered key is a real X25519 public key so it parses cleanly
+  through the SDK's HPKE key parser (the same one its EHBP transport
+  uses, e.g. ehbp ServerIdentity.fromPublicKeyHex).

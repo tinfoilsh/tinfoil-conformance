@@ -1,0 +1,15 @@
+id: 630-report-data-too-short
+stage: verify-ehbp-key-binding
+title: |
+  report_data shorter than 64 bytes -> malformed input, fail closed (exit 30).
+spec_refs: ["14.2"]
+expects:
+  exit_code: 30
+required_capabilities:
+  ehbp.key_binding_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  report_data is only 32 bytes, so there is no [32:64] HPKE key slice to
+  bind to. The SDK MUST treat this as malformed input (exit 30) rather
+  than reading out of bounds or silently accepting. Verifies the SDK
+  enforces the SPEC §14.2 64-byte report_data layout.

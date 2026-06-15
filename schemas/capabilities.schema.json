@@ -34,7 +34,8 @@
           "verify-full",
           "attestation-hash",
           "ehbp-encrypt",
-          "ehbp-decrypt"
+          "ehbp-decrypt",
+          "verify-ehbp-key-binding"
         ]
       },
       "uniqueItems": true
@@ -200,6 +201,16 @@
     "transport_modes_supported": {
       "type": "array",
       "items": {"enum": ["tls-pinning", "ehbp"]}
+    },
+    "ehbp": {
+      "type": "object",
+      "description": "Capabilities for the EHBP (Encrypted HTTP Body Protocol) transport stages. EHBP itself is specified at github.com/tinfoilsh/encrypted-http-body-protocol; the Tinfoil binding requirements are in Tinfoil SPEC §14.2.",
+      "properties": {
+        "key_binding_supported": {
+          "type": "boolean",
+          "description": "True if the SDK enforces Tinfoil SPEC §14.2 EHBP key binding: the HPKE public key used for the encrypted transport MUST equal the attested key carried in report_data[32:64] (report_data layout: [0:32]=TLS SPKI fingerprint, [32:64]=HPKE X25519 public key). A server-offered key that differs from the attested key MUST be rejected (fail closed). The EHBP protocol spec alone trusts the /.well-known/hpke-keys endpoint and does NOT require this binding — it is a Tinfoil-layer requirement. SDKs that do not implement an EHBP transport declare false and the verify-ehbp-key-binding fixtures skip cleanly."
+        }
+      }
     },
     "flow_modes_supported": {
       "type": "array",

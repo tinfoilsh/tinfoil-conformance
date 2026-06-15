@@ -1,0 +1,18 @@
+id: 620-offered-equals-tls-fingerprint
+stage: verify-ehbp-key-binding
+title: |
+  Offered key equals report_data[0:32] (the TLS fingerprint slice), not [32:64] -> reject.
+spec_refs: ["14.2"]
+expects:
+  exit_code: 10
+  rejection_code: "EHBP_KEY_BINDING_MISMATCH"
+required_capabilities:
+  ehbp.key_binding_supported: true
+fixture_kind: synthetic-mutation
+notes: |
+  Offset-regression guard. The offered key is byte-equal to
+  report_data[0:32] (the TLS SPKI fingerprint), NOT the HPKE key at
+  [32:64]. A correct SDK extracts the HPKE key from [32:64], so this is
+  a mismatch and MUST be rejected. An SDK that mistakenly reads the
+  wrong slice (e.g. [0:32], or a 0-based off-by-32 error) would wrongly
+  accept, which this fixture catches.

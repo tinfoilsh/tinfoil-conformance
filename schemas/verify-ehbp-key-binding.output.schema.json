@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/schemas/verify-ehbp-key-binding.output.schema.json",
+  "title": "verify-ehbp-key-binding output",
+  "description": "stdout JSON produced by `tinfoil-conformance verify-ehbp-key-binding`. Tinfoil SPEC §14.2 EHBP key-binding verdict. Exit 0 = bound (accept), 10 = binding violation (reject), 30 = malformed input.",
+  "type": "object",
+  "required": ["stage", "accepted"],
+  "additionalProperties": false,
+  "properties": {
+    "stage": {"const": "verify-ehbp-key-binding"},
+    "accepted": {"type": "boolean"},
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attested_hpke_public_key_hex"],
+      "properties": {
+        "attested_hpke_public_key_hex": {
+          "type": "string",
+          "pattern": "^[0-9a-f]+$",
+          "description": "Lowercase-hex HPKE X25519 public key the SDK extracted from report_data[32:64] — the key it bound the transport to. On accept this equals the offered key."
+        },
+        "tls_fingerprint_hex": {
+          "type": "string",
+          "pattern": "^[0-9a-f]+$",
+          "description": "Lowercase-hex TLS SPKI fingerprint the SDK extracted from report_data[0:32], surfaced so a wrong-offset extraction is observable."
+        }
+      }
+    },
+    "rejection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code"],
+      "properties": {
+        "code": {
+          "enum": [
+            "EHBP_KEY_BINDING_MISMATCH"
+          ],
+          "description": "SPEC §14.2-anchored rejection code. EHBP_KEY_BINDING_MISMATCH: the offered HPKE key does not equal report_data[32:64] (key swap / MITM); the SDK must fail closed. Malformed inputs (report_data not 64 bytes, offered key not a well-formed 32-byte X25519 key) are reported via exit code 30, not a rejection."
+        },
+        "spec_ref": {"type": "string", "description": "Optional SPEC.md section the failing check is anchored to."}
+      }
+    }
+  },
+  "oneOf": [
+    {"properties": {"accepted": {"const": true}, "outputs": true}, "required": ["outputs"]},
+    {"properties": {"accepted": {"const": false}, "rejection": true}, "required": ["rejection"]}
+  ]
+}
