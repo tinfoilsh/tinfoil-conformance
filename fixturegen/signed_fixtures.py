@@ -414,13 +414,13 @@ def main() -> None:
         spec_refs=["5.2"],
         notes=(
             "Both SCTs are signed by the same fixturegen CT log key (same log_id).\n"
-            "tinfoil-rs explicitly rejects duplicate log_ids before counting\n"
-            "SCTs (so threshold > 1 can't be trivially inflated) and emits\n"
-            "SCT_DUPLICATE_LOG. @freedomofpress/sigstore-browser does the same.\n"
-            "sigstore-python collapses missing-SCT and duplicate-SCT into the\n"
-            "same 'Expected one certificate timestamp' error and emits\n"
-            "SCT_INSUFFICIENT. List-form rejection accepts both — divergence is\n"
-            "visible in the per-SDK column."
+            "All four SDKs reject with SCT_DUPLICATE_LOG via an explicit\n"
+            "per-log-id uniqueness guard (SPEC §5.2): tinfoil-rs and -js check a\n"
+            "log-id set before counting SCTs; tinfoil-go adds checkDuplicateSCTLogs\n"
+            "on top of sigstore-go (which dedups rather than rejecting); and\n"
+            "tinfoil-python adds reject_duplicate_sct_logs ahead of sigstore-\n"
+            "python's verify (which otherwise rejects this only incidentally via\n"
+            "its exactly-one-SCT rule)."
         ),
         spec=FixtureSpec(
             payload_bytes=payload,
@@ -430,7 +430,7 @@ def main() -> None:
         repo=DEFAULT_REPO,
         policy_override=None,
         expected_exit=10,
-        rejection_code=["SCT_DUPLICATE_LOG", "SCT_INSUFFICIENT"],
+        rejection_code="SCT_DUPLICATE_LOG",
         extra_capabilities={"sigstore.rejects_duplicate_sct_log": True},
     )
 

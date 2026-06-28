@@ -5,7 +5,7 @@ title: |
 spec_refs: ["5.2"]
 expects:
   exit_code: 10
-  rejection_code: ["SCT_DUPLICATE_LOG", "SCT_INSUFFICIENT"]
+  rejection_code: "SCT_DUPLICATE_LOG"
 required_capabilities:
   sigstore.trust_root_loading: "configurable"
   sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
@@ -15,10 +15,10 @@ required_capabilities:
 fixture_kind: synthetic
 notes: |
   Both SCTs are signed by the same fixturegen CT log key (same log_id).
-  tinfoil-rs explicitly rejects duplicate log_ids before counting
-  SCTs (so threshold > 1 can't be trivially inflated) and emits
-  SCT_DUPLICATE_LOG. @freedomofpress/sigstore-browser does the same.
-  sigstore-python collapses missing-SCT and duplicate-SCT into the
-  same 'Expected one certificate timestamp' error and emits
-  SCT_INSUFFICIENT. List-form rejection accepts both — divergence is
-  visible in the per-SDK column.
+  All four SDKs reject with SCT_DUPLICATE_LOG via an explicit
+  per-log-id uniqueness guard (SPEC §5.2): tinfoil-rs and -js check a
+  log-id set before counting SCTs; tinfoil-go adds checkDuplicateSCTLogs
+  on top of sigstore-go (which dedups rather than rejecting); and
+  tinfoil-python adds reject_duplicate_sct_logs ahead of sigstore-
+  python's verify (which otherwise rejects this only incidentally via
+  its exactly-one-SCT rule).
