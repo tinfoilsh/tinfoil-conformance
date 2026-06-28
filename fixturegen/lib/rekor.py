@@ -151,10 +151,20 @@ def build_size_1_rekor_entry(
     envelope: SignedEnvelope,
     leaf_cert_pem: str,
     rekor_key: P256KeyPair,
-    # Origin and signer name MUST match the hostname of the trust root's
-    # tlog baseUrl — sigstore-go's NewNoteVerifier derives the expected
-    # signer name from baseUrl.Hostname() and rejects mismatches.
-    rekor_origin: str = "tinfoil-conformance.test",
+    # The checkpoint signer NAME must match the hostname of the trust root's
+    # tlog baseUrl — sigstore-go's NewNoteVerifier derives the expected signer
+    # name from baseUrl.Hostname() and rejects mismatches.
+    #
+    # The checkpoint ORIGIN (note line 0) must additionally carry a numeric
+    # tree-ID suffix in the real-Rekor "<host> - <treeID>" form. sigstore-go
+    # classifies a tlog entry as Rekor v1 (STH inclusion proof) vs Rekor v2
+    # (rekor-tiles) via treeIDSuffixRegex = `.* - [0-9]+$` on the origin line
+    # (pkg/verify/tlog.go: hasRekorV1STH). Our entries are v1 tree-size-1
+    # inclusion proofs, so the origin MUST match that regex or v1.2.x routes
+    # them through the v2 rekor-tiles hash reconstruction and rejects them with
+    # REKOR_INCLUSION_INVALID. The treeID value itself is cosmetic (it is not
+    # the tree SIZE — that is the checkpoint body's second line).
+    rekor_origin: str = "tinfoil-conformance.test - 1",
     rekor_signer_name: str = "tinfoil-conformance.test",
     log_index: int = 0,
     integrated_time: datetime,
