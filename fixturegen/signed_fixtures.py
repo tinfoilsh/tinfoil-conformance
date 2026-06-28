@@ -881,16 +881,17 @@ def main() -> None:
         },
     )
 
-    # 079: bundle with cert under x509CertificateChain (older format) -------
+    # 079: bundle with cert under x509CertificateChain (legacy format) ------
     # Sigstore v0.1/v0.2 bundles nested the leaf cert under
     # `verificationMaterial.x509CertificateChain.certificates[0].rawBytes`.
-    # v0.3 moved it to `verificationMaterial.certificate.rawBytes`. SDKs that
-    # support both formats accept; SDKs hardcoded to v0.3 reject.
+    # v0.3 moved it to `verificationMaterial.certificate.rawBytes`.
     #
-    # Real production bundles are all v0.3 today, but a verifier that drops
-    # support for older bundles silently breaks anyone who archived bundles
-    # from older releases. Documents whether each SDK gracefully handles
-    # the older shape.
+    # Per SPEC §5.2 the legacy layout MUST be rejected: it can carry
+    # intermediate/root CA certificates (a misuse vector the v0.3 single-cert
+    # form avoids), and tinfoil only ever produces v0.3 bundles. All four SDKs
+    # reject it — rs via its v0.3-only port, and go/py/js via an explicit
+    # tinfoil-layer guard on top of their libs (which would otherwise parse the
+    # legacy oneof). Reject-only fixture, ungated.
     # Re-load the seed fixture's bundle (the real production v0.3 bundle).
     seed_input_for_079 = json.loads((SEED / "input.json").read_text())
     seed_bundle_for_079 = json.loads(base64.b64decode(seed_input_for_079["bundle_b64"]))
@@ -914,11 +915,8 @@ def main() -> None:
         json.dumps(
             {
                 "stage": "verify-sigstore",
-                "accepted": True,
-                "outputs": {
-                    "predicate_type": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
-                    "subject_digest_sha256_hex": seed_digest(),
-                },
+                "accepted": False,
+                "rejection": {"code": "BUNDLE_MALFORMED"},
             },
             indent=2,
         )
@@ -928,26 +926,23 @@ def main() -> None:
         "stage: verify-sigstore\n"
         "title: |\n"
         "  Bundle with cert at verificationMaterial.x509CertificateChain.\n"
-        "  certificates[0].rawBytes (older Sigstore v0.1/v0.2 format).\n"
-        '  Accept-only fixture, gated on sigstore.legacy_bundle_format_supported.\n'
+        "  certificates[0].rawBytes (legacy Sigstore v0.1/v0.2 format) must reject.\n"
         'spec_refs: ["5.2"]\n'
         "expects:\n"
-        "  exit_code: 0\n"
+        "  exit_code: 10\n"
+        '  rejection_code: "BUNDLE_MALFORMED"\n'
         "required_capabilities:\n"
         '  sigstore.trust_root_loading: "configurable"\n'
         '  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]\n'
-        '  sigstore.legacy_bundle_format_supported: true\n'
         "fixture_kind: real-frozen-bundle-mutation\n"
         "notes: |\n"
         "  Cert relocated from .verificationMaterial.certificate.rawBytes\n"
         "  (v0.3 layout) to .verificationMaterial.x509CertificateChain.\n"
-        "  certificates[0].rawBytes (older v0.1/v0.2 layout). Real production\n"
-        "  bundles are all v0.3, but tinfoil-js via @freedomofpress/sigstore-\n"
-        "  browser accepts the older layout for archived-bundle compatibility.\n"
-        "  Rust currently doesn't, and declares\n"
-        "  legacy_bundle_format_supported: false in capabilities so it skips\n"
-        "  cleanly. If Rust ever adds fallback support, flip the cap to true\n"
-        "  and the fixture starts running there too.\n"
+        "  certificates[0].rawBytes (legacy v0.1/v0.2 layout). Per SPEC §5.2 the\n"
+        "  legacy layout MUST be rejected (it can carry CA certs; tinfoil only\n"
+        "  produces v0.3). All four SDKs reject: rs via its v0.3-only port, and\n"
+        "  go/py/js via an explicit tinfoil-layer guard over libs that would\n"
+        "  otherwise parse the legacy oneof.\n"
     )
 
     # 080-083: SPEC §5.5.1 predicate-field validation ----------------------
