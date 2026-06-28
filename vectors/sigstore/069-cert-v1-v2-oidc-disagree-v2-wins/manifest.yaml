@@ -14,8 +14,10 @@ required_capabilities:
 fixture_kind: synthetic
 notes: |
   V1 (.1.1) carries 'https://gitlab.com/oidc'; V2 (.1.8) carries
-  the GitHub Actions issuer. Rust + JS read V2 first → accept.
-  sigstore-python (used by tinfoil-python) reads V1 first → reject
-  with OIDC_ISSUER_MISMATCH. Gated on oidc_issuer_v2_preferred so
-  the divergence is visible (Python skips with a clear reason)
-  rather than a noisy fail.
+  the GitHub Actions issuer; the policy pins the GitHub issuer. The
+  canonical reading is V2-preferred (Fulcio deprecated V1), so all
+  four SDKs accept: go/rs/js key on V2, and tinfoil-python now uses
+  OIDCIssuerV2Preferred (V2 first, V1 fallback). Still gated on
+  oidc_issuer_v2_preferred so any implementation that regresses to
+  V1-only skips with a clear reason rather than failing noisily.
+  See 069b for the inverse (V1 trusted, V2 untrusted) direction.
