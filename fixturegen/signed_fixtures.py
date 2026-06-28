@@ -528,11 +528,13 @@ def main() -> None:
         spec_refs=["5.3"],
         notes=(
             "V1 (.1.1) carries 'https://gitlab.com/oidc'; V2 (.1.8) carries\n"
-            "the GitHub Actions issuer. Rust + JS read V2 first → accept.\n"
-            "sigstore-python (used by tinfoil-python) reads V1 first → reject\n"
-            "with OIDC_ISSUER_MISMATCH. Gated on oidc_issuer_v2_preferred so\n"
-            "the divergence is visible (Python skips with a clear reason)\n"
-            "rather than a noisy fail."
+            "the GitHub Actions issuer; the policy pins the GitHub issuer. The\n"
+            "canonical reading is V2-preferred (Fulcio deprecated V1), so all\n"
+            "four SDKs accept: go/rs/js key on V2, and tinfoil-python now uses\n"
+            "OIDCIssuerV2Preferred (V2 first, V1 fallback). Still gated on\n"
+            "oidc_issuer_v2_preferred so any implementation that regresses to\n"
+            "V1-only skips with a clear reason rather than failing noisily.\n"
+            "See 069b for the inverse (V1 trusted, V2 untrusted) direction."
         ),
         spec=FixtureSpec(
             payload_bytes=payload,
@@ -546,6 +548,46 @@ def main() -> None:
         expected_outputs={
             "cert_oidc_issuer": "https://token.actions.githubusercontent.com",
         },
+        extra_capabilities={"sigstore.oidc_issuer_v2_preferred": True},
+    )
+
+    # 069b: INVERSE of 069 — V1 trusted, V2 untrusted ----------------------
+    # The dangerous direction. V1 (.1.1) carries the canonical GitHub Actions
+    # issuer (matches policy); V2 (.1.8) carries an untrusted gitlab issuer.
+    # A V1-only reader (sigstore-python's default policy.OIDCIssuer) ACCEPTS
+    # this — a false-accept: it trusts the deprecated extension and ignores
+    # the authoritative V2 value. The canonical V2-preferred reading REJECTS,
+    # because the authoritative issuer is untrusted. go/rs/js and the fixed
+    # tinfoil-python (OIDCIssuerV2Preferred) all reject. NOT gated: every
+    # conformant SDK must reject, so a regression to V1-only fails loudly.
+    write_fixture(
+        fixture_id="069b-cert-v1-trusted-v2-untrusted",
+        title=(
+            "Cert with V1 (trusted) and V2 (untrusted) OIDC issuers disagreeing "
+            "— V2 is authoritative, so must reject."
+        ),
+        spec_refs=["5.3"],
+        notes=(
+            "Inverse of 069. V1 (.1.1) = 'https://token.actions.githubusercontent.com'\n"
+            "(the canonical issuer the policy pins); V2 (.1.8) = 'https://gitlab.com/oidc'\n"
+            "(untrusted). Because V2 is the canonical/authoritative Fulcio issuer\n"
+            "extension (V1 is deprecated), the cert's real issuer is the untrusted\n"
+            "gitlab one and verification MUST reject with OIDC_ISSUER_MISMATCH.\n"
+            "An SDK that reads only the deprecated V1 extension would ACCEPT this\n"
+            "(a false-accept). This fixture is the regression guard for that bug."
+        ),
+        spec=FixtureSpec(
+            payload_bytes=payload,
+            workflow_repository=DEFAULT_REPO,
+            oidc_issuer="https://gitlab.com/oidc",  # -> V2 (.1.8), authoritative
+            oidc_issuer_v1_override=(
+                "https://token.actions.githubusercontent.com"  # -> V1 (.1.1), deprecated
+            ),
+        ),
+        repo=DEFAULT_REPO,
+        policy_override=None,
+        expected_exit=10,
+        rejection_code="OIDC_ISSUER_MISMATCH",
         extra_capabilities={"sigstore.oidc_issuer_v2_preferred": True},
     )
 

@@ -1,0 +1,23 @@
+id: 069b-cert-v1-trusted-v2-untrusted
+stage: verify-sigstore
+title: |
+  Cert with V1 (trusted) and V2 (untrusted) OIDC issuers disagreeing — V2 is authoritative, so must reject.
+spec_refs: ["5.3"]
+expects:
+  exit_code: 10
+  rejection_code: "OIDC_ISSUER_MISMATCH"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+  sigstore.oidc_issuer_v2_preferred: true
+fixture_kind: synthetic
+notes: |
+  Inverse of 069. V1 (.1.1) = 'https://token.actions.githubusercontent.com'
+  (the canonical issuer the policy pins); V2 (.1.8) = 'https://gitlab.com/oidc'
+  (untrusted). Because V2 is the canonical/authoritative Fulcio issuer
+  extension (V1 is deprecated), the cert's real issuer is the untrusted
+  gitlab one and verification MUST reject with OIDC_ISSUER_MISMATCH.
+  An SDK that reads only the deprecated V1 extension would ACCEPT this
+  (a false-accept). This fixture is the regression guard for that bug.
