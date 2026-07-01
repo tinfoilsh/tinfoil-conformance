@@ -1,0 +1,7 @@
+{
+  "stage": "verify-sigstore",
+  "accepted": false,
+  "rejection": {
+    "code": "FULCIO_CHAIN_INVALID"
+  }
+}

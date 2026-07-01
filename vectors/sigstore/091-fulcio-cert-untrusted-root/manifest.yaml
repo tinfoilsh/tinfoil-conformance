@@ -1,0 +1,18 @@
+id: 091-fulcio-cert-untrusted-root
+stage: verify-sigstore
+title: |
+  Leaf certificate that does not chain to any trusted Fulcio root must reject.
+spec_refs: ["5.2"]
+expects:
+  exit_code: 10
+  rejection_code: "FULCIO_CHAIN_INVALID"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: real-frozen-bundle-mutation
+notes: |
+  Replaces every trust-root certificateAuthority cert chain with an
+  unrelated self-signed CA, so the leaf no longer chains to a trusted
+  root. All SDKs reject with FULCIO_CHAIN_INVALID.
