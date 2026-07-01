@@ -718,22 +718,22 @@ def main() -> None:
     )
 
     # 074: in-toto statement with unknown extra field -----------------------
-    # Forward-compat: an in-toto statement that carries an extra top-level
-    # field SDKs don't know about should still verify. Tests SDKs that are
-    # too strict on schema validation.
+    # SPEC §5.4: the in-toto statement MUST contain only the recognized
+    # top-level fields (_type, subject, predicateType, predicate); an unknown
+    # top-level field MUST be rejected. Tinfoil produces canonical statements,
+    # so an unknown field is non-canonical; all four SDKs reject.
     write_fixture(
         fixture_id="074-in-toto-statement-extra-field",
         title=(
-            "In-toto statement with an unknown extra top-level field must "
-            "still verify (forward-compat)."
+            "In-toto statement with an unknown extra top-level field must reject."
         ),
         spec_refs=["5.4"],
         notes=(
             "Adds `'_spec_version': 99` to the in-toto statement before signing.\n"
-            "Rust/JS/Python tolerate unknown fields and accept; sigstore-go's\n"
-            "in-toto parser is strict and rejects. Gated on the\n"
-            "`in_toto_statement_tolerates_extra_fields` capability so Go\n"
-            "skips honestly rather than failing."
+            "All four SDKs reject the unknown top-level field: go via sigstore-go's\n"
+            "strict protojson parser (surfaces as DSSE_SIGNATURE_INVALID); rs via\n"
+            "serde deny_unknown_fields, and py/js via an explicit top-level-field\n"
+            "check (BUNDLE_MALFORMED). Ungated."
         ),
         spec=FixtureSpec(
             payload_bytes=payload,
@@ -742,12 +742,8 @@ def main() -> None:
         ),
         repo=DEFAULT_REPO,
         policy_override=None,
-        expected_exit=0,
-        rejection_code=None,
-        expected_outputs={
-            "predicate_type": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
-        },
-        extra_capabilities={"sigstore.in_toto_statement_tolerates_extra_fields": True},
+        expected_exit=10,
+        rejection_code=["BUNDLE_MALFORMED", "DSSE_SIGNATURE_INVALID"],
     )
 
     # 075: cert with neither V1 nor V2 OIDC issuer extension --------------
