@@ -1,0 +1,18 @@
+id: 093-rekor-checkpoint-signature-tampered
+stage: verify-sigstore
+title: |
+  Rekor checkpoint (SignedNote) with a tampered signature must reject.
+spec_refs: ["5.2"]
+expects:
+  exit_code: 10
+  rejection_code: "REKOR_INCLUSION_INVALID"
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: real-frozen-bundle-mutation
+notes: |
+  Flips a byte in the checkpoint signature while leaving the Rekor key in
+  the trust root, so the checkpoint (SignedNote) signature no longer
+  verifies. All SDKs reject with REKOR_INCLUSION_INVALID.
