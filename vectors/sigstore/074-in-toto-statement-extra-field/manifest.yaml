@@ -1,20 +1,20 @@
 id: 074-in-toto-statement-extra-field
 stage: verify-sigstore
 title: |
-  In-toto statement with an unknown extra top-level field must still verify (forward-compat).
+  In-toto statement with an unknown extra top-level field must reject.
 spec_refs: ["5.4"]
 expects:
-  exit_code: 0
+  exit_code: 10
+  rejection_code: ["BUNDLE_MALFORMED", "DSSE_SIGNATURE_INVALID"]
 required_capabilities:
   sigstore.trust_root_loading: "configurable"
   sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
   sigstore.policy_fields_configurable.workflow_ref_prefix: true
   sigstore.policy_fields_configurable.predicate_types_allowed: true
-  sigstore.in_toto_statement_tolerates_extra_fields: true
 fixture_kind: synthetic
 notes: |
   Adds `'_spec_version': 99` to the in-toto statement before signing.
-  Rust/JS/Python tolerate unknown fields and accept; sigstore-go's
-  in-toto parser is strict and rejects. Gated on the
-  `in_toto_statement_tolerates_extra_fields` capability so Go
-  skips honestly rather than failing.
+  All four SDKs reject the unknown top-level field: go via sigstore-go's
+  strict protojson parser (surfaces as DSSE_SIGNATURE_INVALID); rs via
+  serde deny_unknown_fields, and py/js via an explicit top-level-field
+  check (BUNDLE_MALFORMED). Ungated.
