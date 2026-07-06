@@ -1,0 +1,7 @@
+{
+  "stage": "verify-enclave-cert",
+  "accepted": false,
+  "rejection": {
+    "code": "ENCLAVE_CERT_HASH_MISMATCH"
+  }
+}

@@ -1,0 +1,14 @@
+id: 750-domain-mismatch
+stage: verify-enclave-cert
+title: |
+  Cert not valid for the expected domain must reject (SPEC §9.1).
+spec_refs: ["9.1", "9.2", "9.3", "9.4"]
+expects:
+  exit_code: 10
+  rejection_code: "ENCLAVE_CERT_DOMAIN_MISMATCH"
+required_capabilities:
+  enclave_cert.offline_verification_supported: true
+fixture_kind: synthetic
+notes: |
+  The cert's SANs are for inference.tinfoil.sh but the expected domain is a
+  different host. Must reject (no SAN matches).

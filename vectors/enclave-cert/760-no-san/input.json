@@ -1,0 +1,10 @@
+{
+  "schema_version": "1",
+  "certificate_pem": "-----BEGIN CERTIFICATE-----\nMIIBPTCB5KADAgECAhQUdYgq8PAAaqHY28VVKwkYX17WQDAKBggqhkjOPQQDAjAf\nMR0wGwYDVQQDDBRpbmZlcmVuY2UudGluZm9pbC5zaDAeFw0yNTAxMDEwMDAwMDBa\nFw0zNTAxMDEwMDAwMDBaMB8xHTAbBgNVBAMMFGluZmVyZW5jZS50aW5mb2lsLnNo\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAERxw+dYxJBChbun5TEY7Q9SSt6wdX\n0lvS+Oew1236cUzdUg96yoqLkXrMN/Ud6PDJu+OthYOC5wLcJaEtCfeoWDAKBggq\nhkjOPQQDAgNIADBFAiAwITUKdbe4w7Bs7i7MQx1aUMPx2M9CgiqpmdvTRIsphAIh\nAP0RpdBubcssxiPy1I7SYm8ihVRYgLoUd7rEtti3Cdxh\n-----END CERTIFICATE-----\n",
+  "expected_domain": "inference.tinfoil.sh",
+  "expected_hpke_public_key_hex": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+  "attestation_document": {
+    "format": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
+    "body": "Y29uZm9ybWFuY2UtZW5jbGF2ZS1jZXJ0LWF0dGVzdGF0aW9uLWJvZHk="
+  }
+}

@@ -1,0 +1,15 @@
+id: 700-enclave-cert-happy
+stage: verify-enclave-cert
+title: |
+  Enclave cert with matching HPKE + attestation-hash SANs verifies (SPEC §9).
+spec_refs: ["9.1", "9.2", "9.3", "9.4"]
+expects:
+  exit_code: 0
+required_capabilities:
+  enclave_cert.offline_verification_supported: true
+fixture_kind: synthetic
+notes: |
+  Real ECDSA P-256 enclave cert: DNS SAN for the domain, dcode `.hpke.` SANs
+  carrying the attested HPKE key, dcode `.hatt.` SANs carrying the (hex) document
+  hash SHA-256(format+body). All bindings match the attested values, so
+  verification accepts and returns the extracted hpke key + attestation hash.

@@ -1,0 +1,10 @@
+{
+  "schema_version": "1",
+  "certificate_pem": "-----BEGIN CERTIFICATE-----\nMIIB2DCCAX6gAwIBAgIUHK6kY7TsFUMwbyk26kutVcC/9CEwCgYIKoZIzj0EAwIw\nHzEdMBsGA1UEAwwUaW5mZXJlbmNlLnRpbmZvaWwuc2gwHhcNMjUwMTAxMDAwMDAw\nWhcNMzUwMTAxMDAwMDAwWjAfMR0wGwYDVQQDDBRpbmZlcmVuY2UudGluZm9pbC5z\naDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABEccPnWMSQQoW7p+UxGO0PUkresH\nV9Jb0vjnsNdt+nFM3VIPesqKi5F6zDf1HejwybvjrYWDgucC3CWhLQn3qFijgZcw\ngZQwgZEGA1UdEQSBiTCBhoIUaW5mZXJlbmNlLnRpbmZvaWwuc2iCTjAwQUVCQUdC\nQUZBWURRUUNJS0JNR0EyRFFQQ0FJUkVFWVVDVUxCT0dBWkRJTlJZSEk2RDQuaHBr\nZS5pbmZlcmVuY2UudGluZm9pbC5zaIIeMDFRQS5ocGtlLmluZmVyZW5jZS50aW5m\nb2lsLnNoMAoGCCqGSM49BAMCA0gAMEUCIQCvXfscVYaosJ/aDCYo9DVM7/5vJ1qo\nNTP6+bTHjzckKQIgcJUPNhfdbiKB4sdOzH7JFN/EjmCvULK/Znb862HBcSY=\n-----END CERTIFICATE-----\n",
+  "expected_domain": "inference.tinfoil.sh",
+  "expected_hpke_public_key_hex": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+  "attestation_document": {
+    "format": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
+    "body": "Y29uZm9ybWFuY2UtZW5jbGF2ZS1jZXJ0LWF0dGVzdGF0aW9uLWJvZHk="
+  }
+}

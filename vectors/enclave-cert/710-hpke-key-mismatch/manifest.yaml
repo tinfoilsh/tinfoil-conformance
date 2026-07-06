@@ -1,0 +1,14 @@
+id: 710-hpke-key-mismatch
+stage: verify-enclave-cert
+title: |
+  Cert HPKE SAN not equal to the attested key must reject (SPEC §9.3).
+spec_refs: ["9.1", "9.2", "9.3", "9.4"]
+expects:
+  exit_code: 10
+  rejection_code: "ENCLAVE_CERT_HPKE_MISMATCH"
+required_capabilities:
+  enclave_cert.offline_verification_supported: true
+fixture_kind: synthetic
+notes: |
+  The attested/expected HPKE key differs from the key dcode-encoded in the cert's
+  `.hpke.` SANs — a key swap. Must reject.
