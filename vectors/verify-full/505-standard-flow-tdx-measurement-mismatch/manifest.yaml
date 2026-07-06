@@ -1,0 +1,25 @@
+id: 505-standard-flow-tdx-measurement-mismatch
+stage: verify-full
+title: |
+  Standard flow (TDX): sigstore MultiPlatform measurement vs a mismatching TDX quote must reject (SPEC §11.1 / §7.3).
+spec_refs: ["11.1", "7.3.2", "4"]
+expects:
+  exit_code: 10
+  rejection_code: "MEASUREMENT_MISMATCH"
+  rejection_stage: "verify-measurement"
+required_capabilities:
+  attestation_tdx.verify_full_supported: true
+  sigstore.trust_root_loading: "configurable"
+fixture_kind: composite
+notes: |
+  Standard end-to-end flow with a TDX attestation: the Sigstore bundle (fixture
+  001, a MultiPlatform predicate) yields rtmr1/rtmr2, and the TDX quote (fixture
+  300) is verified in full (PCK chain + collateral + go-tdx-guest / lib), then
+  its rtmr1/rtmr2 are cross-checked against the MultiPlatform measurement
+  (§7.3.2). 001 and 300 are different enclaves, so the cross-check fails ->
+  MEASUREMENT_MISMATCH at verify-measurement.
+
+  Exercises the verify-full TDX path, which was previously an unwired stub
+  (SEV-only) in every SDK. Gated on attestation_tdx.verify_full_supported so
+  only SDKs that have wired verify-full's TDX sub-runner (go, py) run it; rs
+  (no native TDX verifier) and js (TDX only in the js-tdx variant) skip.

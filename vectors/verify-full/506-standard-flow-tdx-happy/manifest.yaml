@@ -1,0 +1,19 @@
+id: 506-standard-flow-tdx-happy
+stage: verify-full
+title: |
+  Standard flow (TDX) happy path: sigstore MultiPlatform measurement matches the verified TDX quote (SPEC §11.1 / §7.3.2).
+spec_refs: ["11.1", "7.3.2", "4"]
+expects:
+  exit_code: 0
+required_capabilities:
+  attestation_tdx.verify_full_supported: true
+  sigstore.trust_root_loading: "configurable"
+fixture_kind: composite
+notes: |
+  End-to-end standard flow on TDX. The Sigstore bundle is a synthetic
+  re-sign of fixture 001's payload with its predicate tdx_measurement
+  rtmr1/rtmr2 set to the real TDX quote (fixture 300)'s values, so the
+  MultiPlatform measurement matches the fully-verified quote (§7.3.2) and
+  verify-full accepts. Exercises the verify-full TDX path end-to-end
+  (previously an unwired stub). Gated on attestation_tdx.verify_full_supported
+  so rs (no native TDX verifier) and js (TDX only in the js-tdx variant) skip.
