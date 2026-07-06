@@ -1,0 +1,13 @@
+id: 760-no-san
+stage: verify-enclave-cert
+title: |
+  Cert with no Subject Alternative Names must reject (SPEC §9.1).
+spec_refs: ["9.1", "9.2", "9.3", "9.4"]
+expects:
+  exit_code: 10
+  rejection_code: "ENCLAVE_CERT_NO_SAN"
+required_capabilities:
+  enclave_cert.offline_verification_supported: true
+fixture_kind: synthetic
+notes: |
+  Cert has no SAN extension at all. Must reject.

@@ -1,0 +1,13 @@
+id: 780-malformed-cert
+stage: verify-enclave-cert
+title: |
+  Unparseable certificate PEM must be malformed input (exit 30).
+spec_refs: ["9.1", "9.2", "9.3", "9.4"]
+expects:
+  exit_code: 30
+  rejection_code: "ENCLAVE_CERT_MALFORMED"
+required_capabilities:
+  enclave_cert.offline_verification_supported: true
+fixture_kind: synthetic
+notes: |
+  certificate_pem is not a valid PEM certificate.

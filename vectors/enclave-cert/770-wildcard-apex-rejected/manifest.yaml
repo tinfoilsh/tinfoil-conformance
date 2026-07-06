@@ -1,0 +1,15 @@
+id: 770-wildcard-apex-rejected
+stage: verify-enclave-cert
+title: |
+  Wildcard SAN must not match the apex domain (SPEC §9.1, RFC 6125).
+spec_refs: ["9.1", "9.2", "9.3", "9.4"]
+expects:
+  exit_code: 10
+  rejection_code: "ENCLAVE_CERT_DOMAIN_MISMATCH"
+required_capabilities:
+  enclave_cert.offline_verification_supported: true
+fixture_kind: synthetic
+notes: |
+  Cert SAN is `*.tinfoil.sh`; the expected domain is the apex `tinfoil.sh`. Per
+  RFC 6125 a wildcard matches a single label but NOT the apex, so this must
+  reject.

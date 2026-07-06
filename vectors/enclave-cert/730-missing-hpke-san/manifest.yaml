@@ -1,0 +1,13 @@
+id: 730-missing-hpke-san
+stage: verify-enclave-cert
+title: |
+  Cert with no .hpke. SAN must reject (SPEC §9.3).
+spec_refs: ["9.1", "9.2", "9.3", "9.4"]
+expects:
+  exit_code: 10
+  rejection_code: "ENCLAVE_CERT_HPKE_MISSING"
+required_capabilities:
+  enclave_cert.offline_verification_supported: true
+fixture_kind: synthetic
+notes: |
+  Cert carries the domain + `.hatt.` SANs but no `.hpke.` SANs. Must reject.

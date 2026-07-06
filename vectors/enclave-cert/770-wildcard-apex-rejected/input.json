@@ -1,0 +1,10 @@
+{
+  "schema_version": "1",
+  "certificate_pem": "-----BEGIN CERTIFICATE-----\nMIICZTCCAgqgAwIBAgIUKmu8VYlAFCvIhLuoc4kdmyWReXkwCgYIKoZIzj0EAwIw\nHzEdMBsGA1UEAwwUaW5mZXJlbmNlLnRpbmZvaWwuc2gwHhcNMjUwMTAxMDAwMDAw\nWhcNMzUwMTAxMDAwMDAwWjAfMR0wGwYDVQQDDBRpbmZlcmVuY2UudGluZm9pbC5z\naDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABEccPnWMSQQoW7p+UxGO0PUkresH\nV9Jb0vjnsNdt+nFM3VIPesqKi5F6zDf1HejwybvjrYWDgucC3CWhLQn3qFijggEi\nMIIBHjCCARoGA1UdEQSCAREwggENggwqLnRpbmZvaWwuc2iCRDAwQUVCQUdCQUZB\nWURRUUNJS0JNR0EyRFFQQ0FJUkVFWVVDVUxCT0dBWkRJTlJZSEk2RDQuaHBrZS50\naW5mb2lsLnNoghQwMVFBLmhwa2UudGluZm9pbC5zaIJEMDBNUTRUU1lURUdaUldJ\nTTNDTVlaVEtaVEJIQVpUQVlUREdJNERHWUxFRzVURENNRENHWS5oYXR0LnRpbmZv\naWwuc2iCRDAxWldNTkxGTUpSVFFZVENNWTJUSU5aU0dBM0dDTlRGTU5UR0lZTEZH\nWTJEQ09MRUdBM0QuaGF0dC50aW5mb2lsLnNoghUwMklaSS5oYXR0LnRpbmZvaWwu\nc2gwCgYIKoZIzj0EAwIDSQAwRgIhAKdadDGLkn4tk6qiEo3wxD9puWYJw/QmdRfy\nfmMqguUTAiEAoIaHWvegvQXjSQ8WONgRP2Yz7DpW/hu+jTbagSDPsAA=\n-----END CERTIFICATE-----\n",
+  "expected_domain": "tinfoil.sh",
+  "expected_hpke_public_key_hex": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+  "attestation_document": {
+    "format": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
+    "body": "Y29uZm9ybWFuY2UtZW5jbGF2ZS1jZXJ0LWF0dGVzdGF0aW9uLWJvZHk="
+  }
+}
