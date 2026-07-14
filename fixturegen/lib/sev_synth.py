@@ -291,6 +291,17 @@ class ReportFields:
     report_id: Optional[bytes] = None
     reported_tcb: Optional[int] = None
     chip_id: Optional[bytes] = None
+    # SPEC §3.7 policy fields (offsets 0x1E8..0x200). Left None => inherit the
+    # real-bundle template (which satisfies the §3.7.1 minimums), so a fixture
+    # can mutate exactly one to test a single §3.7.2 rejection.
+    committed_tcb: Optional[int] = None
+    current_build: Optional[int] = None
+    current_minor: Optional[int] = None
+    current_major: Optional[int] = None
+    committed_build: Optional[int] = None
+    committed_minor: Optional[int] = None
+    committed_major: Optional[int] = None
+    launch_tcb: Optional[int] = None
 
 
 def _put_u32_le(b: bytearray, off: int, val: int) -> None:
@@ -299,6 +310,10 @@ def _put_u32_le(b: bytearray, off: int, val: int) -> None:
 
 def _put_u64_le(b: bytearray, off: int, val: int) -> None:
     b[off:off + 8] = val.to_bytes(8, "little")
+
+
+def _put_u8(b: bytearray, off: int, val: int) -> None:
+    b[off] = val & 0xFF
 
 
 def _put_bytes(b: bytearray, off: int, val: bytes, expected_len: int) -> None:
@@ -349,6 +364,22 @@ def build_report_body(fields: ReportFields, *, base: Optional[bytes] = None) -> 
         _put_u64_le(body, 0x180, fields.reported_tcb)
     if fields.chip_id is not None:
         _put_bytes(body, 0x1A0, fields.chip_id, 64)
+    if fields.committed_tcb is not None:
+        _put_u64_le(body, 0x1E8, fields.committed_tcb)
+    if fields.current_build is not None:
+        _put_u8(body, 0x1F0, fields.current_build)
+    if fields.current_minor is not None:
+        _put_u8(body, 0x1F1, fields.current_minor)
+    if fields.current_major is not None:
+        _put_u8(body, 0x1F2, fields.current_major)
+    if fields.committed_build is not None:
+        _put_u8(body, 0x1F4, fields.committed_build)
+    if fields.committed_minor is not None:
+        _put_u8(body, 0x1F5, fields.committed_minor)
+    if fields.committed_major is not None:
+        _put_u8(body, 0x1F6, fields.committed_major)
+    if fields.launch_tcb is not None:
+        _put_u64_le(body, 0x1F8, fields.launch_tcb)
     return bytes(body)
 
 
