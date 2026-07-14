@@ -142,8 +142,17 @@ _AMD_BASE_NAME_ATTRS = [
 ]
 
 
-def _amd_name(cn: str) -> x509.Name:
-    return x509.Name(_AMD_BASE_NAME_ATTRS + [x509.NameAttribute(NameOID.COMMON_NAME, cn)])
+def _amd_name(cn: str, org: str = "Advanced Micro Devices") -> x509.Name:
+    return x509.Name(
+        [
+            x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, "Engineering"),
+            x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
+            x509.NameAttribute(NameOID.LOCALITY_NAME, "Santa Clara"),
+            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "CA"),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, org),
+            x509.NameAttribute(NameOID.COMMON_NAME, cn),
+        ]
+    )
 
 
 def gen_synth_chain(
@@ -154,6 +163,7 @@ def gen_synth_chain(
     not_after: Optional[datetime] = None,
     vcek_extension_omit: Optional[set[ObjectIdentifier]] = None,
     vcek_extension_overrides: Optional[dict[ObjectIdentifier, bytes]] = None,
+    org_name: str = "Advanced Micro Devices",
 ) -> SynthChain:
     """Generate a complete ARK → ASK → VCEK chain.
 
@@ -174,9 +184,9 @@ def gen_synth_chain(
     # ARK + ASK are signed with RSA-PSS + SHA-384 (matches real AMD chain).
     pss_sha384 = padding.PSS(mgf=padding.MGF1(hashes.SHA384()), salt_length=48)
 
-    ark_name = _amd_name("ARK-Genoa")
-    ask_name = _amd_name("SEV-Genoa")
-    vcek_name = _amd_name("SEV-VCEK")
+    ark_name = _amd_name("ARK-Genoa", org_name)
+    ask_name = _amd_name("SEV-Genoa", org_name)
+    vcek_name = _amd_name("SEV-VCEK", org_name)
 
     ark_cert = (
         x509.CertificateBuilder()
