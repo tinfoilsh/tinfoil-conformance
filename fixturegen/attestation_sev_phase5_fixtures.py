@@ -228,7 +228,28 @@ report.
         accepted=True,
     )
 
-    print("Wrote Phase 5 attestation-sev §3.7 policy fixtures: 260-267")
+    # 268 — VLEK-signed report (SIGNER_INFO signing_key=1). SPEC §3.3.3 only
+    # specifies the VCEK path; AMD also defines VLEK (CSP-endorsed). All current
+    # SDKs reject any non-VCEK signing key. DECIDE-LATER: whether tinfoil should
+    # support VLEK-endorsed deployments (→ accept) or deliberately trust only
+    # VCEK (→ reject, current uniform behavior). Expected reject reflects today.
+    _write(
+        "268-vlek-signed-report",
+        "Report with SIGNER_INFO signing_key=VLEK (not VCEK): all SDKs reject today (SPEC §3.3.3 is VCEK-only).",
+        """
+signer_info = 0x04 (signing_key field = 1 = VLEK). AMD allows VLEK-signed
+reports (CSP-endorsed key) but the tinfoil SPEC §3.3.3 only defines the VCEK
+path, and every SDK rejects a non-VCEK signing key before signature check. This
+fixture documents that uniform behavior. DECIDE-LATER: if tinfoil must support
+VLEK deployments, this flips to accept + needs a VLEK cert-chain verifier;
+otherwise VLEK-rejection is intentional hardening (trust only our own VCEK).
+""",
+        ["3.3.3", "3.2.4"],
+        _base_fields(signer_info=0x04),
+        accepted=False,
+    )
+
+    print("Wrote Phase 5 attestation-sev §3.7 policy fixtures: 260-268")
 
 
 if __name__ == "__main__":
