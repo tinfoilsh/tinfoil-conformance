@@ -249,7 +249,53 @@ otherwise VLEK-rejection is intentional hardening (trust only our own VCEK).
         accepted=False,
     )
 
-    print("Wrote Phase 5 attestation-sev §3.7 policy fixtures: 260-268")
+    # 270 — CIPHERTEXT_HIDING not enabled (CipherLeaks, ASPLOS'21 ciphertext
+    # side-channel). PLATFORM_INFO has SMT+TSME+ALIAS_CHECK set but bit 4
+    # (CIPHERTEXT_HIDING_EN) clear, isolating the ciphertext-hiding requirement.
+    # NO SPEC MANDATE today: §3.7.1 default ciphertext_hiding not required, so all
+    # SDKs accept. Expected=reject encodes the hardened (CipherLeaks-mitigated)
+    # stance so the gap is a live failing probe. tinfoil-js already has the check
+    # (validation.ts:399) but defaults required.ciphertextHidingDramEnabled=false.
+    _write(
+        "270-ciphertext-hiding-not-enabled",
+        "PLATFORM_INFO CIPHERTEXT_HIDING_EN=0 (CipherLeaks): no spec mandate; probe fails uniformly to show the gap.",
+        """
+platform_info = 0x23 (SMT+TSME+ALIAS_CHECK set, CIPHERTEXT_HIDING_EN bit4 clear)
+— every other hardening bit set, isolating ciphertext-hiding. CipherLeaks
+(ASPLOS'21) is a ciphertext side-channel mitigated by DRAM ciphertext hiding.
+NO current spec clause requires it (§3.7.1 default = not required), so all four
+SDKs accept. Expected=reject encodes the hardened stance; this probe fails
+uniformly today to surface the gap. DECIDE-LATER: mandate CIPHERTEXT_HIDING_EN.
+""",
+        ["3.7.1", "3.2.3"],
+        _base_fields(platform_info=0x23),
+        accepted=False,
+    )
+
+    # 271 — RMP ALIAS_CHECK not complete (badRAM, CVE-2024-21944 / "BadRAM"
+    # USENIX'25 alias attack). PLATFORM_INFO has SMT+TSME+CIPHERTEXT_HIDING set
+    # but bit 5 (ALIAS_CHECK_COMPLETE) clear. The platform signals it has NOT
+    # completed the RMP alias check that detects aliased DRAM. No spec mandate;
+    # expected=reject encodes the badRAM-mitigated stance.
+    _write(
+        "271-alias-check-not-complete",
+        "PLATFORM_INFO ALIAS_CHECK_COMPLETE=0 (badRAM): no spec mandate; probe fails uniformly to show the gap.",
+        """
+platform_info = 0x13 (SMT+TSME+CIPHERTEXT_HIDING set, ALIAS_CHECK_COMPLETE bit5
+clear), isolating the alias-check requirement. badRAM (USENIX Security'25)
+aliases DRAM to break SEV-SNP integrity; AMD's mitigation reports
+ALIAS_CHECK_COMPLETE=1 once the platform verifies no aliasing. NO current spec
+clause requires it, so all four SDKs accept. Expected=reject encodes the
+hardened stance; fails uniformly today to surface the gap. tinfoil-js has the
+check (validation.ts:403) but defaults required.aliasCheckComplete=false.
+DECIDE-LATER: mandate ALIAS_CHECK_COMPLETE.
+""",
+        ["3.7.1", "3.2.3"],
+        _base_fields(platform_info=0x13),
+        accepted=False,
+    )
+
+    print("Wrote Phase 5 attestation-sev §3.7 policy fixtures: 260-268, 270-271")
 
 
 if __name__ == "__main__":
