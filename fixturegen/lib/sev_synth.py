@@ -364,22 +364,28 @@ def build_report_body(fields: ReportFields, *, base: Optional[bytes] = None) -> 
         _put_u64_le(body, 0x180, fields.reported_tcb)
     if fields.chip_id is not None:
         _put_bytes(body, 0x1A0, fields.chip_id, 64)
+    # Canonical AMD SEV-SNP ABI tail offsets (match go-sev-guest abi.go and
+    # tinfoil-python abi_sev.py): COMMITTED_TCB 0x1E0, CURRENT_BUILD/MINOR/MAJOR
+    # 0x1E8/0x1E9/0x1EA, COMMITTED_BUILD/MINOR/MAJOR 0x1EC/0x1ED/0x1EE (0x1EB and
+    # 0x1EF are MBZ), LAUNCH_TCB 0x1F0. (Earlier offsets 0x1E8/0x1F0/... were
+    # non-canonical and caused go-sev-guest to read the template values instead
+    # of the fixture's mutations, masking policy divergences.)
     if fields.committed_tcb is not None:
-        _put_u64_le(body, 0x1E8, fields.committed_tcb)
+        _put_u64_le(body, 0x1E0, fields.committed_tcb)
     if fields.current_build is not None:
-        _put_u8(body, 0x1F0, fields.current_build)
+        _put_u8(body, 0x1E8, fields.current_build)
     if fields.current_minor is not None:
-        _put_u8(body, 0x1F1, fields.current_minor)
+        _put_u8(body, 0x1E9, fields.current_minor)
     if fields.current_major is not None:
-        _put_u8(body, 0x1F2, fields.current_major)
+        _put_u8(body, 0x1EA, fields.current_major)
     if fields.committed_build is not None:
-        _put_u8(body, 0x1F4, fields.committed_build)
+        _put_u8(body, 0x1EC, fields.committed_build)
     if fields.committed_minor is not None:
-        _put_u8(body, 0x1F5, fields.committed_minor)
+        _put_u8(body, 0x1ED, fields.committed_minor)
     if fields.committed_major is not None:
-        _put_u8(body, 0x1F6, fields.committed_major)
+        _put_u8(body, 0x1EE, fields.committed_major)
     if fields.launch_tcb is not None:
-        _put_u64_le(body, 0x1F8, fields.launch_tcb)
+        _put_u64_le(body, 0x1F0, fields.launch_tcb)
     return bytes(body)
 
 
