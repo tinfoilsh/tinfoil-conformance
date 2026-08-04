@@ -4,7 +4,7 @@
 > and the 1:1 map from v3 spec rules to the harness stages that reach them.
 > Companions: [V3_CONFORMANCE_INTERFACE.md](V3_CONFORMANCE_INTERFACE.md) (block
 > design), [SPEC_COVERAGE_V3.md](SPEC_COVERAGE_V3.md) (the authoritative
-> 117-rule matrix). Reference implementation: `tinfoil-go`
+> 121-rule matrix). Reference implementation: `tinfoil-go`
 > `cmd/tinfoil-conformance` + `verifier/conformance` (built `-tags
 > tinfoil_conformance`).
 
@@ -107,7 +107,7 @@ one field changed to violate the rule under test).
 
 | v3 spec part | rules | reached by (block stage) | fixture kind |
 |---|---|---|---|
-| SPEC_V3 §2.1 strict parsing; §4 REPORT_DATA ladder; crypto_material / device_evidence | `E1–E13` | `v3-check-envelope` | reject (one violation) + accept (well-formed base) |
+| SPEC_V3 §2.1 strict parsing (E1–E13); §4 REPORT_DATA ladder + nonce/section-hash binding (E14–E17); crypto_material / device_evidence | `E1–E17` | `v3-check-envelope` | reject (one violation) + accept (well-formed base) |
 | SPEC_V3 §5 + POLICY_VALIDATION provenance: identity pin, DSSE-single, SCT/tlog/observer, legacy/dup-SCT, subject[0], predicate | `P1–P16` | `v3-authenticate-provenance` | reject + accept (synthetic Sigstore root) |
 | POLICY_VALIDATION §2 (AMD Table 23) + §2.1/§2.2 bits: TCB floors, guest_policy/platform_info exact, signer, vmpl, host/image/family, mitigation | `S1–S26` | `v3-authenticate-quote` (structural/vendor) · `v3-validate-quote` (policy) | reject + accept (synthetic AMD root, re-signed report) |
 | POLICY_VALIDATION §3 (Intel §3.1/§3.2) + §3.3/§3.4 bits + §3.2a QE report + collateral floor | `T1–T25` | `v3-authenticate-quote` · `v3-validate-quote` | reject + accept (synthetic Intel root + collateral) |

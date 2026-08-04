@@ -23,6 +23,10 @@
 | E11 | `e11` | reject | Unknown section format URI. |
 | E12 | `e12` | reject | Missing `vendor` or `kind` field; unknown section format. |
 | E13 | `e13` | reject | Duplicate `id` values in collateral array. |
+| E14 | `e14` | reject | challenge.nonce well-formed but ≠ verifier nonce (freshness binding) |
+| E15 | `e15` | reject | crypto_material_hash valid but ≠ SHA-256(section) |
+| E16 | `e16` | reject | device_evidence_hash valid but ≠ SHA-256(section) |
+| E17 | `e17` | reject | report_data valid 64B but ≠ recomputed ladder |
 
 ## PROVENANCE — stage `v3-authenticate-provenance` · generator `gen_provenance()`
 - `[ ]` **provenance-happy** → accept (valid base = mutation baseline)

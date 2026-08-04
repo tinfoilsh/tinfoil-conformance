@@ -5,9 +5,9 @@
 > `feat/v3`** (pinned; if `pr/assembled-policy` ever lands, the SEV rows will correctly flag the
 > exact-equality regression). Coexists with the v2 stages — v2 is retired per-SDK as it ports.
 
-**Scope:** 117 normative rules — 112 across 9 layers (mapped to block-aligned stages below) + 5 ambiguous/underspecified (tracked as spec-questions, Phase 3). Each mappable rule needs ≥1 fixture (accept **and** reject where both are meaningful). Done = every rule has a fixture and a go-status (or, for ambiguous rules, a resolved spec-question).
+**Scope:** 121 normative rules — 116 across 9 layers (mapped to block-aligned stages below) + 5 ambiguous/underspecified (tracked as spec-questions, Phase 3). Each mappable rule needs ≥1 fixture (accept **and** reject where both are meaningful). Done = every rule has a fixture and a go-status (or, for ambiguous rules, a resolved spec-question).
 
-**Coverage verdict (self-audit vs `POLICY_VALIDATION.md` field tables):** every field/bit of AMD Table 23 (+POLICY §2.1, PLATFORM_INFO §2.2) and Intel §3.1/§3.2/§3.2a (+TDATTRIBUTES §3.3, XFAM §3.4), all 8 enforcement classes, the 7 strict-parse rules, and every required SEV/TDX policy member has ≥1 catalog rule. 117/117 tracked.
+**Coverage verdict (self-audit vs `POLICY_VALIDATION.md` field tables):** every field/bit of AMD Table 23 (+POLICY §2.1, PLATFORM_INFO §2.2) and Intel §3.1/§3.2/§3.2a (+TDATTRIBUTES §3.3, XFAM §3.4), all 8 enforcement classes, the 7 strict-parse rules, and every required SEV/TDX policy member has ≥1 catalog rule. 121/121 tracked (E14–E17 envelope-binding rules added after the slice-1 audit).
 
 ## How to use this file
 - The **rule catalog** (bottom) is authoritative: `RULE_ID · doc-ref · layer · rule · accept-idea · reject-idea`. The accept/reject ideas ARE the fixture specs.
@@ -29,9 +29,9 @@
 
 ## Burn-down (check when fixture lands + go graded)
 
-**ENVELOPE** (B1) — 13 rules
+**ENVELOPE** (B1) — 17 rules
 
-  `[ ]E1` `[ ]E2` `[ ]E3` `[ ]E4` `[ ]E5` `[ ]E6` `[ ]E7` `[ ]E8` `[ ]E9` `[ ]E10` `[ ]E11` `[ ]E12` `[ ]E13`
+  `[ ]E1` `[ ]E2` `[ ]E3` `[ ]E4` `[ ]E5` `[ ]E6` `[ ]E7` `[ ]E8` `[ ]E9` `[ ]E10` `[ ]E11` `[ ]E12` `[ ]E13` `[ ]E14` `[ ]E15` `[ ]E16` `[ ]E17`
 
 **PROVENANCE** (B2) — 16 rules
 
@@ -69,7 +69,7 @@
 
   `[ ]AM1` `[ ]AM2` `[ ]AM3` `[ ]AM4` `[ ]AM5`
 
-> Burn-down total: 112 layer-mapped + 5 ambiguous = **117 / 117** rules tracked.
+> Burn-down total: 116 layer-mapped + 5 ambiguous = **121 / 121** rules tracked.
 
 ---
 
@@ -98,6 +98,12 @@ This checklist captures every testable normative rule (MUST/MUST-NOT/REQUIRED/SH
 | **E11** | SPEC_V3.md §3, lines 143–149 | ENVELOPE | `crypto_material` items shape: each must have `id`, `format`, `data` (all required). `format` URIs must be from the registry (e.g., `spki-fp-sha256/v1`, `x25519-hpke/v1`). Unknown *section* format URIs MUST reject. Unknown *item* formats are acceptable only if the appraisal policy does not require verifying that key/device. | Reject unknown section format. Accept unknown item format only if not policy-required. | Valid items with registered format URIs. | Unknown section format URI. |
 | **E12** | SPEC_V3.md §3, lines 130–139, device_evidence | ENVELOPE | `device_evidence` items: each must have `id`, `kind`, `vendor`, `format`, `evidence` (all required). `kind` values: `gpu` or other registered device kinds. Unknown *item* formats acceptable only if policy does not require that device. | Reject if required fields missing or unknown section format. | Valid device evidence items with registered formats, or empty `items: []`. | Missing `vendor` or `kind` field; unknown section format. |
 | **E13** | SPEC_V3.md §2, collateral | ENVELOPE | `collateral` array REQUIRED (may be empty `[]`). Each entry has `id` (unique within array), `role` (endorsement or reference-values), `format` (registry URI), `subjects` (array of strings; omitted for reference-values), `data` (object). Unknown formats ignored in collateral (unendorsed input); missing required entries detected naturally during verification. | Reject if collateral entry format is unknown but essential (e.g., VCEK missing for SEV). | Valid collateral entries with correct `id` uniqueness and format URIs. | Duplicate `id` values in collateral array. |
+| **E14** | SPEC_V3.md §4; envelope.Check | ENVELOPE | BINDING: `challenge.nonce` MUST equal the verifier-supplied nonce (freshness; the document nonce is an echo, never the source of truth). | reject a well-formed doc whose nonce ≠ the verifier nonce | nonce == verifier nonce | valid 32-byte nonce ≠ verifier nonce |
+| **E15** | SPEC_V3.md §4; envelope.Check | ENVELOPE | BINDING: `cpu_evidence.endorsed.crypto_material_hash` MUST equal SHA-256(crypto_material section bytes as transmitted). | reject valid 32-byte hash ≠ recomputed section hash | hash == SHA-256(section) | valid hash ≠ SHA-256(section) |
+| **E16** | SPEC_V3.md §4; envelope.Check | ENVELOPE | BINDING: `cpu_evidence.endorsed.device_evidence_hash` MUST equal SHA-256(device_evidence section bytes). | reject valid hash ≠ recomputed | hash == SHA-256(section) | valid hash ≠ SHA-256(section) |
+| **E17** | SPEC_V3.md §4; envelope.Check | ENVELOPE | BINDING: `challenge.report_data` MUST equal SHA-256(LABEL ‖ nonce ‖ crypto_material_hash ‖ device_evidence_hash) with [32:64]=0 (the ladder). | reject valid 64-byte report_data ≠ recomputed ladder | report_data == recomputed | valid 64-byte value ≠ recomputed ladder |
+
+> **Added after the slice-1 audit (2026-08-04):** E14–E17 are the envelope *binding* checks in `envelope.Check` (nonce equality, the two endorsed-section hash bindings, and the report_data ladder recompute). The original enumeration captured only the §2.1 parse/shape rules (E1–E13) and missed these four — they are the core freshness/hash-binding of the envelope. Now fixtured (`e14`–`e17`).
 
 ---
 
@@ -290,7 +296,7 @@ This checklist captures every testable normative rule (MUST/MUST-NOT/REQUIRED/SH
 
 | Layer | # Rules | Status |
 |-------|---------|--------|
-| **ENVELOPE** | 13 | Normative, enforced |
+| **ENVELOPE** | 17 | Normative, enforced |
 | **PROVENANCE** | 16 | Normative, enforced |
 | **QUOTE-SEV** | 26 | Normative, enforced (except revocation check) |
 | **QUOTE-TDX** | 25 | Normative, enforced |
