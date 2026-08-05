@@ -38,10 +38,21 @@
   `[x]P1` `[ ]P2` `[x]P3` `[x]P4` `[x]P5` `[x]P6` `[x]P7` `[x]P8` `[x]P9` `[x]P10` `[x]P11` `[x]P12` `[x]P13` `[x]P14` `[ ]P15` `[ ]P16`
 
   Code-side rules (P1, P3–P14) are fixtured via `gen_provenance.py` against the
-  `v3-authenticate-provenance` stage (16 fixtures, all green). P2 and P15
+  `v3-authenticate-provenance` stage (26 fixtures, all green). P2 and P15
   (sigstore-platform presence / identity) and P16 (both-entries / expired) are
   platform-side and land with the identity slice, which builds the
   sigstore-platform bundle.
+
+  **Branch audit (2026-08-05):** every JSON-reachable rejection site in the
+  code-provenance path was cross-checked and confirmed to reject at its intended
+  check. Rules with multiple sub-checks are split into per-branch fixtures: P11 →
+  SAN / issuer / runner_environment (`p11-san`, `p11-issuer`, `p11-runner`);
+  P13 → predicate-type plus the fail-closed measurement branches (`p13-no-tdx`,
+  `p13-tdx-not-struct`, `p13-no-snp`, `p13-no-rtmr1`) and vm_shape branches
+  (`p13-missing-shape`, `p13-shape-not-object`, `p13-shape-missing-member`,
+  `p13-shape-negative`); P14 → tag-ref and workflow-path (`p14-ref`, `p14-path`).
+  The only unfixtured branches are defensive nil-pointer checks unreachable via
+  JSON (a present key always yields a non-nil `structpb.Value`).
 
 **QUOTE-SEV** (B3) — 26 rules
 
