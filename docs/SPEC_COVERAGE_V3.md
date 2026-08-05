@@ -35,7 +35,11 @@
 
 **PROVENANCE** (B2) — 16 rules
 
-  `[x]P1` `[ ]P2` `[x]P3` `[x]P4` `[x]P5` `[x]P6` `[x]P7` `[x]P8` `[x]P9` `[x]P10` `[x]P11` `[x]P12` `[x]P13` `[x]P14` `[ ]P15` `[ ]P16`
+  `[x]P1` `[x]P2` `[x]P3` `[x]P4` `[x]P5` `[x]P6` `[x]P7` `[x]P8` `[x]P9` `[x]P10` `[x]P11` `[x]P12` `[x]P13` `[x]P14` `[x]P15` `[x]P16`
+
+  P2/P15/P16 (sigstore-platform presence, identity pin, expiry) are fixtured by
+  `gen_policy.py` at the `v3-assemble-policy` stage (`p2`, `p15-workflow`,
+  `p15-tag`, `p16`).
 
   Code-side rules (P1, P3–P14) are fixtured via `gen_provenance.py` against the
   `v3-authenticate-provenance` stage (26 fixtures, all green). P2 and P15
@@ -64,15 +68,26 @@
 
 **IDENTITY** (B4a) — 7 rules
 
-  `[ ]I1` `[ ]I2` `[ ]I3` `[ ]I4` `[ ]I5` `[ ]I6` `[ ]I7`
+  `[ ]I1` `[x]I2` `[x]I3` `[ ]I4` `[ ]I5` `[ ]I6` `[x]I7`
 
 **POLICY** (B4a/B4b) — 12 rules
 
-  `[ ]PL1` `[ ]PL2` `[ ]PL3` `[ ]PL4` `[ ]PL5` `[ ]PL6` `[ ]PL7` `[ ]PL8` `[ ]PL9` `[ ]PL10` `[ ]PL11` `[ ]PL12`
+  `[x]PL1` `[x]PL2` `[x]PL3` `[x]PL4` `[x]PL5` `[ ]PL6` `[ ]PL7` `[ ]PL8` `[x]PL9` `[x]PL10` `[x]PL11` `[x]PL12`
 
 **STRUCTURAL** (B4a) — 4 rules
 
-  `[ ]ST1` `[ ]ST2` `[ ]ST3` `[ ]ST4`
+  `[ ]ST1` `[ ]ST2` `[x]ST3` `[ ]ST4`
+
+  `gen_policy.py` fixtures the artifact machines-map and policy fail-closed rules
+  reached through `policy.Parse` at the `v3-assemble-policy` stage (24 fixtures,
+  all green, each confirmed to reject at its intended check): key formats (I2/I3/I7),
+  the fail-closed policy family (PL1–PL5, PL9–PL12), and required shape metadata
+  (ST3). The rules that key on a **verified quote** — identity extraction and
+  lookup (I1/I4/I5/I6), the SEV/TDX comparison semantics (PL6/PL7/PL8), and shape
+  filtering / exactly-one resolution (ST1/ST2/ST4) — are reached by the quote
+  slices (`v3-validate-quote`) and land with SEV/TDX. Required-field presence
+  checks are a uniform family, covered representatively per struct (SEV, TCB,
+  launch-TCB, TDX) rather than one fixture per member.
 
 **FRESHNESS** (B2) — 3 rules
 
