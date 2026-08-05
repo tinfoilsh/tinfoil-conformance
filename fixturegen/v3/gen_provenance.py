@@ -30,16 +30,28 @@ IDENTITY = f"https://github.com/{REPO}/.github/workflows/release.yml@refs/tags/{
 DIGEST = hashlib.sha256(b"code-artifact-v1").hexdigest()
 
 
-def statement(pred_type=PRED, with_shape=True, digest=DIGEST):
-    predicate = {"snp_measurement": "aa" * 48, "tdx_measurement": {"rtmr1": "bb" * 48, "rtmr2": "cc" * 48}}
-    if with_shape:
-        predicate["vm_shape"] = {"cpus": 8, "memory_mb": 32768, "gpus": 1, "disks": 2}
+def base_predicate():
+    return {
+        "snp_measurement": "aa" * 48,
+        "tdx_measurement": {"rtmr1": "bb" * 48, "rtmr2": "cc" * 48},
+        "vm_shape": {"cpus": 8, "memory_mb": 32768, "gpus": 1, "disks": 2},
+    }
+
+
+def statement(pred_type=PRED, predicate=None, digest=DIGEST):
     return json.dumps({
         "_type": "https://in-toto.io/Statement/v1",
         "subject": [{"name": "cip", "digest": {"sha256": digest}}],
         "predicateType": pred_type,
-        "predicate": predicate,
+        "predicate": base_predicate() if predicate is None else predicate,
     }, separators=(",", ":")).encode()
+
+
+def _pred_without(*keys):
+    p = base_predicate()
+    for k in keys:
+        p.pop(k, None)
+    return p
 
 
 def code_entry(bundle, digest=DIGEST, repo=REPO):
@@ -125,9 +137,19 @@ def p10():  # subject[0] digest != the expected artifact digest
     return doc_with(b, digest=other), t, False
 
 
-def p11():  # signing identity SAN is a different repository
+def p11_san():  # signing identity SAN is a different repository
     ident = "https://github.com/attacker/evil/.github/workflows/release.yml@refs/tags/v1.0.0"
     b, t = ss.build_bundle(ident, statement())
+    return doc_with(b), t, False
+
+
+def p11_issuer():  # OIDC issuer extension is not the GitHub Actions issuer
+    b, t = ss.build_bundle(IDENTITY, statement(), issuer="https://accounts.evil.example")
+    return doc_with(b), t, False
+
+
+def p11_runner():  # runner_environment is not github-hosted (self-hosted infra)
+    b, t = ss.build_bundle(IDENTITY, statement(), runner_environment="self-hosted")
     return doc_with(b), t, False
 
 
@@ -141,13 +163,61 @@ def p13_type():  # statement predicate type is not the expected code URI
     return doc_with(b), t, False
 
 
-def p13_shape():  # code predicate declares no vm_shape
-    b, t = ss.build_bundle(IDENTITY, statement(with_shape=False))
+# P13 also requires the predicate to be parsed fail-closed against its schema:
+# every measurement and vm_shape member is mandatory and typed.
+def p13_no_tdx():
+    b, t = ss.build_bundle(IDENTITY, statement(predicate=_pred_without("tdx_measurement")))
     return doc_with(b), t, False
 
 
-def p14():  # SAN ref is a branch, not a tag
+def p13_tdx_not_struct():
+    p = base_predicate(); p["tdx_measurement"] = "not-an-object"
+    b, t = ss.build_bundle(IDENTITY, statement(predicate=p))
+    return doc_with(b), t, False
+
+
+def p13_no_snp():
+    b, t = ss.build_bundle(IDENTITY, statement(predicate=_pred_without("snp_measurement")))
+    return doc_with(b), t, False
+
+
+def p13_no_rtmr1():
+    p = base_predicate(); p["tdx_measurement"] = {"rtmr2": "cc" * 48}
+    b, t = ss.build_bundle(IDENTITY, statement(predicate=p))
+    return doc_with(b), t, False
+
+
+def p13_shape_missing():  # code predicate declares no vm_shape
+    b, t = ss.build_bundle(IDENTITY, statement(predicate=_pred_without("vm_shape")))
+    return doc_with(b), t, False
+
+
+def p13_shape_not_object():
+    p = base_predicate(); p["vm_shape"] = "not-an-object"
+    b, t = ss.build_bundle(IDENTITY, statement(predicate=p))
+    return doc_with(b), t, False
+
+
+def p13_shape_missing_member():
+    p = base_predicate(); p["vm_shape"].pop("cpus")
+    b, t = ss.build_bundle(IDENTITY, statement(predicate=p))
+    return doc_with(b), t, False
+
+
+def p13_shape_negative():
+    p = base_predicate(); p["vm_shape"]["cpus"] = -1
+    b, t = ss.build_bundle(IDENTITY, statement(predicate=p))
+    return doc_with(b), t, False
+
+
+def p14_ref():  # SAN ref is a branch, not a tag
     ident = f"https://github.com/{REPO}/.github/workflows/release.yml@refs/heads/main"
+    b, t = ss.build_bundle(ident, statement())
+    return doc_with(b), t, False
+
+
+def p14_path():  # workflow path is not directly under .github/workflows
+    ident = f"https://github.com/{REPO}/.github/workflows/nested/release.yml@refs/tags/{TAG}"
     b, t = ss.build_bundle(ident, statement())
     return doc_with(b), t, False
 
@@ -156,8 +226,15 @@ MUTATIONS = {
     "provenance-happy": happy,
     "p1": p1, "p3": p3, "p4-zero-sigs": p4_zero, "p4-two-sigs": p4_two,
     "p5": p5, "p6": p6, "p7": p7, "p8": p8, "p9": p9, "p10": p10,
-    "p11": p11, "p12": p12, "p13-predicate-type": p13_type,
-    "p13-missing-shape": p13_shape, "p14": p14,
+    "p11-san": p11_san, "p11-issuer": p11_issuer, "p11-runner": p11_runner,
+    "p12": p12,
+    "p13-predicate-type": p13_type, "p13-no-tdx": p13_no_tdx,
+    "p13-tdx-not-struct": p13_tdx_not_struct, "p13-no-snp": p13_no_snp,
+    "p13-no-rtmr1": p13_no_rtmr1, "p13-missing-shape": p13_shape_missing,
+    "p13-shape-not-object": p13_shape_not_object,
+    "p13-shape-missing-member": p13_shape_missing_member,
+    "p13-shape-negative": p13_shape_negative,
+    "p14-ref": p14_ref, "p14-path": p14_path,
 }
 
 

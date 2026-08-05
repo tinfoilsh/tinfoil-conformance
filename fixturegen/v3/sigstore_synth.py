@@ -204,7 +204,7 @@ def _sct_list_extension_value(serialized_scts):
 
 
 # --- Leaf certificate with embedded SCT -------------------------------------
-def _leaf_extensions(identity_uri, int_key):
+def _leaf_extensions(identity_uri, int_key, issuer, runner_environment):
     return [
         (x509.BasicConstraints(ca=False, path_length=None), True),
         (x509.KeyUsage(
@@ -214,13 +214,14 @@ def _leaf_extensions(identity_uri, int_key):
         (x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), False),
         (x509.SubjectKeyIdentifier.from_public_key(_key("leaf").public_key()), False),
         (x509.AuthorityKeyIdentifier.from_issuer_public_key(int_key.public_key()), False),
-        (x509.UnrecognizedExtension(OID_ISSUER_V1, GITHUB_ACTIONS_ISSUER.encode()), False),
-        (x509.UnrecognizedExtension(OID_RUNNER_ENVIRONMENT, _der_utf8_string("github-hosted")), False),
+        (x509.UnrecognizedExtension(OID_ISSUER_V1, issuer.encode()), False),
+        (x509.UnrecognizedExtension(OID_RUNNER_ENVIRONMENT, _der_utf8_string(runner_environment)), False),
         (x509.SubjectAlternativeName([x509.UniformResourceIdentifier(identity_uri)]), True),
     ]
 
 
-def _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=False):
+def _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=False,
+                issuer=GITHUB_ACTIONS_ISSUER, runner_environment="github-hosted"):
     leaf_key = _key("leaf")
     int_name = int_cert.subject
     not_before = BASE_TIME - datetime.timedelta(minutes=5)
@@ -236,7 +237,7 @@ def _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=False):
             .not_valid_before(not_before)
             .not_valid_after(not_after)
         )
-        for ext, critical in _leaf_extensions(identity_uri, int_key):
+        for ext, critical in _leaf_extensions(identity_uri, int_key, issuer, runner_environment):
             b = b.add_extension(ext, critical)
         return b
 
@@ -375,7 +376,8 @@ def _trusted_root(root_cert, int_cert):
 
 
 # --- Bundle assembly --------------------------------------------------------
-def build_bundle(identity_uri, statement_bytes, integrated_time=None, dup_sct=False, bad_dsse=False):
+def build_bundle(identity_uri, statement_bytes, integrated_time=None, dup_sct=False, bad_dsse=False,
+                 issuer=GITHUB_ACTIONS_ISSUER, runner_environment="github-hosted"):
     """Return (bundle_dict, trusted_root_dict) for a DSSE-signed in-toto
     statement whose signing certificate carries identity_uri as its SAN.
     integrated_time overrides the log timestamp (used to place it outside the
@@ -384,7 +386,8 @@ def build_bundle(identity_uri, statement_bytes, integrated_time=None, dup_sct=Fa
     but the DSSE signature fails to verify under the certificate)."""
     it = INTEGRATED_TIME if integrated_time is None else integrated_time
     root_cert, int_cert, int_key = _build_ca()
-    leaf, leaf_key = _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=dup_sct)
+    leaf, leaf_key = _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=dup_sct,
+                                 issuer=issuer, runner_environment=runner_environment)
     leaf_pem = leaf.public_bytes(serialization.Encoding.PEM)
 
     dsse_sig = _dsse_sign(statement_bytes, _key("ctlog") if bad_dsse else leaf_key)
