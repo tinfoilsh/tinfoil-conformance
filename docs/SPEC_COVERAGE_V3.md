@@ -35,7 +35,13 @@
 
 **PROVENANCE** (B2) — 16 rules
 
-  `[ ]P1` `[ ]P2` `[ ]P3` `[ ]P4` `[ ]P5` `[ ]P6` `[ ]P7` `[ ]P8` `[ ]P9` `[ ]P10` `[ ]P11` `[ ]P12` `[ ]P13` `[ ]P14` `[ ]P15` `[ ]P16`
+  `[x]P1` `[ ]P2` `[x]P3` `[x]P4` `[x]P5` `[x]P6` `[x]P7` `[x]P8` `[x]P9` `[x]P10` `[x]P11` `[x]P12` `[x]P13` `[x]P14` `[ ]P15` `[ ]P16`
+
+  Code-side rules (P1, P3–P14) are fixtured via `gen_provenance.py` against the
+  `v3-authenticate-provenance` stage (16 fixtures, all green). P2 and P15
+  (sigstore-platform presence / identity) and P16 (both-entries / expired) are
+  platform-side and land with the identity slice, which builds the
+  sigstore-platform bundle.
 
 **QUOTE-SEV** (B3) — 26 rules
 
