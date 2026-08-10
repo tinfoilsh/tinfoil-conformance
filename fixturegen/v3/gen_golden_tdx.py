@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""Generate the v3 TDX golden document + validate-stage fixtures.
+
+The TDX analogue of gen_golden.py: one fully-consistent v3 document that
+verify-attestation-v3 accepts, pairing all generators under both anchors:
+
+  envelope ladder   == TDX quote report_data
+  quote MRTD/RTMR0  == the endorsed platform measurement (shape-filtered)
+  quote RTMR1/RTMR2 == the code provenance tdx_measurement
+  quote mr_seam / td_attributes / xfam / qe_vendor_id == the endorsed tdx policy
+  quote CHIP/PPID   -> machines map -> the tdx policy
+
+Single-field mutations reject at the specific check, unlocking TDX validate
+rules (T4/T7/T10/T12/T14/T17/T18/T20/T23), shape resolution (ST1/ST2), and
+policy comparison (PL7/PL8).
+"""
+
+import json
+import os
+
+import gen_envelope as env
+import gen_provenance as prov
+import gen_policy as pol
+import gen_tdx as gt
+import sigstore_synth as sig
+
+# TdBodyFields defaults the quote is built with (see lib/tdx_synth).
+MRTD = "11" * 48
+RTMR0 = "22" * 48
+RTMR1 = "33" * 48
+RTMR2 = "44" * 48
+MRSEAM = "aa" * 48
+TD_ATTRIBUTES = "0000004000000000"
+XFAM = "e71a060000000000"
+QE_VENDOR_ID = "939a7233f79c4ca9940a0db3957f0607"
+PPID = "55" * 16
+SHAPE = {"cpus": 8, "memory_mb": 32768, "gpus": 1, "disks": 2}
+
+
+def tdx_artifact():
+    return {
+        "format": pol.ARTIFACT_FMT,
+        "measurements": {"m1": {"mrtd": MRTD, "rtmr0": RTMR0, "shape": dict(SHAPE)}},
+        "machines": {PPID: "tdx-policy"},
+        "policies": {"tdx-policy": {"platform": "tdx", "tdx": {
+            "qe_vendor_id": QE_VENDOR_ID, "minimum_tee_tcb_svn": "00" * 16,
+            "mr_seam": MRSEAM, "td_attributes": TD_ATTRIBUTES, "xfam": XFAM,
+            "minimum_tcb_evaluation_data_number": 0, "platform_measurements": ["m1"],
+        }}},
+    }
+
+
+def golden_tdx(artifact=None, code_rtmr1=RTMR1, code_rtmr2=RTMR2, report_data=None):
+    artifact = artifact or tdx_artifact()
+    doc = env.base_doc()
+    ladder = bytes.fromhex(doc["challenge"]["report_data"])
+
+    body = gt.tsx.TdBodyFields(tee_tcb_svn=b"\x00\x03\x05\x00" + b"\x00" * 12,
+                               report_data=report_data if report_data is not None else ladder)
+    chain, quote, responses = gt.build_tdx(body=body)
+
+    code_pred = {"snp_measurement": "ab" * 48,
+                 "tdx_measurement": {"rtmr1": code_rtmr1, "rtmr2": code_rtmr2},
+                 "vm_shape": dict(SHAPE)}
+    code_bundle, sig_troot = sig.build_bundle(prov.IDENTITY, prov.statement(predicate=code_pred))
+    plat_bundle, _ = sig.build_bundle(pol.IDENTITY, pol.statement(artifact))
+
+    doc["cpu_evidence"]["format"] = gt.TDX_FMT
+    doc["cpu_evidence"]["report_base64"] = env.b64(quote)
+    doc["collateral"] = [
+        prov.code_entry(code_bundle),
+        pol.platform_entry(plat_bundle),
+        {"id": "pcs", "role": "endorsement", "format": gt.PCS_FMT,
+         "subjects": ["cpu"], "data": {"responses": responses}},
+    ]
+    inp = {
+        "schema_version": "1", "document_b64": env.b64(env.canon(doc)),
+        "nonce_hex": env.NONCE.hex(), "repo": prov.REPO,
+        "intel_sgx_root_pem": chain.root_ca.pem,
+        "sigstore_trusted_root_json_b64": env.b64(json.dumps(sig_troot).encode()),
+    }
+    return inp
+
+
+def fixture(fid, inp, accepted):
+    return {"id": fid, "stage": "verify-attestation-v3", "input": inp, "expected": {"accepted": accepted}}
+
+
+def _mut_tdx(**changes):
+    a = tdx_artifact()
+    a["policies"]["tdx-policy"]["tdx"].update(changes)
+    return a
+
+
+def BUILDERS():
+    yield ("tdx-golden-happy", golden_tdx(), True)
+    # T18: quote RTMR1/RTMR2 != code provenance tdx_measurement.
+    yield ("t18-rtmr1", golden_tdx(code_rtmr1="ff" * 48), False)
+    yield ("t18-rtmr2", golden_tdx(code_rtmr2="ff" * 48), False)
+    # T14/ST1: quote MRTD does not match any shape-filtered platform measurement.
+    a = tdx_artifact(); a["measurements"]["m1"]["mrtd"] = "ee" * 48
+    yield ("t14-mrtd", golden_tdx(artifact=a), False)
+    # T17: quote RTMR0 does not match the platform measurement.
+    a = tdx_artifact(); a["measurements"]["m1"]["rtmr0"] = "ee" * 48
+    yield ("t17-rtmr0", golden_tdx(artifact=a), False)
+    # ST1: no measurement whose shape satisfies the code's required shape.
+    a = tdx_artifact(); a["measurements"]["m1"]["shape"]["cpus"] = 99
+    yield ("st1-shape-filter", golden_tdx(artifact=a), False)
+    # T7 / PL8: MRSEAM != endorsed policy.
+    yield ("t7-mr-seam", golden_tdx(artifact=_mut_tdx(mr_seam="bb" * 48)), False)
+    # T4: QE_VENDOR_ID != endorsed policy.
+    yield ("t4-qe-vendor-id", golden_tdx(artifact=_mut_tdx(qe_vendor_id="00" * 16)), False)
+    # T10/T11: TDATTRIBUTES != endorsed policy.
+    yield ("t10-td-attributes", golden_tdx(artifact=_mut_tdx(td_attributes="0000000000000000")), False)
+    # T12/T13: XFAM != endorsed policy.
+    yield ("t12-xfam", golden_tdx(artifact=_mut_tdx(xfam="0000000000000000")), False)
+    # T20: REPORT_DATA != the recomputed envelope ladder.
+    yield ("t20-report-data", golden_tdx(report_data=b"\x77" * 64), False)
+    # T23: collateral tcbEvaluationDataNumber below the policy floor.
+    yield ("t23-tcb-eval", golden_tdx(artifact=_mut_tdx(minimum_tcb_evaluation_data_number=999)), False)
+
+
+def main():
+    out = "vectors/v3/golden-tdx"
+    os.makedirs(out, exist_ok=True)
+    n = 0
+    for fid, inp, accepted in BUILDERS():
+        with open(os.path.join(out, fid + ".json"), "w") as fh:
+            fh.write(json.dumps(fixture(fid, inp, accepted), indent=2) + "\n")
+        n += 1
+    print(f"wrote {n} TDX golden / verify-attestation-v3 fixtures to {out}/")
+
+
+if __name__ == "__main__":
+    main()
