@@ -50,13 +50,16 @@ def tdx_artifact():
     }
 
 
-def golden_tdx(artifact=None, code_rtmr1=RTMR1, code_rtmr2=RTMR2, report_data=None):
+def golden_tdx(artifact=None, code_rtmr1=RTMR1, code_rtmr2=RTMR2, report_data=None,
+               body_kwargs=None):
     artifact = artifact or tdx_artifact()
     doc = env.base_doc()
     ladder = bytes.fromhex(doc["challenge"]["report_data"])
 
-    body = gt.tsx.TdBodyFields(tee_tcb_svn=b"\x00\x03\x05\x00" + b"\x00" * 12,
-                               report_data=report_data if report_data is not None else ladder)
+    bk = {"tee_tcb_svn": b"\x00\x03\x05\x00" + b"\x00" * 12,
+          "report_data": report_data if report_data is not None else ladder}
+    bk.update(body_kwargs or {})
+    body = gt.tsx.TdBodyFields(**bk)
     chain, quote, responses = gt.build_tdx(body=body)
 
     code_pred = {"snp_measurement": "ab" * 48,
@@ -118,6 +121,27 @@ def BUILDERS():
     yield ("t20-report-data", golden_tdx(report_data=b"\x77" * 64), False)
     # T23: collateral tcbEvaluationDataNumber below the policy floor.
     yield ("t23-tcb-eval", golden_tdx(artifact=_mut_tdx(minimum_tcb_evaluation_data_number=999)), False)
+    # T6: quote TEE_TCB_SVN below the endorsed per-byte minimum_tee_tcb_svn floor.
+    yield ("t6-tee-tcb-svn", golden_tdx(artifact=_mut_tdx(
+        minimum_tee_tcb_svn="00030600" + "00" * 12)), False)
+    # T19: RTMR3 must be zero (code provenance never extends it).
+    yield ("t19-rtmr3", golden_tdx(body_kwargs={"rtmr3": b"\x99" * 48}), False)
+    # T15: MRCONFIGID pinned all-zero.
+    yield ("t15-mr-config-id", golden_tdx(body_kwargs={"mr_config_id": b"\x99" * 48}), False)
+    # T16: MROWNER / MROWNERCONFIG pinned all-zero.
+    yield ("t16-mr-owner", golden_tdx(body_kwargs={"mr_owner": b"\x99" * 48}), False)
+
+    # --- Positive tests that MUST accept. ---
+    # T5/U3: QE user data (QE_ID) is unchecked; happy accepts regardless (the
+    # verifier never reads it). Covered by the happy document.
+    # Positive: TCB eval number well above the policy floor still accepts.
+    yield ("tdx-pos-tcb-eval-above", golden_tdx(artifact=_mut_tdx(
+        minimum_tcb_evaluation_data_number=5)), True)
+    # ST2: several measurements survive the shape filter; the matching one resolves.
+    a = tdx_artifact()
+    a["measurements"]["m2"] = {"mrtd": "ee" * 48, "rtmr0": "dd" * 48, "shape": dict(SHAPE)}
+    a["policies"]["tdx-policy"]["tdx"]["platform_measurements"] = ["m2", "m1"]
+    yield ("st2-multi-measurement", golden_tdx(artifact=a), True)
 
 
 def main():
