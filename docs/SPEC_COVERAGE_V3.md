@@ -60,7 +60,7 @@
 
 **QUOTE-SEV** (B3) — 26 rules
 
-  `[x]S1` `[ ]S2` `[ ]S3` `[ ]S4` `[ ]S5` `[ ]S6` `[ ]S7` `[x]S8` `[ ]S9` `[ ]S10` `[ ]S11` `[x]S12` `[ ]S13` `[ ]S14` `[ ]S15` `[ ]S16` `[ ]S17` `[ ]S18` `[ ]S19` `[x]S20` `[ ]S21` `[ ]S22` `[ ]S23` `[ ]S24` `[x]S25` `[x]S26`
+  `[x]S1` `[ ]S2` `[x]S3` `[x]S4` `[ ]S5` `[ ]S6` `[x]S7` `[x]S8` `[ ]S9` `[x]S10` `[x]S11` `[x]S12` `[ ]S13` `[x]S14` `[x]S15` `[ ]S16` `[ ]S17` `[ ]S18` `[x]S19` `[x]S20` `[ ]S21` `[ ]S22` `[ ]S23` `[ ]S24` `[x]S25` `[x]S26`
 
   Authenticate-stage rules (S1 version, S8/S25 signature, S12 signer key, S20
   product/CPUID, S26 root pinning + ASK revocation) are fixtured by `gen_sev.py`
@@ -78,11 +78,11 @@
 
 **IDENTITY** (B4a) — 7 rules
 
-  `[ ]I1` `[x]I2` `[x]I3` `[ ]I4` `[ ]I5` `[ ]I6` `[x]I7`
+  `[ ]I1` `[x]I2` `[x]I3` `[ ]I4` `[x]I5` `[ ]I6` `[x]I7`
 
 **POLICY** (B4a/B4b) — 12 rules
 
-  `[x]PL1` `[x]PL2` `[x]PL3` `[x]PL4` `[x]PL5` `[ ]PL6` `[ ]PL7` `[ ]PL8` `[x]PL9` `[x]PL10` `[x]PL11` `[x]PL12`
+  `[x]PL1` `[x]PL2` `[x]PL3` `[x]PL4` `[x]PL5` `[x]PL6` `[ ]PL7` `[ ]PL8` `[x]PL9` `[x]PL10` `[x]PL11` `[x]PL12`
 
 **STRUCTURAL** (B4a) — 4 rules
 
