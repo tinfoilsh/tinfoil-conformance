@@ -79,7 +79,7 @@
 
 **QUOTE-TDX** (B3) — 25 rules
 
-  `[x]T1` `[x]T2` `[x]T3` `[x]T4` `[ ]T5` `[ ]T6` `[x]T7` `[ ]T8` `[ ]T9` `[x]T10` `[x]T11` `[x]T12` `[x]T13` `[x]T14` `[ ]T15` `[ ]T16` `[x]T17` `[x]T18` `[ ]T19` `[x]T20` `[x]T21` `[ ]T22` `[x]T23` `[x]T24` `[x]T25`
+  `[x]T1` `[x]T2` `[x]T3` `[x]T4` `[ ]T5` `[x]T6` `[x]T7` `[x]T8` `[x]T9` `[x]T10` `[x]T11` `[x]T12` `[x]T13` `[x]T14` `[x]T15` `[x]T16` `[x]T17` `[x]T18` `[x]T19` `[x]T20` `[x]T21` `[x]T22` `[x]T23` `[x]T24` `[x]T25`
 
 **IDENTITY** (B4a) — 7 rules
 
@@ -91,7 +91,7 @@
 
 **STRUCTURAL** (B4a) — 4 rules
 
-  `[x]ST1` `[ ]ST2` `[x]ST3` `[ ]ST4`
+  `[x]ST1` `[x]ST2` `[x]ST3` `[x]ST4`
 
   `gen_policy.py` fixtures the artifact machines-map and policy fail-closed rules
   reached through `policy.Parse` at the `v3-assemble-policy` stage (24 fixtures,

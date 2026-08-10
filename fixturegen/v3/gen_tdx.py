@@ -146,8 +146,30 @@ def t25_wrong_root():  # T25: quote does not chain to the pinned Intel root
     return fx("t25-wrong-root", tdx_document(quote, responses), rogue.root_ca.pem, False)
 
 
+def _body(**kw):
+    return tsx.TdBodyFields(tee_tcb_svn=b"\x00\x03\x05\x00" + b"\x00" * 12, **kw)
+
+
+def t8_mrsignerseam():  # T8: MRSIGNERSEAM != TCB Info TdxModule.mrsigner
+    chain, quote, responses = build_tdx(body=_body(mr_signer_seam=b"\xEE" * 48))
+    return fx("t8-mr-signer-seam", tdx_document(quote, responses), chain.root_ca.pem, False)
+
+
+def t9_seamattributes():  # T9: SEAMATTRIBUTES masked comparison against TCB Info
+    chain, quote, responses = build_tdx(body=_body(seam_attributes=b"\xFF" * 8))
+    return fx("t9-seam-attributes", tdx_document(quote, responses), chain.root_ca.pem, False)
+
+
+def t22_pcesvn():  # T22: PCK leaf PCESVN below the matched TCB level's pcesvn
+    lv = _tcb_levels()
+    lv[0]["tcb"]["pcesvn"] = 99                      # PCK carries pcesvn=11 < 99
+    chain, quote, responses = build_tdx(tcb_levels=lv)
+    return fx("t22-pcesvn", tdx_document(quote, responses), chain.root_ca.pem, False)
+
+
 BUILDERS = [happy, t1_version, t3_reserved, t3_extra_bytes, t_signature,
-            t21_qe_mismatch, t24_missing_pcs, t24_crl_expired, t25_wrong_root]
+            t21_qe_mismatch, t24_missing_pcs, t24_crl_expired, t25_wrong_root,
+            t8_mrsignerseam, t9_seamattributes, t22_pcesvn]
 
 
 def main():
