@@ -264,8 +264,25 @@ def pl_tdx_empty_measurements():  # TDX platform_measurements must not be empty
     return doc_with(b), t, False
 
 
+# Positive variations that MUST accept.
+def pos_fmc_spl():  # optional fmc_spl present in the TCB is valid
+    def m(a):
+        a["policies"]["sev-policy"]["sev_snp"]["minimum_tcb"]["fmc_spl"] = 0
+    b, t = _bundle(_artifact(m))
+    return doc_with(b), t, True
+
+
+def pos_multi_machine():  # several machines mapping into the policy set
+    def m(a):
+        a["machines"]["ef" * 64] = "sev-policy"
+    b, t = _bundle(_artifact(m))
+    return doc_with(b), t, True
+
+
 MUTATIONS = {
     "policy-happy": happy,
+    "policy-pos-fmc-spl": pos_fmc_spl,
+    "policy-pos-multi-machine": pos_multi_machine,
     "p2": p2, "p15-workflow": p15, "p15-tag": p15_tag, "p16": p16,
     "i-unknown-policy": i_unknown_policy, "i-sev-len": i_sev_len,
     "i-tdx-len": i_tdx_len, "i-not-hex": i_not_hex,

@@ -222,8 +222,36 @@ def p14_path():  # workflow path is not directly under .github/workflows
     return doc_with(b), t, False
 
 
+# Positive variations: valid alternatives that MUST accept, so a port that is
+# wrongly too strict (hard-codes the one happy identity/statement) is caught.
+def pos_wildcard_workflow():  # SAN allows any workflow filename under .github/workflows
+    ident = f"https://github.com/{REPO}/.github/workflows/ci.yml@refs/tags/{TAG}"
+    b, t = ss.build_bundle(ident, statement())
+    return doc_with(b), t, True
+
+
+def pos_other_tag():  # any tag ref is accepted
+    ident = f"https://github.com/{REPO}/.github/workflows/release.yml@refs/tags/v9.9.9-rc.1"
+    b, t = ss.build_bundle(ident, statement())
+    return doc_with(b), t, True
+
+
+def pos_multi_subject():  # extra subjects are fine as long as subject[0] matches
+    stmt = json.dumps({
+        "_type": "https://in-toto.io/Statement/v1",
+        "subject": [{"name": "cip", "digest": {"sha256": DIGEST}},
+                    {"name": "extra", "digest": {"sha256": "11" * 32}}],
+        "predicateType": PRED, "predicate": base_predicate(),
+    }, separators=(",", ":")).encode()
+    b, t = ss.build_bundle(IDENTITY, stmt)
+    return doc_with(b), t, True
+
+
 MUTATIONS = {
     "provenance-happy": happy,
+    "provenance-pos-wildcard-workflow": pos_wildcard_workflow,
+    "provenance-pos-other-tag": pos_other_tag,
+    "provenance-pos-multi-subject": pos_multi_subject,
     "p1": p1, "p3": p3, "p4-zero-sigs": p4_zero, "p4-two-sigs": p4_two,
     "p5": p5, "p6": p6, "p7": p7, "p8": p8, "p9": p9, "p10": p10,
     "p11-san": p11_san, "p11-issuer": p11_issuer, "p11-runner": p11_runner,

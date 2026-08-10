@@ -198,10 +198,42 @@ def fixture(fid: str, doc: bytes, accepted: bool) -> dict:
     }
 
 
+def valid_doc(cm_items=None, de_items=None, collateral=None) -> dict:
+    """A document that passes Check with populated sections: the endorsed hashes
+    and report_data ladder are recomputed over the actual section bytes."""
+    d = base_doc()
+    cm = canon({"format": CRYPTO_MATERIAL, "items": cm_items or []})
+    de = canon({"format": DEVICE_EVIDENCE, "items": de_items or []})
+    cmh, deh = sha(cm), sha(de)
+    d["challenge"]["report_data"] = (sha(REPORT_DATA_V1.encode() + NONCE + cmh + deh) + b"\x00" * 32).hex()
+    d["cpu_evidence"]["endorsed"] = {"crypto_material_hash": cmh.hex(), "device_evidence_hash": deh.hex()}
+    d["crypto_material"] = b64(cm)
+    d["device_evidence"] = b64(de)
+    if collateral is not None:
+        d["collateral"] = collateral
+    return d
+
+
+# Positive variations that MUST accept — populated sections and collateral — so a
+# port that wrongly rejects non-empty sections is caught.
+POSITIVES = {
+    "envelope-pos-crypto-items":
+        lambda: valid_doc(cm_items=[{"id": "tls", "format": KEY_SPKI_FP, "data": "ab" * 32}]),
+    "envelope-pos-device-item":
+        lambda: valid_doc(de_items=[{"id": "gpu0", "kind": "gpu", "vendor": "nvidia",
+                                     "format": "https://tinfoil.sh/x", "evidence": {}}]),
+    "envelope-pos-collateral":
+        lambda: valid_doc(collateral=[{"id": "c1", "role": "endorsement",
+                                       "format": AMD_CRL, "data": {}}]),
+}
+
+
 def main() -> None:
     out = sys.argv[1] if len(sys.argv) > 1 else "vectors/v3/envelope"
     os.makedirs(out, exist_ok=True)
     fixtures = [fixture("envelope-happy", canon(base_doc()), True)]
+    for fid, fn in POSITIVES.items():
+        fixtures.append(fixture(fid, canon(fn()), True))
     for rid, fn in MUTATIONS.items():
         fixtures.append(fixture(rid, fn(), False))
     for f in fixtures:
