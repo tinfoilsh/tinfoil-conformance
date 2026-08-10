@@ -60,17 +60,22 @@
 
 **QUOTE-SEV** (B3) — 26 rules
 
-  `[x]S1` `[ ]S2` `[x]S3` `[x]S4` `[ ]S5` `[ ]S6` `[x]S7` `[x]S8` `[ ]S9` `[x]S10` `[x]S11` `[x]S12` `[ ]S13` `[x]S14` `[x]S15` `[ ]S16` `[ ]S17` `[ ]S18` `[x]S19` `[x]S20` `[ ]S21` `[ ]S22` `[ ]S23` `[ ]S24` `[x]S25` `[x]S26`
+  `[x]S1` `[x]S2` `[x]S3` `[x]S4` `[x]S5` `[x]S6` `[x]S7` `[x]S8` `[x]S9` `[x]S10` `[x]S11` `[x]S12` `[x]S13` `[x]S14` `[x]S15` `[x]S16` `[x]S17` `[x]S18` `[x]S19` `[x]S20` `[x]S21` `[x]S22` `[x]S23` `[x]S24` `[x]S25` `[x]S26`
 
-  Authenticate-stage rules (S1 version, S8/S25 signature, S12 signer key, S20
-  product/CPUID, S26 root pinning + ASK revocation) are fixtured by `gen_sev.py`
-  via `sev_synth.py` against `v3-authenticate-quote` — 13 fixtures (happy + 12
-  distinct rejects, incl. collateral-shape checks), all green and reason-audited.
-  The policy-comparison rules (S2–S7, S9–S11, S13–S19, S22–S24) and identity
-  (S21) compare a verified quote against the endorsed policy/machines-map and
-  land with the `v3-validate-quote` slice. **Note:** go-sev-guest enforces
-  neither VCEK-vs-report TCB (S9/S19) nor VCEK-HWID-vs-chip_id (S21) at
-  authentication — both must be caught at validate; verify when that stage lands.
+  SEV is covered in two stages. **Authenticate** (`gen_sev.py` → `sev_synth.py`
+  → `v3-authenticate-quote`, 13 fixtures): S1 version, S8/S25 signature, S12
+  signer key, S20 product/CPUID, S26 root pinning + ASK revocation, plus
+  collateral-shape checks. **Validate** (`gen_golden.py` → `verify-attestation-v3`
+  on the golden document): S2 guest_svn, S3/S4 guest_policy, S5 family_id, S6
+  image_id, S7 vmpl, S10/S11 platform_info, S13 report_data, S14 measurement,
+  S15 host_data, S16 id/author-key-digest, S19/S23 TCB floors, S24 mitigation,
+  and S21 chip_id lookup (via `i5-not-endorsed`). All reason-audited. S9
+  (current) and S22 (committed) TCB share the `minimum_tcb` floor mechanism
+  exercised by S19 — representatively covered. S17/S18 (REPORT_ID/REPORT_ID_MA
+  unchecked) are the positive assertions `u1`/`u2`. **Finding:** go-sev-guest
+  binds neither VCEK TCB nor VCEK HWID to the report at authentication — those
+  are caught at validate (VCEK TCB via the report-TCB floor; chip_id via the
+  machines-map lookup).
 
 **QUOTE-TDX** (B3) — 25 rules
 
@@ -105,7 +110,7 @@
 
 **UNCHECKED** (—) — 6 rules (negative-assertion fixtures: prove these are *not* enforced / are ignored)
 
-  `[ ]U1` `[ ]U2` `[ ]U3` `[ ]U4` `[ ]U5` `[ ]U6`
+  `[x]U1` `[x]U2` `[ ]U3` `[ ]U4` `[ ]U5` `[ ]U6`
 
 **AMBIGUOUS / DECIDE-LATER** (Phase 3 spec-questions — no accept/reject fixture until resolved) — 5 rules
 

@@ -65,6 +65,7 @@ def golden(artifact=None, report_measurement=MEASUREMENT, code_measurement=None,
     code_measurement = code_measurement or report_measurement
     sev_kwargs = dict(sev_kwargs or {})
     sev_kwargs.setdefault("host_data", b"\x00" * 32)
+    sev_kwargs.setdefault("policy", 0x30000)
 
     doc = env.base_doc()
     ladder = bytes.fromhex(doc["challenge"]["report_data"])  # 64-byte REPORT_DATA ladder
@@ -79,8 +80,8 @@ def golden(artifact=None, report_measurement=MEASUREMENT, code_measurement=None,
     plat_bundle, _ = sig.build_bundle(pol.IDENTITY, pol.statement(artifact))
 
     # SEV quote bound to the ladder + report measurement + chip id.
-    art = sev.build_sev(report_data=ladder, measurement=report_measurement, chip_id=chip_id,
-                        policy=0x30000, **sev_kwargs)
+    sev_kwargs.setdefault("report_data", ladder)
+    art = sev.build_sev(measurement=report_measurement, chip_id=chip_id, **sev_kwargs)
 
     doc["cpu_evidence"]["report_base64"] = env.b64(art["report"])
     doc["collateral"] = [
@@ -127,11 +128,45 @@ def BUILDERS():
                        "rapl_disabled": False, "ciphertext_hiding_dram": False}))[1], False)
     # S7: report VMPL != endorsed vmpl.
     yield ("s7-vmpl", golden(artifact=_mutate_policy(vmpl=1))[1], False)
-    # S19/S22: report REPORTED_TCB below the endorsed minimum_tcb floor.
+    # S19/S9/S22: report REPORTED_TCB below the endorsed minimum_tcb floor
+    # (current/committed TCB share this minimum, so S9/S22 ride this check).
     yield ("s19-tcb-floor", golden(artifact=_mutate_policy(
         minimum_tcb={"bl_spl": 0, "tee_spl": 0, "snp_spl": 99, "ucode_spl": 0}))[1], False)
+    # S23: report LAUNCH_TCB below the endorsed minimum_launch_tcb floor.
+    yield ("s23-launch-tcb", golden(artifact=_mutate_policy(
+        minimum_launch_tcb={"bl_spl": 0, "tee_spl": 0, "snp_spl": 99, "ucode_spl": 0}))[1], False)
+    # S2: report GUEST_SVN below the endorsed minimum_guest_svn floor.
+    yield ("s2-guest-svn", golden(artifact=_mutate_policy(minimum_guest_svn=5))[1], False)
+    # S5: report FAMILY_ID != endorsed family_id.
+    yield ("s5-family-id", golden(sev_kwargs={"family_id": bytes([0x01] * 16)})[1], False)
+    # S6: report IMAGE_ID != endorsed image_id.
+    yield ("s6-image-id", golden(sev_kwargs={"image_id": bytes([0x01] * 16)})[1], False)
+    # S13: report REPORT_DATA != the recomputed envelope ladder.
+    yield ("s13-report-data", golden(sev_kwargs={"report_data": bytes([0xFF] * 64)})[1], False)
+    # S16: report carries a non-zero ID_KEY_DIGEST (ID-block launches unsupported).
+    yield ("s16-id-key-digest", golden(sev_kwargs={"id_key_digest": bytes([0x01] * 48)})[1], False)
+    # S24: report LAUNCH_MIT_VECTOR missing a bit the policy floor requires.
+    yield ("s24-mitigation", golden(artifact=_mutate_policy(
+        minimum_launch_mitigation_vector=1))[1], False)
     # I5: report CHIP_ID is not in the machines map (machine not endorsed).
     yield ("i5-not-endorsed", golden(chip_id=bytes([0x33] * 64))[1], False)
+
+    # --- Positive tests: valid variations and explicitly-unchecked fields that
+    # MUST still accept (catch a port that is wrongly too strict). ---
+    # U1: REPORT_ID is a random per-guest id, not checked.
+    yield ("u1-report-id", golden(sev_kwargs={"report_id": bytes([0x77] * 32)})[1], True)
+    # U2: REPORT_ID_MA is unchecked when migrate_ma is disallowed.
+    yield ("u2-report-id-ma", golden(sev_kwargs={"report_id_ma": bytes([0x77] * 32)})[1], True)
+    # Positive variation: debug launches accept when the endorsed policy permits.
+    yield ("pos-debug", golden(
+        sev_kwargs={"policy": 0x30000 | (1 << 19)},
+        artifact=_mutate_policy(guest_policy={"debug": True, "smt": True,
+                                              "migrate_ma": False, "single_socket": False}))[1], True)
+    # Positive variation: REPORTED_TCB well above the policy floor accepts.
+    hi = {"bl": 7, "tee": 0, "snp": 25, "spl4": 0, "spl5": 0, "spl6": 0, "spl7": 0, "ucode": 90}
+    yield ("pos-tcb-above-floor", golden(
+        sev_kwargs={"tcb_parts": hi},
+        artifact=_mutate_policy(minimum_tcb={"bl_spl": 0, "tee_spl": 0, "snp_spl": 10, "ucode_spl": 0}))[1], True)
 
 
 def main():
