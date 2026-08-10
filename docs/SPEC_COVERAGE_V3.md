@@ -60,7 +60,17 @@
 
 **QUOTE-SEV** (B3) — 26 rules
 
-  `[ ]S1` `[ ]S2` `[ ]S3` `[ ]S4` `[ ]S5` `[ ]S6` `[ ]S7` `[ ]S8` `[ ]S9` `[ ]S10` `[ ]S11` `[ ]S12` `[ ]S13` `[ ]S14` `[ ]S15` `[ ]S16` `[ ]S17` `[ ]S18` `[ ]S19` `[ ]S20` `[ ]S21` `[ ]S22` `[ ]S23` `[ ]S24` `[ ]S25` `[ ]S26`
+  `[x]S1` `[ ]S2` `[ ]S3` `[ ]S4` `[ ]S5` `[ ]S6` `[ ]S7` `[x]S8` `[ ]S9` `[ ]S10` `[ ]S11` `[x]S12` `[ ]S13` `[ ]S14` `[ ]S15` `[ ]S16` `[ ]S17` `[ ]S18` `[ ]S19` `[x]S20` `[ ]S21` `[ ]S22` `[ ]S23` `[ ]S24` `[x]S25` `[x]S26`
+
+  Authenticate-stage rules (S1 version, S8/S25 signature, S12 signer key, S20
+  product/CPUID, S26 root pinning + ASK revocation) are fixtured by `gen_sev.py`
+  via `sev_synth.py` against `v3-authenticate-quote` — 13 fixtures (happy + 12
+  distinct rejects, incl. collateral-shape checks), all green and reason-audited.
+  The policy-comparison rules (S2–S7, S9–S11, S13–S19, S22–S24) and identity
+  (S21) compare a verified quote against the endorsed policy/machines-map and
+  land with the `v3-validate-quote` slice. **Note:** go-sev-guest enforces
+  neither VCEK-vs-report TCB (S9/S19) nor VCEK-HWID-vs-chip_id (S21) at
+  authentication — both must be caught at validate; verify when that stage lands.
 
 **QUOTE-TDX** (B3) — 25 rules
 

@@ -128,10 +128,8 @@ def _crl_dp():
 
 
 # --- AMD certificate chain (all RSA-PSS) -----------------------------------
-def _build_chain(vcek_key, tcb_parts, hwid):
-    ark_key, ask_key = _keys()
+def _ca_certs(ark_key, ask_key):
     ark_name, ask_name = _name("ARK-Genoa"), _name("SEV-Genoa")
-
     ark = (
         x509.CertificateBuilder()
         .subject_name(ark_name).issuer_name(ark_name)
@@ -150,6 +148,20 @@ def _build_chain(vcek_key, tcb_parts, hwid):
         .add_extension(_crl_dp(), critical=False)
         .sign(ark_key, hashes.SHA384(), rsa_padding=PSS)
     )
+    return ark, ask
+
+
+def rogue_anchor():
+    """An unrelated ARK+ASK chain, for the wrong-root case (S26): pinning it as
+    the anchor while the report chains to the real ARK breaks chain building."""
+    ark, ask = _ca_certs(_rsa4096(), _rsa4096())
+    return _pem(ark), _pem(ask)
+
+
+def _build_chain(vcek_key, tcb_parts, hwid):
+    ark_key, ask_key = _keys()
+    ask_name = _name("SEV-Genoa")
+    ark, ask = _ca_certs(ark_key, ask_key)
 
     exts = [
         x509.UnrecognizedExtension(OID_STRUCT_VERSION, _der_integer(0)),
@@ -171,20 +183,26 @@ def _build_chain(vcek_key, tcb_parts, hwid):
     return ark, ask, vcek
 
 
-def _build_crl():
+def _build_crl(revoke_serial=None, expired=False):
     ark_key, _ = _keys()
-    return (
+    builder = (
         x509.CertificateRevocationListBuilder()
         .issuer_name(_name("ARK-Genoa"))
-        .last_update(NOT_BEFORE).next_update(NOT_AFTER)
-        .sign(ark_key, hashes.SHA384(), rsa_padding=PSS)
+        .last_update(NOT_BEFORE)
+        .next_update(NOT_BEFORE + datetime.timedelta(days=1) if expired else NOT_AFTER)
     )
+    if revoke_serial is not None:
+        builder = builder.add_revoked_certificate(
+            x509.RevokedCertificateBuilder()
+            .serial_number(revoke_serial).revocation_date(NOT_BEFORE).build())
+    return builder.sign(ark_key, hashes.SHA384(), rsa_padding=PSS)
 
 
 # --- SEV-SNP report --------------------------------------------------------
-def _build_report(report_data, measurement, chip_id, tcb_parts, policy, host_data):
+def _build_report(report_data, measurement, chip_id, tcb_parts, policy, host_data,
+                  version, signer_info, fms):
     r = bytearray(REPORT_SIZE)
-    struct.pack_into("<I", r, 0x00, 3)                       # version
+    struct.pack_into("<I", r, 0x00, version)                 # version
     struct.pack_into("<I", r, 0x04, 0)                       # guest_svn
     struct.pack_into("<Q", r, 0x08, policy)                  # guest policy
     struct.pack_into("<I", r, 0x30, 0)                       # vmpl
@@ -192,12 +210,12 @@ def _build_report(report_data, measurement, chip_id, tcb_parts, policy, host_dat
     tcb = compose_tcb(tcb_parts)
     struct.pack_into("<Q", r, 0x38, tcb)                     # current_tcb
     struct.pack_into("<Q", r, 0x40, 0)                       # platform_info
-    struct.pack_into("<I", r, 0x48, 0)                       # signer_info (VCEK, all clear)
+    struct.pack_into("<I", r, 0x48, signer_info)             # signer_info
     r[0x50:0x90] = report_data
     r[0x90:0xC0] = measurement
     r[0xC0:0xE0] = host_data
     struct.pack_into("<Q", r, 0x180, tcb)                   # reported_tcb
-    r[0x188], r[0x189], r[0x18A] = GENOA_FMS
+    r[0x188], r[0x189], r[0x18A] = fms
     r[0x1A0:0x1E0] = chip_id
     struct.pack_into("<Q", r, 0x1E0, tcb)                   # committed_tcb
     r[0x1E8], r[0x1E9], r[0x1EA] = 21, 55, 1                 # current build/minor/major (1.55.21)
@@ -220,29 +238,34 @@ def _pem(cert):
 
 def build_sev(report_data=b"\x00" * 64, measurement=b"\xaa" * 48, chip_id=b"\x11" * 64,
               tcb_parts=None, vcek_tcb_parts=None, policy=0x30000, host_data=b"\x00" * 32,
-              tamper_report_sig=False):
+              tamper_report_sig=False, version=3, signer_info=0, fms=GENOA_FMS,
+              vcek_hwid=None, revoke_ask=False, crl_expired=False):
     """Return the pieces for a v3 SEV cpu_evidence + collateral + anchor.
 
     tcb_parts sets the report's TCB; vcek_tcb_parts (defaults to tcb_parts) sets
-    the VCEK extension TCB — split so mutations can make them disagree.
+    the VCEK extension TCB; vcek_hwid (defaults to chip_id) sets the VCEK HWID
+    extension — split so mutations can make the VCEK disagree with the report.
     """
     tcb_parts = tcb_parts or dict(TCB)
     vcek_tcb_parts = vcek_tcb_parts or tcb_parts
     vcek_key = ec.derive_private_key(_LEAF_SCALAR, ec.SECP384R1())
-    ark, ask, vcek = _build_chain(vcek_key, vcek_tcb_parts, chip_id)
+    ark, ask, vcek = _build_chain(vcek_key, vcek_tcb_parts, vcek_hwid or chip_id)
 
-    r = _build_report(report_data, measurement, chip_id, tcb_parts, policy, host_data)
+    r = _build_report(report_data, measurement, chip_id, tcb_parts, policy, host_data,
+                      version, signer_info, fms)
     _sign_report(r, vcek_key)
     if tamper_report_sig:
         r = bytearray(r)
         r[SIGNATURE_OFFSET] ^= 0xFF
         r = bytes(r)
 
+    # go-sev-guest checks ASK (serial 2) revocation against the CRL, not the VCEK.
+    crl = _build_crl(revoke_serial=2 if revoke_ask else None, expired=crl_expired)
     return {
         "report": bytes(r),
         "vcek_der": vcek.public_bytes(serialization.Encoding.DER),
         "cert_chain_pem": _pem(ask) + _pem(ark),   # KDS order: ASK then ARK
-        "crl_der": _build_crl().public_bytes(serialization.Encoding.DER),
+        "crl_der": crl.public_bytes(serialization.Encoding.DER),
         "ark_pem": _pem(ark),
         "ask_pem": _pem(ask),
         "chip_id": chip_id,
