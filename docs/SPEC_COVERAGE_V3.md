@@ -76,9 +76,11 @@
   on the golden document): S2 guest_svn, S3/S4 guest_policy, S5 family_id, S6
   image_id, S7 vmpl, S10/S11 platform_info, S13 report_data, S14 measurement,
   S15 host_data, S16 id/author-key-digest, S19/S23 TCB floors, S24 mitigation,
-  and S21 chip_id lookup (via `i5-not-endorsed`). All reason-audited. S9
-  (current) and S22 (committed) TCB share the `minimum_tcb` floor mechanism
-  exercised by S19 — representatively covered. S17/S18 (REPORT_ID/REPORT_ID_MA
+  and S21 chip_id lookup (via `i5-not-endorsed`). All reason-audited. The
+  go-sev-guest `validateTcb` sub-checks are isolated (audit #11 finding —
+  previously only `reported >= minimum` was exercised): S9 CURRENT_TCB < cert
+  (`s9-current-tcb`), S19-vendor REPORTED_TCB != cert (`s19-vcek-cert-tcb`), S22
+  COMMITTED_TCB != current (`s22-committed-tcb`). S17/S18 (REPORT_ID/REPORT_ID_MA
   unchecked) are the positive assertions `u1`/`u2`. **Finding:** go-sev-guest
   binds neither VCEK TCB nor VCEK HWID to the report at authentication — those
   are caught at validate (VCEK TCB via the report-TCB floor; chip_id via the

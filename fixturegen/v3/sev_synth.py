@@ -201,7 +201,7 @@ def _build_crl(revoke_serial=None, expired=False):
 # --- SEV-SNP report --------------------------------------------------------
 def _build_report(report_data, measurement, chip_id, tcb_parts, policy, host_data,
                   version, signer_info, fms, guest_svn, vmpl, family_id, image_id,
-                  id_key_digest, report_id, report_id_ma):
+                  id_key_digest, report_id, report_id_ma, current_tcb_parts, committed_tcb_parts):
     r = bytearray(REPORT_SIZE)
     struct.pack_into("<I", r, 0x00, version)                 # version
     struct.pack_into("<I", r, 0x04, guest_svn)               # guest_svn
@@ -211,7 +211,7 @@ def _build_report(report_data, measurement, chip_id, tcb_parts, policy, host_dat
     struct.pack_into("<I", r, 0x30, vmpl)                    # vmpl
     struct.pack_into("<I", r, 0x34, 1)                       # signature algo = ECDSA P-384
     tcb = compose_tcb(tcb_parts)
-    struct.pack_into("<Q", r, 0x38, tcb)                     # current_tcb
+    struct.pack_into("<Q", r, 0x38, compose_tcb(current_tcb_parts))  # current_tcb
     struct.pack_into("<Q", r, 0x40, 0)                       # platform_info
     struct.pack_into("<I", r, 0x48, signer_info)             # signer_info
     r[0x50:0x90] = report_data
@@ -223,7 +223,7 @@ def _build_report(report_data, measurement, chip_id, tcb_parts, policy, host_dat
     struct.pack_into("<Q", r, 0x180, tcb)                   # reported_tcb
     r[0x188], r[0x189], r[0x18A] = fms
     r[0x1A0:0x1E0] = chip_id
-    struct.pack_into("<Q", r, 0x1E0, tcb)                   # committed_tcb
+    struct.pack_into("<Q", r, 0x1E0, compose_tcb(committed_tcb_parts))  # committed_tcb
     r[0x1E8], r[0x1E9], r[0x1EA] = 21, 55, 1                 # current build/minor/major (1.55.21)
     r[0x1EC], r[0x1ED], r[0x1EE] = 21, 55, 1                 # committed build/minor/major
     struct.pack_into("<Q", r, 0x1F0, tcb)                   # launch_tcb
@@ -247,7 +247,8 @@ def build_sev(report_data=b"\x00" * 64, measurement=b"\xaa" * 48, chip_id=b"\x11
               tamper_report_sig=False, version=3, signer_info=0, fms=GENOA_FMS,
               vcek_hwid=None, revoke_ask=False, crl_expired=False,
               guest_svn=0, vmpl=0, family_id=b"\x00" * 16, image_id=b"\x00" * 16,
-              id_key_digest=b"\x00" * 48, report_id=b"\x00" * 32, report_id_ma=b"\x00" * 32):
+              id_key_digest=b"\x00" * 48, report_id=b"\x00" * 32, report_id_ma=b"\x00" * 32,
+              current_tcb_parts=None, committed_tcb_parts=None):
     """Return the pieces for a v3 SEV cpu_evidence + collateral + anchor.
 
     tcb_parts sets the report's TCB; vcek_tcb_parts (defaults to tcb_parts) sets
@@ -255,13 +256,16 @@ def build_sev(report_data=b"\x00" * 64, measurement=b"\xaa" * 48, chip_id=b"\x11
     extension — split so mutations can make the VCEK disagree with the report.
     """
     tcb_parts = tcb_parts or dict(TCB)
+    current_tcb_parts = current_tcb_parts or tcb_parts
+    committed_tcb_parts = committed_tcb_parts or tcb_parts
     vcek_tcb_parts = vcek_tcb_parts or tcb_parts
     vcek_key = ec.derive_private_key(_LEAF_SCALAR, ec.SECP384R1())
     ark, ask, vcek = _build_chain(vcek_key, vcek_tcb_parts, vcek_hwid or chip_id)
 
     r = _build_report(report_data, measurement, chip_id, tcb_parts, policy, host_data,
                       version, signer_info, fms, guest_svn, vmpl, family_id, image_id,
-                      id_key_digest, report_id, report_id_ma)
+                      id_key_digest, report_id, report_id_ma,
+                      current_tcb_parts, committed_tcb_parts)
     _sign_report(r, vcek_key)
     if tamper_report_sig:
         r = bytearray(r)
