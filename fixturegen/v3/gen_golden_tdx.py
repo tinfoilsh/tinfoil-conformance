@@ -130,6 +130,9 @@ def BUILDERS():
     yield ("t15-mr-config-id", golden_tdx(body_kwargs={"mr_config_id": b"\x99" * 48}), False)
     # T16: MROWNER / MROWNERCONFIG pinned all-zero.
     yield ("t16-mr-owner", golden_tdx(body_kwargs={"mr_owner": b"\x99" * 48}), False)
+    yield ("t16-mr-owner-config", golden_tdx(body_kwargs={"mr_owner_config": b"\x99" * 48}), False)
+    # T11: TDATTRIBUTES exact-equality per-bit — DEBUG (bit 0) must be 0.
+    yield ("t11-td-debug", golden_tdx(body_kwargs={"td_attributes": b"\x01\x00\x00\x40\x00\x00\x00\x00"}), False)
 
     # --- Positive tests that MUST accept. ---
     # T5/U3: QE user data (QE_ID) is unchecked; happy accepts regardless (the
