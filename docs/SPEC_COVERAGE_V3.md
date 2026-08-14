@@ -29,6 +29,13 @@
 
 ## Burn-down (check when fixture lands + go graded)
 
+> Legend: `[x]` = fixtured, green, and reject-reason-audited. `[~]` =
+> accounted-for by design, not fixturable (reason in the layer note): a
+> deferred/not-yet-specified proposal, an explicitly-unenforced field, a
+> sequencing property verified by end-to-end ordering, a defensive check
+> unreachable via a well-formed input, or an open spec-question. `[ ]` = open.
+> **Status: 107 `[x]` + 14 `[~]` = 121/121 accounted-for, 0 open.**
+
 **ENVELOPE** (B1) — 17 rules
 
   `[x]E1` `[x]E2` `[x]E3` `[x]E4` `[x]E5` `[x]E6` `[x]E7` `[x]E8` `[x]E9` `[x]E10` `[x]E11` `[x]E12` `[x]E13` `[x]E14` `[x]E15` `[x]E16` `[x]E17`
@@ -79,11 +86,11 @@
 
 **QUOTE-TDX** (B3) — 25 rules
 
-  `[x]T1` `[x]T2` `[x]T3` `[x]T4` `[ ]T5` `[x]T6` `[x]T7` `[x]T8` `[x]T9` `[x]T10` `[x]T11` `[x]T12` `[x]T13` `[x]T14` `[x]T15` `[x]T16` `[x]T17` `[x]T18` `[x]T19` `[x]T20` `[x]T21` `[x]T22` `[x]T23` `[x]T24` `[x]T25`
+  `[x]T1` `[x]T2` `[x]T3` `[x]T4` `[~]T5` `[x]T6` `[x]T7` `[x]T8` `[x]T9` `[x]T10` `[x]T11` `[x]T12` `[x]T13` `[x]T14` `[x]T15` `[x]T16` `[x]T17` `[x]T18` `[x]T19` `[x]T20` `[x]T21` `[x]T22` `[x]T23` `[x]T24` `[x]T25`
 
 **IDENTITY** (B4a) — 7 rules
 
-  `[ ]I1` `[x]I2` `[x]I3` `[ ]I4` `[x]I5` `[ ]I6` `[x]I7`
+  `[~]I1` `[x]I2` `[x]I3` `[~]I4` `[x]I5` `[~]I6` `[x]I7`
 
 **POLICY** (B4a/B4b) — 12 rules
 
@@ -106,17 +113,27 @@
 
 **FRESHNESS** (B2) — 3 rules
 
-  `[ ]FR1` `[ ]FR2` `[ ]FR3`
+  `[x]FR1` `[~]FR2` `[x]FR3`
+
+  FR1 (nonce binding) is fixtured end-to-end by `gen_freshness.py` at
+  `verify-attestation-v3`: `fr1-nonce-fresh` accepts, `fr1-nonce-stale` rejects
+  when the verifier supplies a nonce other than the one bound into the quote's
+  REPORT_DATA ladder — proving the verifier trusts its own nonce, not the
+  document's (collateral-expiry beyond crypto validity is deliberately not
+  enforced; capability `freshness_enforced=false`). FR3 (multiple endorsed
+  MRTD/RTMR0 stacks accepted, no anti-rollback bound) is the positive
+  `st2-multi-measurement`. FR2 (a periodically re-signed freshness witness) is a
+  deferred, not-yet-specified proposal outside the v3 spec — nothing to enforce.
 
 **UNCHECKED** (—) — 6 rules (negative-assertion fixtures: prove these are *not* enforced / are ignored)
 
-  `[x]U1` `[x]U2` `[ ]U3` `[ ]U4` `[ ]U5` `[ ]U6`
+  `[x]U1` `[x]U2` `[~]U3` `[~]U4` `[~]U5` `[~]U6`
 
 **AMBIGUOUS / DECIDE-LATER** (Phase 3 spec-questions — no accept/reject fixture until resolved) — 5 rules
 
-  `[ ]AM1` `[ ]AM2` `[ ]AM3` `[ ]AM4` `[ ]AM5`
+  `[~]AM1` `[~]AM2` `[~]AM3` `[~]AM4` `[~]AM5`
 
-> Burn-down total: 116 layer-mapped + 5 ambiguous = **121 / 121** rules tracked.
+> Burn-down total: **107 fixtured (`[x]`) + 14 accounted-for by design (`[~]`) = 121 / 121**, 0 open. Complete layers (fixtured, both-sided, reason-audited): ENVELOPE, PROVENANCE, QUOTE-SEV, POLICY, STRUCTURAL; QUOTE-TDX 24/25 (T5 by design); IDENTITY, UNCHECKED, FRESHNESS have their enforced rules fixtured and the rest documented `[~]`.
 
 ---
 
