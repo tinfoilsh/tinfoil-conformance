@@ -135,6 +135,16 @@ def BUILDERS():
     # S23: report LAUNCH_TCB below the endorsed minimum_launch_tcb floor.
     yield ("s23-launch-tcb", golden(artifact=_mutate_policy(
         minimum_launch_tcb={"bl_spl": 0, "tee_spl": 0, "snp_spl": 99, "ucode_spl": 0}))[1], False)
+    # S9/S19/S22 vendor TCB-consistency checks (go-sev-guest validateTcb),
+    # isolated so a regression in any one is caught (audit #11 finding).
+    _lo = dict(sev.TCB); _lo["snp"] = 19
+    # S9: CURRENT_TCB below the VCEK-certificate TCB (== REPORTED_TCB). Lower
+    # committed too so it stays == current and only the current<cert check trips.
+    yield ("s9-current-tcb", golden(sev_kwargs={"current_tcb_parts": _lo, "committed_tcb_parts": _lo})[1], False)
+    # S19 (vendor): REPORTED_TCB != the VCEK-certificate TCB.
+    yield ("s19-vcek-cert-tcb", golden(sev_kwargs={"vcek_tcb_parts": _lo})[1], False)
+    # S22: COMMITTED_TCB != CURRENT_TCB (no provisional firmware permitted).
+    yield ("s22-committed-tcb", golden(sev_kwargs={"committed_tcb_parts": _lo})[1], False)
     # S2: report GUEST_SVN below the endorsed minimum_guest_svn floor.
     yield ("s2-guest-svn", golden(artifact=_mutate_policy(minimum_guest_svn=5))[1], False)
     # S5: report FAMILY_ID != endorsed family_id.
