@@ -111,6 +111,19 @@ def _mutate_policy(**changes):
     return a
 
 
+def _gp(**over):  # endorsed guest_policy with one bit flipped from the happy report's
+    gp = {"debug": False, "smt": True, "migrate_ma": False, "single_socket": False}
+    gp.update(over)
+    return _mutate_policy(guest_policy=gp)
+
+
+def _pi(**over):  # endorsed platform_info with one bit flipped from the happy report's (all-false)
+    pi = {"smt_enabled": False, "tsme_enabled": False, "ecc_enabled": False,
+          "rapl_disabled": False, "ciphertext_hiding_dram": False}
+    pi.update(over)
+    return _mutate_policy(platform_info=pi)
+
+
 # Each builder returns (id, input, accepted). Single-field mutations of the
 # golden document, verified end-to-end through verify-attestation-v3.
 def BUILDERS():
@@ -145,6 +158,16 @@ def BUILDERS():
     yield ("s19-vcek-cert-tcb", golden(sev_kwargs={"vcek_tcb_parts": _lo})[1], False)
     # S22: COMMITTED_TCB != CURRENT_TCB (no provisional firmware permitted).
     yield ("s22-committed-tcb", golden(sev_kwargs={"committed_tcb_parts": _lo})[1], False)
+    # S4: GUEST_POLICY exact-equality is per-bit (spec: all bits). One fixture
+    # per bit so a port that compares only some bits is caught (debug = s3).
+    yield ("s4-smt", golden(artifact=_gp(smt=False))[1], False)
+    yield ("s4-migrate-ma", golden(artifact=_gp(migrate_ma=True))[1], False)
+    yield ("s4-single-socket", golden(artifact=_gp(single_socket=True))[1], False)
+    # S11: PLATFORM_INFO exact-equality per-bit (smt_enabled = s10).
+    yield ("s11-tsme", golden(artifact=_pi(tsme_enabled=True))[1], False)
+    yield ("s11-ecc", golden(artifact=_pi(ecc_enabled=True))[1], False)
+    yield ("s11-rapl", golden(artifact=_pi(rapl_disabled=True))[1], False)
+    yield ("s11-ciphertext", golden(artifact=_pi(ciphertext_hiding_dram=True))[1], False)
     # S2: report GUEST_SVN below the endorsed minimum_guest_svn floor.
     yield ("s2-guest-svn", golden(artifact=_mutate_policy(minimum_guest_svn=5))[1], False)
     # S5: report FAMILY_ID != endorsed family_id.
@@ -177,6 +200,11 @@ def BUILDERS():
     yield ("pos-tcb-above-floor", golden(
         sev_kwargs={"tcb_parts": hi},
         artifact=_mutate_policy(minimum_tcb={"bl_spl": 0, "tee_spl": 0, "snp_spl": 10, "ucode_spl": 0}))[1], True)
+    # Boundary: exactly-at-floor accepts (catches an off-by-one > vs >= regression).
+    yield ("pos-tcb-at-floor", golden(
+        artifact=_mutate_policy(minimum_tcb={"bl_spl": 7, "tee_spl": 0, "snp_spl": 20, "ucode_spl": 72}))[1], True)
+    yield ("pos-guest-svn-at-floor", golden(
+        sev_kwargs={"guest_svn": 7}, artifact=_mutate_policy(minimum_guest_svn=7))[1], True)
 
 
 def main():

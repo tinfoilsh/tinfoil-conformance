@@ -86,6 +86,17 @@
   are caught at validate (VCEK TCB via the report-TCB floor; chip_id via the
   machines-map lookup).
 
+  **Depth (task #14):** the exact-equality bit rules are fixtured per-bit so a
+  port comparing only some bits is caught — GUEST_POLICY S3/S4 (`s3-guest-policy`
+  debug, `s4-smt`, `s4-migrate-ma`, `s4-single-socket`) and PLATFORM_INFO S10/S11
+  (`s10-platform-info` smt, `s11-tsme`, `s11-ecc`, `s11-rapl`, `s11-ciphertext`);
+  TDX TDATTRIBUTES DEBUG bit (`t11-td-debug`) and MROWNERCONFIG (`t16-mr-owner-config`).
+  Boundary positives assert exactly-at-floor accepts (`pos-tcb-at-floor`,
+  `pos-guest-svn-at-floor`) so a `>` vs `>=` off-by-one is caught. The
+  required-member presence checks (SEV/TDX policy) are a uniform
+  `case X == nil` family, covered representatively per struct (SEV top-level, TCB,
+  launch-TCB, TDX) rather than one fixture per member.
+
 **QUOTE-TDX** (B3) — 25 rules
 
   `[x]T1` `[x]T2` `[x]T3` `[x]T4` `[~]T5` `[x]T6` `[x]T7` `[x]T8` `[x]T9` `[x]T10` `[x]T11` `[x]T12` `[x]T13` `[x]T14` `[x]T15` `[x]T16` `[x]T17` `[x]T18` `[x]T19` `[x]T20` `[x]T21` `[x]T22` `[x]T23` `[x]T24` `[x]T25`
