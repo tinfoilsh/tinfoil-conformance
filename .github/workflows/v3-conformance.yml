@@ -11,7 +11,18 @@ on:
     paths: ["vectors/v3/**", "schemas/v3/**", "fixturegen/v3/**", "docs/SPEC_COVERAGE_V3.md", "tools/validate_suite.py"]
   pull_request:
     paths: ["vectors/v3/**", "schemas/v3/**", "fixturegen/v3/**", "docs/SPEC_COVERAGE_V3.md", "tools/validate_suite.py"]
+  # The live job (below) fetches from a real enclave, so it runs only on a
+  # schedule and on manual dispatch — never gating a PR on network reachability.
+  schedule:
+    - cron: "17 6 * * *"
   workflow_dispatch:
+    inputs:
+      host:
+        description: "Live enclave host for the live-verification job"
+        default: "inference.tinfoil.sh"
+      repo:
+        description: "sigstore-code repo the enclave's provenance is signed under"
+        default: "tinfoilsh/confidential-model-router"
 
 permissions:
   contents: read
@@ -52,3 +63,31 @@ jobs:
             TINFOIL_CONFORMANCE_FIXTURES="$d" \
               go test -count=1 -tags tinfoil_conformance -run TestFixtures ./verifier/conformance/
           done
+
+  live:
+    name: live enclave verification
+    # Network-dependent: scheduled + manual only, so PRs never depend on a
+    # reachable enclave. Fetches a fresh attestation from a live v3 enclave and
+    # runs the full flow against the embedded production roots, then replays it
+    # at the pinned capture time — the accepting embedded-root path on real
+    # material. A failure means prod stopped verifying under the harness ref.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Check out the tinfoil-go v3 harness
+        uses: actions/checkout@v4
+        with:
+          repository: tinfoilsh/tinfoil-go
+          ref: feat/v3-conformance-harness
+          path: sdks/tinfoil-go
+          token: ${{ secrets.SDK_TOKEN || github.token }}
+      - name: Verify a live enclave against the embedded production roots
+        working-directory: sdks/tinfoil-go
+        env:
+          TINFOIL_LIVE_HOST: ${{ github.event.inputs.host || 'inference.tinfoil.sh' }}
+          TINFOIL_LIVE_REPO: ${{ github.event.inputs.repo || 'tinfoilsh/confidential-model-router' }}
+        run: go test -count=1 -v -tags tinfoil_conformance -run TestLiveVerification ./verifier/conformance/
