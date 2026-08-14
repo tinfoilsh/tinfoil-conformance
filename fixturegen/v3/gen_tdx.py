@@ -87,7 +87,7 @@ def fx(fid, doc, root_pem, accepted):
     return {"id": fid, "stage": "v3-authenticate-quote",
             "input": {"schema_version": "1", "document_b64": b64(canon(doc)), "nonce_hex": "",
                       "repo": REPO, "intel_sgx_root_pem": root_pem},
-            "expected": {"accepted": accepted}}
+            "expected": {"accepted": accepted} if accepted else {"accepted": False, "code": "QUOTE_REJECTED"}}
 
 
 def _tamper(quote, idx):  # flip one byte

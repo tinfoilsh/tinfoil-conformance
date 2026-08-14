@@ -277,7 +277,7 @@ def fixture(fid, doc, troot, accepted):
             "repo": REPO,
             "sigstore_trusted_root_json_b64": b64(json.dumps(troot).encode()),
         },
-        "expected": {"accepted": accepted},
+        "expected": {"accepted": accepted} if accepted else {"accepted": False, "code": "PROVENANCE_REJECTED"},
     }
 
 
