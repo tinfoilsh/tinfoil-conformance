@@ -145,9 +145,14 @@
   accepts when the clock is pinned inside the CRL window and rejects when pinned
   outside it (`pos-/neg-frozen-time-*-crl-window`). This pin is what lets a
   real-frozen document (captured live via `tinfoil-conformance capture`) replay
-  deterministically forever — the accepting embedded-root lane, which needs a
-  live v3 producer to populate and is otherwise unreachable by synthetic
-  fixtures.
+  deterministically forever — the accepting embedded-root lane, otherwise
+  unreachable by synthetic fixtures. It is now populated:
+  `vectors/v3/real-frozen/real-sev-inference-tinfoil.json`, captured from the
+  live `inference.tinfoil.sh` SEV-SNP enclave (repo
+  `tinfoilsh/confidential-model-router`), verifies against the embedded
+  production roots and replays offline at its pinned capture time — the
+  cross-SDK accept oracle of real production material. The Go harness's opt-in
+  `TestLiveVerification` fetches and verifies the same enclave live.
 
 **UNCHECKED** (—) — 6 rules (negative-assertion fixtures: prove these are *not* enforced / are ignored)
 
