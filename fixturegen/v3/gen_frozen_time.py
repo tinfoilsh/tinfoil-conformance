@@ -1,20 +1,10 @@
 #!/usr/bin/env python3
 """Generate v3 pinned-verification-time fixtures.
 
-A real captured document embeds time-bound collateral (CRL and certificate
-validity windows), so a frozen document that accepts today rejects once those
-windows lapse. The harness therefore lets a fixture pin the quote-layer clock
-via `verification_time_unix`, replaying a frozen real document at its capture
-time forever. The real-frozen accepting lane needs a live v3 producer; until
-then these two synthetic fixtures prove the injection is real and consulted:
-
-  * the SAME expired-CRL document (valid window [2024-12-31, 2025-01-01))
-    ACCEPTS when the clock is pinned inside that window, and
-  * REJECTS when the clock is pinned after it.
-
-Nothing but the injected time differs between them, so an SDK that ignores the
-pin (verifying at wall-clock time) fails the accepting case, and one that never
-consults the window fails the rejecting case.
+Prove that `verification_time_unix` is real and consulted: the SAME expired-CRL
+document (valid window [2024-12-31, 2025-01-01)) accepts when the clock is
+pinned inside the window and rejects when pinned after it. An SDK that ignores
+the pin fails one side or the other.
 """
 
 import datetime

@@ -139,20 +139,14 @@
   deferred, not-yet-specified proposal outside the v3 spec — nothing to enforce.
 
   Collateral *crypto-validity* windows (AMD/Intel CRL `ThisUpdate`/`NextUpdate`
-  and certificate validity), by contrast, **are** enforced against the
-  verification clock. `gen_frozen_time.py` proves this and the harness's
-  `verification_time_unix` pin at once: the same expired-CRL SEV document
-  accepts when the clock is pinned inside the CRL window and rejects when pinned
-  outside it (`pos-/neg-frozen-time-*-crl-window`). This pin is what lets a
-  real-frozen document (captured live via `tinfoil-conformance capture`) replay
-  deterministically forever — the accepting embedded-root lane, otherwise
-  unreachable by synthetic fixtures. It is now populated:
-  `vectors/v3/real-frozen/real-sev-inference-tinfoil.json`, captured from the
-  live `inference.tinfoil.sh` SEV-SNP enclave (repo
-  `tinfoilsh/confidential-model-router`), verifies against the embedded
-  production roots and replays offline at its pinned capture time — the
-  cross-SDK accept oracle of real production material. The Go harness's opt-in
-  `TestLiveVerification` fetches and verifies the same enclave live.
+  and certificate validity) **are** enforced against the verification clock.
+  `gen_frozen_time.py` proves it and the `verification_time_unix` pin together:
+  the same expired-CRL SEV document accepts pinned inside the CRL window and
+  rejects pinned outside it. The pin also lets a real-frozen document replay
+  offline forever — the accepting embedded-root lane, populated by
+  `vectors/v3/real-frozen/real-sev-inference-tinfoil.json` (captured from the
+  live `inference.tinfoil.sh` SEV-SNP enclave), the cross-SDK accept oracle of
+  real production material.
 
 **UNCHECKED** (—) — 6 rules (negative-assertion fixtures: prove these are *not* enforced / are ignored)
 

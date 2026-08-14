@@ -34,31 +34,20 @@ tinfoil-conformance capture -host <enclave> -repo <owner/name> [-out f.json]
                                  # fetch a live v3 attestation and freeze it as a real-frozen fixture
 ```
 
-The **`capture`** subcommand is the real-frozen lane: it fetches a live
-enclave's v3 attestation, verifies it against the **embedded production roots**
-(empty anchors) at the current time, and — only if it accepts — writes a fixture
-pinned to that capture time via `verification_time_unix`. This is the one lane
-synthetic fixtures cannot reach (the *accepting* embedded-root path with real
-material) and the highest-fidelity cross-SDK oracle: every SDK must accept the
-same real bytes. It requires a live v3-emitting enclave; the pin makes the
-resulting fixture replay deterministically offline forever. Producing it is
-SDK-specific; consuming it is just the ordinary `verify-attestation-v3` stage.
+The **`capture`** subcommand is the real-frozen lane, the one path synthetic
+fixtures cannot reach: it fetches a live enclave's v3 attestation, verifies it
+against the **embedded production roots** (empty anchors), and — only if it
+accepts — writes a fixture pinned to that capture time via
+`verification_time_unix`, so it replays offline forever. The result is the
+cross-SDK accept oracle: every SDK must accept the same real bytes. The first is
+`vectors/v3/real-frozen/real-sev-inference-tinfoil.json`, from the live SEV-SNP
+enclave `inference.tinfoil.sh` (repo `tinfoilsh/confidential-model-router`).
 
-The first such fixture is `vectors/v3/real-frozen/real-sev-inference-tinfoil.json`,
-captured from `inference.tinfoil.sh` (a live SEV-SNP enclave, repo
-`tinfoilsh/confidential-model-router`): real hardware evidence, provenance, and
-AMD collateral that verifies against the embedded production roots and replays
-offline at its pinned capture time. It is the accepting embedded-root oracle —
-every SDK must accept these exact bytes.
-
-Alongside `capture`, each SDK SHOULD ship an **opt-in live-verification check**
-that fetches a fresh attestation from a real enclave and runs the full flow
-against the **embedded production roots** at the current time — the same
-accepting embedded-root path, exercised live. It MUST skip by default so
-ordinary and CI runs stay offline. The Go harness's is `TestLiveVerification`
-(`TINFOIL_LIVE_HOST` / `TINFOIL_LIVE_REPO`), which also re-verifies the fetched
-document with the clock pinned to the capture instant, validating the
-pinned-time replay contract on real collateral.
+Each SDK SHOULD also ship an opt-in live check that fetches and verifies a real
+enclave directly (skipped by default, so runs stay offline). The Go harness's is
+`TestLiveVerification` (`TINFOIL_LIVE_HOST` / `TINFOIL_LIVE_REPO`), which also
+replays the fetched document at a pinned time — the same contract, on live
+collateral.
 
 **Exit codes** (the verdict; stdout is diagnostic only):
 
