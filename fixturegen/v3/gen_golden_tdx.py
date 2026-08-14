@@ -86,7 +86,7 @@ def golden_tdx(artifact=None, code_rtmr1=RTMR1, code_rtmr2=RTMR2, report_data=No
 
 
 def fixture(fid, inp, accepted):
-    return {"id": fid, "stage": "verify-attestation-v3", "input": inp, "expected": {"accepted": accepted}}
+    return {"id": fid, "stage": "verify-attestation-v3", "input": inp, "expected": {"accepted": accepted} if accepted else {"accepted": False, "code": "POLICY_REJECTED"}}
 
 
 def _mut_tdx(**changes):

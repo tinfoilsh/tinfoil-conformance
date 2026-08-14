@@ -33,7 +33,7 @@ def main():
     stale_inp = dict(inp)
     stale_inp["nonce_hex"] = "ff" * 32
     stale = {"id": "fr1-nonce-stale", "stage": "verify-attestation-v3",
-             "input": stale_inp, "expected": {"accepted": False}}
+             "input": stale_inp, "expected": {"accepted": False, "code": "ENVELOPE_REJECTED"}}
 
     for f in (fresh, stale):
         with open(os.path.join(out, f["id"] + ".json"), "w") as fh:

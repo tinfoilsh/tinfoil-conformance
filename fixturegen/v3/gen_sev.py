@@ -41,7 +41,7 @@ def fx(fid, doc, art, accepted):
     return {"id": fid, "stage": "v3-authenticate-quote",
             "input": {"schema_version": "1", "document_b64": b64(canon(doc)), "nonce_hex": "",
                       "repo": REPO, "amd_root_ca_pem": art["ark_pem"], "ask_pem": art["ask_pem"]},
-            "expected": {"accepted": accepted}}
+            "expected": {"accepted": accepted} if accepted else {"accepted": False, "code": "QUOTE_REJECTED"}}
 
 
 # Each builder returns a fixture dict.

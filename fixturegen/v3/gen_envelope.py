@@ -194,7 +194,7 @@ def fixture(fid: str, doc: bytes, accepted: bool) -> dict:
             "nonce_hex": NONCE.hex(),
             "repo": REPO,
         },
-        "expected": {"accepted": accepted},
+        "expected": {"accepted": accepted} if accepted else {"accepted": False, "code": "ENVELOPE_REJECTED"},
     }
 
 

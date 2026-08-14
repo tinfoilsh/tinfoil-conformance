@@ -8,6 +8,7 @@
     "repo": "tinfoilsh/confidential-inference-proxy"
   },
   "expected": {
-    "accepted": false
+    "accepted": false,
+    "code": "ENVELOPE_REJECTED"
   }
 }

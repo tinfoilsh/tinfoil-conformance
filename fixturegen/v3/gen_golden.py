@@ -102,7 +102,7 @@ def golden(artifact=None, report_measurement=MEASUREMENT, code_measurement=None,
 
 
 def fixture(fid, inp, accepted):
-    return {"id": fid, "stage": "verify-attestation-v3", "input": inp, "expected": {"accepted": accepted}}
+    return {"id": fid, "stage": "verify-attestation-v3", "input": inp, "expected": {"accepted": accepted} if accepted else {"accepted": False, "code": "POLICY_REJECTED"}}
 
 
 def _mutate_policy(**changes):

@@ -65,10 +65,38 @@ select the embedded production roots, so real-frozen fixtures supply none):
   "rejection": { "code": "ENVELOPE_REJECTED" } }
 ```
 
-**Rejection codes** are coarse and layer-tagged (`ENVELOPE_REJECTED`,
-`PROVENANCE_REJECTED`, `QUOTE_REJECTED`, `MALFORMED_INPUT`). v1 of the suite
-asserts pass/reject via the **exit code**; the code aids diagnosis and is stable
-across SDKs at layer granularity. Per-rule codes are not required (see §5).
+**Rejection codes** are a **closed, layer-tagged taxonomy** and are **asserted**
+(not merely diagnostic): a reject fixture declares the code it expects and the
+suite checks both the verdict *and* the code. This is what makes SDK clients fail
+the *same way* — they must agree not just on accept/reject but on *which layer*
+rejected.
+
+| code | layer | meaning |
+|---|---|---|
+| `ENVELOPE_REJECTED` | B1 | document parse/shape, nonce equality, endorsed-section hashes, REPORT_DATA ladder |
+| `PROVENANCE_REJECTED` | B2 | a Sigstore reference-values bundle (code or platform) failed to authenticate — signature chain, SCT, tlog, observer timestamp, pinned identity, subject[0] digest |
+| `QUOTE_REJECTED` | B3 | the hardware quote failed **authentication** — signature/chain/collateral/vendor-structure; the quote is **not authentic** |
+| `POLICY_REJECTED` | B4 | the quote is authentic but fails the endorsed **policy/identity/shape**, or the platform-endorsements artifact fails to parse (machines map, named policies, shape resolution, SEV/TDX field comparison) |
+| `MALFORMED_INPUT` | — | the input did not parse (exit 30) |
+
+Two rules make this implementation-independent:
+
+1. **`expected.code` is the target rule's spec layer**, assigned by the fixture
+   author from the matrix (SPEC_COVERAGE_V3.md block column) — **never** recorded
+   from an implementation's output. Otherwise the suite would standardize one
+   verifier's quirks (e.g. its check ordering) rather than the spec.
+2. **Adapters emit the code by attributing the rejection to the failing
+   verification *step*** — envelope-check → authenticate-provenance →
+   authenticate-quote → assemble/validate — not by parsing error strings. The
+   `QUOTE` vs `POLICY` boundary (quote-not-authentic vs authentic-but-noncompliant)
+   is the security-relevant distinction and falls out of *which step* returned the
+   error. This obliges every SDK's verifier to attribute rejections to these
+   layers — the price, and the point, of consistent client error behavior.
+
+Per-stage: a block stage emits the code for its block; `verify-attestation-v3`
+attributes by the failing step. A fixture whose *actual* rejection layer differs
+from its *spec-assigned* code is a real signal — a mistagged fixture or a genuine
+divergence — and fails the suite.
 
 **Capabilities** gate which fixtures an SDK runs:
 
