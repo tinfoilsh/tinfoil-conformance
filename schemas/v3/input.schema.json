@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/v3/input.schema.json",
+  "title": "v3 conformance adapter Input",
+  "description": "The stdin JSON an adapter reads: a v3 document, the verifier nonce, the pinned repo, and the synthetic trust anchors it was produced under. Empty/absent anchor fields select the embedded production roots.",
+  "type": "object",
+  "required": ["schema_version", "document_b64"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1" },
+    "document_b64": { "type": "string", "description": "base64 v3 attestation document" },
+    "nonce_hex": { "type": "string", "pattern": "^[0-9a-f]*$", "description": "verifier nonce, lowercase hex" },
+    "repo": { "type": "string", "description": "pinned sigstore-code repo (owner/name)" },
+    "amd_root_ca_pem": { "type": "string", "description": "AMD ARK PEM (paired with ask_pem)" },
+    "ask_pem": { "type": "string", "description": "AMD ASK PEM (paired with amd_root_ca_pem)" },
+    "intel_sgx_root_pem": { "type": "string", "description": "Intel SGX root CA PEM" },
+    "sigstore_trusted_root_json_b64": { "type": "string", "description": "base64 Sigstore trusted-root JSON" }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/v3/fixture.schema.json",
+  "title": "v3 conformance fixture",
+  "description": "One shared, language-neutral conformance case: an Input driven through a stage, with the expected verdict and (for rejects) the spec-layer reject code.",
+  "type": "object",
+  "required": ["id", "stage", "input", "expected"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Unique, filesystem-safe fixture id."
+    },
+    "stage": {
+      "description": "Adapter stage this case drives.",
+      "enum": [
+        "v3-check-envelope",
+        "v3-authenticate-provenance",
+        "v3-assemble-policy",
+        "v3-authenticate-quote",
+        "verify-attestation-v3"
+      ]
+    },
+    "input": { "$ref": "input.schema.json" },
+    "expected": {
+      "type": "object",
+      "required": ["accepted"],
+      "additionalProperties": false,
+      "properties": {
+        "accepted": { "type": "boolean" },
+        "code": {
+          "description": "Spec-layer reject code (the target rule's matrix layer). Present iff accepted=false.",
+          "enum": [
+            "ENVELOPE_REJECTED",
+            "PROVENANCE_REJECTED",
+            "QUOTE_REJECTED",
+            "POLICY_REJECTED",
+            "MALFORMED_INPUT"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "accepted": { "const": false } } },
+          "then": { "required": ["code"] },
+          "else": { "not": { "required": ["code"] } }
+        }
+      ]
+    }
+  }
+}
