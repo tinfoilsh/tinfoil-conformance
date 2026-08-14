@@ -30,7 +30,19 @@ The suite invokes a per-SDK binary named `tinfoil-conformance`:
 ```
 tinfoil-conformance <stage>      # Input JSON on stdin → Output JSON on stdout, exit code = verdict
 tinfoil-conformance capabilities # self-description JSON on stdout, exit 0
+tinfoil-conformance capture -host <enclave> -repo <owner/name> [-out f.json]
+                                 # fetch a live v3 attestation and freeze it as a real-frozen fixture
 ```
+
+The **`capture`** subcommand is the real-frozen lane: it fetches a live
+enclave's v3 attestation, verifies it against the **embedded production roots**
+(empty anchors) at the current time, and — only if it accepts — writes a fixture
+pinned to that capture time via `verification_time_unix`. This is the one lane
+synthetic fixtures cannot reach (the *accepting* embedded-root path with real
+material) and the highest-fidelity cross-SDK oracle: every SDK must accept the
+same real bytes. It requires a live v3-emitting enclave; the pin makes the
+resulting fixture replay deterministically offline forever. Producing it is
+SDK-specific; consuming it is just the ordinary `verify-attestation-v3` stage.
 
 **Exit codes** (the verdict; stdout is diagnostic only):
 
@@ -54,9 +66,18 @@ select the embedded production roots, so real-frozen fixtures supply none):
   "amd_root_ca_pem": "<ARK PEM, optional>",
   "ask_pem": "<ASK PEM, optional; paired with amd_root_ca_pem>",
   "intel_sgx_root_pem": "<Intel SGX root PEM, optional>",
-  "sigstore_trusted_root_json_b64": "<base64 Sigstore trusted-root JSON, optional>"
+  "sigstore_trusted_root_json_b64": "<base64 Sigstore trusted-root JSON, optional>",
+  "verification_time_unix": 0
 }
 ```
+
+`verification_time_unix` (optional, seconds since the epoch) pins the **quote-layer
+clock** used for CRL and certificate validity windows, so a **frozen real
+document** replays at its capture time deterministically forever; absent/0 means
+verify at the current time. Sigstore verification is unaffected — it uses the
+bundle's own observer timestamps. Every SDK that runs real-frozen fixtures must
+honour this pin: verifying such a document at wall-clock time would spuriously
+reject it once its collateral windows lapse.
 
 **Output** (exactly one of `outputs` / `rejection`):
 
