@@ -44,6 +44,13 @@ same real bytes. It requires a live v3-emitting enclave; the pin makes the
 resulting fixture replay deterministically offline forever. Producing it is
 SDK-specific; consuming it is just the ordinary `verify-attestation-v3` stage.
 
+The first such fixture is `vectors/v3/real-frozen/real-sev-inference-tinfoil.json`,
+captured from `inference.tinfoil.sh` (a live SEV-SNP enclave, repo
+`tinfoilsh/confidential-model-router`): real hardware evidence, provenance, and
+AMD collateral that verifies against the embedded production roots and replays
+offline at its pinned capture time. It is the accepting embedded-root oracle —
+every SDK must accept these exact bytes.
+
 Alongside `capture`, each SDK SHOULD ship an **opt-in live-verification check**
 that fetches a fresh attestation from a real enclave and runs the full flow
 against the **embedded production roots** at the current time — the same
