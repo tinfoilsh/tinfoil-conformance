@@ -14,6 +14,7 @@
     "amd_root_ca_pem": { "type": "string", "description": "AMD ARK PEM (paired with ask_pem)" },
     "ask_pem": { "type": "string", "description": "AMD ASK PEM (paired with amd_root_ca_pem)" },
     "intel_sgx_root_pem": { "type": "string", "description": "Intel SGX root CA PEM" },
-    "sigstore_trusted_root_json_b64": { "type": "string", "description": "base64 Sigstore trusted-root JSON" }
+    "sigstore_trusted_root_json_b64": { "type": "string", "description": "base64 Sigstore trusted-root JSON" },
+    "verification_time_unix": { "type": "integer", "minimum": 0, "description": "pins the quote-layer clock (seconds since the epoch) for CRL and certificate validity windows, so a frozen real document replays at its capture time; absent/0 verifies at the current time. Sigstore verification uses the bundle's own observer timestamps and is unaffected." }
   }
 }

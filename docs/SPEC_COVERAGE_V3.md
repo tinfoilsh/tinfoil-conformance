@@ -138,6 +138,17 @@
   `st2-multi-measurement`. FR2 (a periodically re-signed freshness witness) is a
   deferred, not-yet-specified proposal outside the v3 spec — nothing to enforce.
 
+  Collateral *crypto-validity* windows (AMD/Intel CRL `ThisUpdate`/`NextUpdate`
+  and certificate validity), by contrast, **are** enforced against the
+  verification clock. `gen_frozen_time.py` proves this and the harness's
+  `verification_time_unix` pin at once: the same expired-CRL SEV document
+  accepts when the clock is pinned inside the CRL window and rejects when pinned
+  outside it (`pos-/neg-frozen-time-*-crl-window`). This pin is what lets a
+  real-frozen document (captured live via `tinfoil-conformance capture`) replay
+  deterministically forever — the accepting embedded-root lane, which needs a
+  live v3 producer to populate and is otherwise unreachable by synthetic
+  fixtures.
+
 **UNCHECKED** (—) — 6 rules (negative-assertion fixtures: prove these are *not* enforced / are ignored)
 
   `[x]U1` `[x]U2` `[~]U3` `[~]U4` `[~]U5` `[~]U6`
