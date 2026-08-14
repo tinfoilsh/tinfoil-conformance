@@ -7,6 +7,12 @@
 > 121-rule matrix). Reference implementation: `tinfoil-go`
 > `cmd/tinfoil-conformance` + `verifier/conformance` (built `-tags
 > tinfoil_conformance`).
+>
+> Machine-checkable contract: [`schemas/v3/`](../schemas/v3/) (JSON Schema for
+> Input / Output / capabilities / fixture — the enums here are authoritative).
+> [`tools/validate_suite.py`](../tools/validate_suite.py) validates every fixture
+> against those schemas and asserts the matrix is 121/121 accounted-for; it and
+> the go harness run on every push via `.github/workflows/v3-conformance.yml`.
 
 ## 1. Goal
 

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/v3/capabilities.schema.json",
+  "title": "v3 conformance adapter capabilities",
+  "description": "Self-description an adapter emits for `tinfoil-conformance capabilities`; the runner uses it to gate which fixtures apply.",
+  "type": "object",
+  "required": ["schema_version", "sdk", "v3"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "const": "1" },
+    "sdk": { "type": "string" },
+    "v3": {
+      "type": "object",
+      "required": ["supported", "stages_supported"],
+      "properties": {
+        "supported": { "type": "boolean" },
+        "stages_supported": {
+          "type": "array",
+          "items": {
+            "enum": ["v3-check-envelope", "v3-authenticate-provenance", "v3-assemble-policy", "v3-authenticate-quote", "verify-attestation-v3"]
+          }
+        },
+        "synthetic_roots": {
+          "type": "object",
+          "properties": {
+            "amd": { "type": "boolean" },
+            "intel": { "type": "boolean" },
+            "sigstore": { "type": "boolean" }
+          }
+        },
+        "freshness_enforced": { "type": "boolean" }
+      }
+    }
+  }
+}
