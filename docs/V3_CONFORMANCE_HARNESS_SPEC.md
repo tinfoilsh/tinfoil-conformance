@@ -44,6 +44,15 @@ same real bytes. It requires a live v3-emitting enclave; the pin makes the
 resulting fixture replay deterministically offline forever. Producing it is
 SDK-specific; consuming it is just the ordinary `verify-attestation-v3` stage.
 
+Alongside `capture`, each SDK SHOULD ship an **opt-in live-verification check**
+that fetches a fresh attestation from a real enclave and runs the full flow
+against the **embedded production roots** at the current time — the same
+accepting embedded-root path, exercised live. It MUST skip by default so
+ordinary and CI runs stay offline. The Go harness's is `TestLiveVerification`
+(`TINFOIL_LIVE_HOST` / `TINFOIL_LIVE_REPO`), which also re-verifies the fetched
+document with the clock pinned to the capture instant, validating the
+pinned-time replay contract on real collateral.
+
 **Exit codes** (the verdict; stdout is diagnostic only):
 
 | code | meaning |
