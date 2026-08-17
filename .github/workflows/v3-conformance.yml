@@ -7,7 +7,7 @@ name: v3 conformance gate
 
 on:
   push:
-    branches: [feat/v3-conformance]
+    branches: [main, feat/v3-conformance]
     paths: ["vectors/v3/**", "schemas/v3/**", "fixturegen/v3/**", "docs/SPEC_COVERAGE_V3.md", "tools/validate_suite.py"]
   pull_request:
     paths: ["vectors/v3/**", "schemas/v3/**", "fixturegen/v3/**", "docs/SPEC_COVERAGE_V3.md", "tools/validate_suite.py"]
