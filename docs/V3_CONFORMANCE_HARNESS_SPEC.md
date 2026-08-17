@@ -1,7 +1,9 @@
 # V3 Conformance Harness Spec
 
-> The language-neutral contract every SDK's v3 conformance adapter implements,
-> and the 1:1 map from v3 spec rules to the harness stages that reach them.
+> **Normative contract:** [CONFORMANCE_ADAPTER_SPEC.md](CONFORMANCE_ADAPTER_SPEC.md)
+> (v1.0.0) — the frozen adapter specification new SDKs port against. This
+> document is its informative companion: the rationale and the 1:1 map from v3
+> spec rules to the harness stages that reach them.
 > Companions: [V3_CONFORMANCE_INTERFACE.md](V3_CONFORMANCE_INTERFACE.md) (block
 > design), [SPEC_COVERAGE_V3.md](SPEC_COVERAGE_V3.md) (the authoritative
 > 121-rule matrix). Reference implementation: `tinfoil-go`
@@ -149,7 +151,7 @@ divergence — and fails the suite.
   "v3": { "supported": true,
           "stages_supported": ["verify-attestation-v3", "v3-check-envelope"],
           "synthetic_roots": { "amd": true, "intel": true, "sigstore": true },
-          "freshness_enforced": false } }
+          "freshness_enforced": true } }
 ```
 
 ## 3. Stages
@@ -162,13 +164,15 @@ somewhere in this flow. The block stages are optional and add *localization*
 
 | stage | flow | block it isolates |
 |---|---|---|
-| `verify-attestation-v3` | full end-to-end | — (reaches all) |
+| `verify-attestation-v3` | full end-to-end (incl. freshness + policy validate + key recovery) | — (reaches all) |
 | `v3-check-envelope` | strict parse + nonce/hash/report-data binding | B1 |
-| `v3-authenticate-provenance` | sigstore-code / sigstore-platform bundles | B2 |
+| `v3-authenticate-provenance` | sigstore-code bundle | B2 |
+| `v3-assemble-policy` | sigstore-platform bundle → endorsements artifact | B4a |
 | `v3-authenticate-quote` | CPU quote signature chain | B3 |
-| `v3-assemble-policy` | machine lookup + shape resolution | B4a |
-| `v3-validate-quote` | strict-equality policy comparison | B4b |
-| `v3-bind-channel` | crypto_material key binding | B6 |
+
+(Policy *comparison* B4b and channel-key recovery B6 are exercised inside
+`verify-attestation-v3` — POLICY_REJECTED attribution and the asserted accept
+facts — rather than as separate stages; the schema enum is authoritative.)
 
 ## 4. Rule → stage map (1:1 with the v3 spec)
 
@@ -187,7 +191,7 @@ one field changed to violate the rule under test).
 | PLATFORM_ENDORSEMENTS policies: every-member-required, unknown-field fail-closed, unmappable block, author/id-block-must-be-false | `PL1–PL12` | `v3-assemble-policy` · `v3-validate-quote` | reject + accept |
 | Shape filtering / exactly-one measurement resolution | `ST1–ST4` | `v3-assemble-policy` | reject (0 or >1) + accept |
 | Channel binding (crypto_material) | (B6) | `v3-bind-channel` | reject + accept |
-| Freshness (deferred; not enforced) | `FR1–FR3` | `v3-authenticate-provenance`, capability-gated `freshness_enforced=false` | probe (expected behavior once implemented) |
+| Freshness: nonce binding + per-artifact witness (enforced since #109) | `FR1–FR3` | `verify-attestation-v3` (witness failures attribute to B2/PROVENANCE) | reject (missing/stale/future/wrong-identity/mismatched witness) + accept (valid witness, at-max-age boundary) |
 | Explicitly-unchecked fields | `U1–U6` | `verify-attestation-v3` | negative assertion (mutate → still accepts) |
 | Ambiguous / underspecified | `AM1–AM5` | — | no fixture until resolved as a spec-question |
 
