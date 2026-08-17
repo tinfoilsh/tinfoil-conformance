@@ -74,10 +74,10 @@ def golden(artifact=None, report_measurement=MEASUREMENT, code_measurement=None,
     code_pred = {"snp_measurement": code_measurement.hex(),
                  "tdx_measurement": {"rtmr1": "bb" * 48, "rtmr2": "cc" * 48},
                  "vm_shape": {"cpus": 8, "memory_mb": 32768, "gpus": 1, "disks": 2}}
-    code_bundle, sig_troot = sig.build_bundle(prov.IDENTITY, prov.statement(predicate=code_pred))
+    code_bundle, sig_troot = prov.code_bundle(stmt=prov.statement(predicate=code_pred))
 
     # platform endorsements: same synthetic Sigstore root (fixed keys).
-    plat_bundle, _ = sig.build_bundle(pol.IDENTITY, pol.statement(artifact))
+    plat_bundle, _ = pol._bundle(artifact)
 
     # SEV quote bound to the ladder + report measurement + chip id.
     sev_kwargs.setdefault("report_data", ladder)
@@ -86,7 +86,9 @@ def golden(artifact=None, report_measurement=MEASUREMENT, code_measurement=None,
     doc["cpu_evidence"]["report_base64"] = env.b64(art["report"])
     doc["collateral"] = [
         prov.code_entry(code_bundle),
+        prov.code_freshness_entry(),
         pol.platform_entry(plat_bundle),
+        pol.platform_freshness_entry(),
         {"id": "vcek", "role": "endorsement", "format": VCEK_FMT, "subjects": ["cpu"],
          "data": {"vcek_der_base64": env.b64(art["vcek_der"]), "cert_chain_pem": art["cert_chain_pem"]}},
         {"id": "crl", "role": "endorsement", "format": CRL_FMT, "subjects": ["cpu"],
@@ -97,6 +99,9 @@ def golden(artifact=None, report_measurement=MEASUREMENT, code_measurement=None,
         "nonce_hex": env.NONCE.hex(), "repo": prov.REPO,
         "amd_root_ca_pem": art["ark_pem"], "ask_pem": art["ask_pem"],
         "sigstore_trusted_root_json_b64": env.b64(json.dumps(sig_troot).encode()),
+        # Pin the appraisal clock to the freshness witness time so the frozen
+        # document replays inside the freshness window.
+        "verification_time_unix": sig.INTEGRATED_TIME,
     }
     return doc, inp
 

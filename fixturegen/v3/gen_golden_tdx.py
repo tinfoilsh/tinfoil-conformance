@@ -65,14 +65,16 @@ def golden_tdx(artifact=None, code_rtmr1=RTMR1, code_rtmr2=RTMR2, report_data=No
     code_pred = {"snp_measurement": "ab" * 48,
                  "tdx_measurement": {"rtmr1": code_rtmr1, "rtmr2": code_rtmr2},
                  "vm_shape": dict(SHAPE)}
-    code_bundle, sig_troot = sig.build_bundle(prov.IDENTITY, prov.statement(predicate=code_pred))
-    plat_bundle, _ = sig.build_bundle(pol.IDENTITY, pol.statement(artifact))
+    code_bundle, sig_troot = prov.code_bundle(stmt=prov.statement(predicate=code_pred))
+    plat_bundle, _ = pol._bundle(artifact)
 
     doc["cpu_evidence"]["format"] = gt.TDX_FMT
     doc["cpu_evidence"]["report_base64"] = env.b64(quote)
     doc["collateral"] = [
         prov.code_entry(code_bundle),
+        prov.code_freshness_entry(),
         pol.platform_entry(plat_bundle),
+        pol.platform_freshness_entry(),
         {"id": "pcs", "role": "endorsement", "format": gt.PCS_FMT,
          "subjects": ["cpu"], "data": {"responses": responses}},
     ]
@@ -81,6 +83,8 @@ def golden_tdx(artifact=None, code_rtmr1=RTMR1, code_rtmr2=RTMR2, report_data=No
         "nonce_hex": env.NONCE.hex(), "repo": prov.REPO,
         "intel_sgx_root_pem": chain.root_ca.pem,
         "sigstore_trusted_root_json_b64": env.b64(json.dumps(sig_troot).encode()),
+        # Pin the appraisal clock to the freshness witness time.
+        "verification_time_unix": sig.INTEGRATED_TIME,
     }
     return inp
 

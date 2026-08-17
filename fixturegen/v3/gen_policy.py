@@ -28,6 +28,9 @@ PLAT_REPO = "tinfoilsh/platform-endorsements"
 TAG = "v1.0.0"
 IDENTITY = f"https://github.com/{PLAT_REPO}/.github/workflows/build.yml@refs/tags/{TAG}"
 DIGEST = hashlib.sha256(b"platform-endorsements-v1").hexdigest()
+COMMIT = hashlib.sha1(b"platform-commit-v1").hexdigest()  # 40-hex source commit
+FRESH_FMT = "https://tinfoil.sh/collateral/sigstore-freshness/v1"
+SUBJECT = "platform"
 
 SEV_CHIP = "ab" * 64   # 128 hex chars = 64-byte CHIP_ID
 TDX_PPID = "cd" * 16   # 32 hex chars = 16-byte PPID
@@ -89,7 +92,17 @@ def doc_with(bundle, digest=DIGEST):
 
 
 def _bundle(artifact, identity=IDENTITY, **kw):
+    kw.setdefault("source_ref", "refs/tags/" + TAG)
+    kw.setdefault("source_digest", COMMIT)
     return ss.build_bundle(identity, statement(artifact), **kw)
+
+
+def platform_freshness_entry():
+    """The platform artifact's freshness witness collateral entry."""
+    bundle = ss.build_freshness_bundle(SUBJECT, DIGEST, PLAT_REPO, TAG, COMMIT,
+                                       integrated_time=ss.INTEGRATED_TIME)
+    return {"id": "platform-freshness", "role": ROLE_RV, "format": FRESH_FMT,
+            "data": {"sigstore_bundle": bundle}}
 
 
 def _artifact(mutate):
