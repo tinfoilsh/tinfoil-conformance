@@ -51,13 +51,16 @@ def sha(b: bytes) -> bytes:
     return hashlib.sha256(b).digest()
 
 
-def base_doc() -> dict:
+def base_doc(cm_items=None) -> dict:
     """A document that passes envelope.Check: correct section hashes and the
-    report_data ladder SHA-256(LABEL || nonce || cm_hash || de_hash)."""
-    cm = canon({"format": CRYPTO_MATERIAL, "items": [
-        {"id": "tls", "format": KEY_SPKI_FP, "data": TLS_FP},
-        {"id": "hpke", "format": KEY_X25519_HPKE, "data": HPKE_KEY},
-    ]})
+    report_data ladder SHA-256(LABEL || nonce || cm_hash || de_hash).
+    cm_items overrides the endorsed channel keys (hashes/ladder recomputed)."""
+    if cm_items is None:
+        cm_items = [
+            {"id": "tls", "format": KEY_SPKI_FP, "data": TLS_FP},
+            {"id": "hpke", "format": KEY_X25519_HPKE, "data": HPKE_KEY},
+        ]
+    cm = canon({"format": CRYPTO_MATERIAL, "items": cm_items})
     de = canon({"format": DEVICE_EVIDENCE, "items": []})
     cmh, deh = sha(cm), sha(de)
     report_data = sha(REPORT_DATA_V1.encode() + NONCE + cmh + deh) + b"\x00" * 32

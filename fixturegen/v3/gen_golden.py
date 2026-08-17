@@ -57,7 +57,7 @@ def golden_artifact():
 
 
 def golden(artifact=None, report_measurement=MEASUREMENT, code_measurement=None,
-           chip_id=CHIP_ID, sev_kwargs=None):
+           chip_id=CHIP_ID, sev_kwargs=None, cm_items=None):
     """Assemble (document, input) for verify-attestation-v3. The override points
     let mutation fixtures decouple what the report says from what the code
     provenance / endorsed policy expect."""
@@ -67,7 +67,7 @@ def golden(artifact=None, report_measurement=MEASUREMENT, code_measurement=None,
     sev_kwargs.setdefault("host_data", b"\x00" * 32)
     sev_kwargs.setdefault("policy", 0x30000)
 
-    doc = env.base_doc()
+    doc = env.base_doc(cm_items=cm_items)
     ladder = bytes.fromhex(doc["challenge"]["report_data"])  # 64-byte REPORT_DATA ladder
 
     # code provenance: snp_measurement is the expected launch measurement.
@@ -106,7 +106,7 @@ def golden(artifact=None, report_measurement=MEASUREMENT, code_measurement=None,
     return doc, inp
 
 
-def fixture(fid, inp, accepted):
+def fixture(fid, inp, accepted, code="POLICY_REJECTED"):
     if accepted:
         # Every accepting golden resolves to the same verified facts (no accept
         # varies the measurement); pin them so a port must reproduce them.
@@ -119,7 +119,7 @@ def fixture(fid, inp, accepted):
             "tls_public_key_fp": env.TLS_FP, "hpke_public_key": env.HPKE_KEY,
         }
     else:
-        expected = {"accepted": False, "code": "POLICY_REJECTED"}
+        expected = {"accepted": False, "code": code}
     return {"id": fid, "stage": "verify-attestation-v3", "input": inp, "expected": expected}
 
 
@@ -245,15 +245,26 @@ def BUILDERS():
         sev_kwargs={"guest_svn": 7}, artifact=_mutate_policy(minimum_guest_svn=7))[1], True)
     yield ("pos-collateral-reordered", _variant(_reorder_collateral), True)
     yield ("pos-extra-collateral", _variant(_add_unknown_collateral), True)
+    # The full stage requires both endorsed channel keys: a document that
+    # verifies but binds no usable key is useless to every real client.
+    yield ("e-missing-tls-key", golden(cm_items=[
+        {"id": "hpke", "format": env.KEY_X25519_HPKE, "data": env.HPKE_KEY}])[1],
+        False, "ENVELOPE_REJECTED")
+    yield ("e-hpke-wrong-format", golden(cm_items=[
+        {"id": "tls", "format": env.KEY_SPKI_FP, "data": env.TLS_FP},
+        {"id": "hpke", "format": env.KEY_SPKI_FP, "data": env.HPKE_KEY}])[1],
+        False, "ENVELOPE_REJECTED")
 
 
 def main():
     out = "vectors/v3/golden"
     os.makedirs(out, exist_ok=True)
     n = 0
-    for fid, inp, accepted in BUILDERS():
+    for entry in BUILDERS():
+        fid, inp, accepted = entry[0], entry[1], entry[2]
+        code = entry[3] if len(entry) > 3 else "POLICY_REJECTED"
         with open(os.path.join(out, fid + ".json"), "w") as fh:
-            fh.write(json.dumps(fixture(fid, inp, accepted), indent=2) + "\n")
+            fh.write(json.dumps(fixture(fid, inp, accepted, code), indent=2) + "\n")
         n += 1
     print(f"wrote {n} golden / verify-attestation-v3 fixtures to {out}/")
 
