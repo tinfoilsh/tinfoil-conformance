@@ -22,10 +22,16 @@ CRYPTO_MATERIAL = "https://tinfoil.sh/crypto-material/v1"
 DEVICE_EVIDENCE = "https://tinfoil.sh/device-evidence/v1"
 SEV_REPORT_V1 = "https://tinfoil.sh/format/sev-snp-report/v1"
 KEY_SPKI_FP = "https://tinfoil.sh/key/spki-fp-sha256/v1"
+KEY_X25519_HPKE = "https://tinfoil.sh/key/x25519-hpke/v1"
 AMD_CRL = "https://tinfoil.sh/collateral/amd-crl/v1"
 
 REPO = "tinfoilsh/confidential-inference-proxy"
 NONCE = bytes(range(32))  # fixed; the fixture's nonce_hex must equal doc.challenge.nonce
+
+# Endorsed channel keys the document binds (hash-bound into the quote): a TLS
+# SPKI fingerprint and an HPKE public key, each a fixed 32-byte value in hex.
+TLS_FP = hashlib.sha256(b"synthetic-tls-spki").hexdigest()
+HPKE_KEY = hashlib.sha256(b"synthetic-hpke-x25519").hexdigest()
 
 
 def canon(obj) -> bytes:
@@ -43,7 +49,10 @@ def sha(b: bytes) -> bytes:
 def base_doc() -> dict:
     """A document that passes envelope.Check: correct section hashes and the
     report_data ladder SHA-256(LABEL || nonce || cm_hash || de_hash)."""
-    cm = canon({"format": CRYPTO_MATERIAL, "items": []})
+    cm = canon({"format": CRYPTO_MATERIAL, "items": [
+        {"id": "tls", "format": KEY_SPKI_FP, "data": TLS_FP},
+        {"id": "hpke", "format": KEY_X25519_HPKE, "data": HPKE_KEY},
+    ]})
     de = canon({"format": DEVICE_EVIDENCE, "items": []})
     cmh, deh = sha(cm), sha(de)
     report_data = sha(REPORT_DATA_V1.encode() + NONCE + cmh + deh) + b"\x00" * 32

@@ -90,12 +90,21 @@ reject it once its collateral windows lapse.
 { "stage": "verify-attestation-v3", "accepted": true,
   "outputs": { "code_digest": "…",
                "code_measurement":    { "type": "…", "registers": ["…"] },
-               "enclave_measurement": { "type": "…", "registers": ["…"] } } }
+               "enclave_measurement": { "type": "…", "registers": ["…"] },
+               "tls_public_key_fp": "…", "hpke_public_key": "…" } }
 ```
 ```json
 { "stage": "verify-attestation-v3", "accepted": false,
   "rejection": { "code": "ENVELOPE_REJECTED" } }
 ```
+
+`tls_public_key_fp` / `hpke_public_key` are the endorsed channel keys the caller
+binds its connection to (hash-bound into the quote). Recovering them is the
+*point* of verification, so an accept fixture may declare them and the suite
+asserts the harness recovered exactly those — a client that accepts but surfaces
+the wrong key is non-conformant. The **live** binding (the connection's TLS key
+equals `tls_public_key_fp`) is out of the offline fixtures' reach and is checked
+by the opt-in live test, which dials the enclave and compares SPKI fingerprints.
 
 **Rejection codes** are a **closed, layer-tagged taxonomy** and are **asserted**
 (not merely diagnostic): a reject fixture declares the code it expects and the

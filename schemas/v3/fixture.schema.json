@@ -38,6 +38,14 @@
             "POLICY_REJECTED",
             "MALFORMED_INPUT"
           ]
+        },
+        "tls_public_key_fp": {
+          "type": "string",
+          "description": "Endorsed TLS SPKI fingerprint the verified document must recover (accept fixtures only)."
+        },
+        "hpke_public_key": {
+          "type": "string",
+          "description": "Endorsed HPKE public key the verified document must recover (accept fixtures only)."
         }
       },
       "allOf": [
