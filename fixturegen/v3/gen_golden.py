@@ -142,6 +142,26 @@ def _pi(**over):  # endorsed platform_info with one bit flipped from the happy r
     return _mutate_policy(platform_info=pi)
 
 
+# Benign document variations that MUST still accept, so an over-strict port
+# (fixed collateral order, rejects unknown entries) is caught.
+def _variant(mutate):
+    doc, inp = golden()
+    mutate(doc)
+    inp = dict(inp)
+    inp["document_b64"] = env.b64(env.canon(doc))
+    return inp
+
+
+def _reorder_collateral(d):
+    d["collateral"] = list(reversed(d["collateral"]))
+
+
+def _add_unknown_collateral(d):
+    d["collateral"].append({"id": "future-thing", "role": "endorsement",
+                            "format": "https://tinfoil.sh/collateral/unknown/v9",
+                            "subjects": ["cpu"], "data": {"x": "y"}})
+
+
 # Each builder returns (id, input, accepted). Single-field mutations of the
 # golden document, verified end-to-end through verify-attestation-v3.
 def BUILDERS():
@@ -223,6 +243,8 @@ def BUILDERS():
         artifact=_mutate_policy(minimum_tcb={"bl_spl": 7, "tee_spl": 0, "snp_spl": 20, "ucode_spl": 72}))[1], True)
     yield ("pos-guest-svn-at-floor", golden(
         sev_kwargs={"guest_svn": 7}, artifact=_mutate_policy(minimum_guest_svn=7))[1], True)
+    yield ("pos-collateral-reordered", _variant(_reorder_collateral), True)
+    yield ("pos-extra-collateral", _variant(_add_unknown_collateral), True)
 
 
 def main():
