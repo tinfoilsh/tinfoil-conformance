@@ -258,6 +258,14 @@ def p_bad_commit():  # cert SourceRepositoryDigest is not a 40-hex git commit
     return doc_with(b), t, False
 
 
+def p_no_subject():  # statement carries no subject to bind the artifact digest to
+    stmt = json.dumps({"_type": "https://in-toto.io/Statement/v1", "subject": [],
+                       "predicateType": PRED, "predicate": base_predicate()},
+                      separators=(",", ":")).encode()
+    b, t = code_bundle(stmt=stmt)
+    return doc_with(b), t, False
+
+
 # Positive variations: valid alternatives that MUST accept, so a port that is
 # wrongly too strict (hard-codes the one happy identity/statement) is caught.
 def pos_wildcard_workflow():  # SAN allows any workflow filename under .github/workflows
@@ -300,7 +308,7 @@ MUTATIONS = {
     "p13-shape-negative": p13_shape_negative,
     "p14-ref": p14_ref, "p14-path": p14_path,
     "p-code-ref-not-tag": p_ref_not_tag, "p-code-tag-mismatch": p_tag_mismatch,
-    "p-code-bad-commit": p_bad_commit,
+    "p-code-bad-commit": p_bad_commit, "p-no-subject": p_no_subject,
 }
 
 
