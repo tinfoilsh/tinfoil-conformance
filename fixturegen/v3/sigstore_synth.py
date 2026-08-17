@@ -449,16 +449,10 @@ def build_bundle(identity_uri, statement_bytes, integrated_time=None, dup_sct=Fa
     return bundle, _trusted_root(root_cert, int_cert)
 
 
-def build_freshness_bundle(subject_name, artifact_digest, repo, tag, commit,
-                           integrated_time=None, identity=FRESHNESS_WITNESS_IDENTITY):
-    """Freshness witness bundle for a code/platform artifact: a DSSE in-toto
-    statement (freshness-witness predicate) signed under the freshness-witness
-    identity, endorsing the same repo/tag/commit/subject the artifact resolves
-    to. The verifier checks its transparency-log time against a pinned appraisal
-    time within MaxFreshnessAge, so the caller pins verification_time to it.
-    Overriding identity / the endorses fields / integrated_time yields the
-    negative cases (wrong signer, mismatched endorsement, stale/future)."""
-    statement = _canonical_json({
+def freshness_statement(subject_name, artifact_digest, repo, tag, commit):
+    """The freshness-witness in-toto statement dict. Callers mutate it to build
+    the malformed-statement negatives (wrong type / predicate / subject)."""
+    return {
         "_type": "https://in-toto.io/Statement/v1",
         "subject": [{"name": subject_name, "digest": {"sha256": artifact_digest}}],
         "predicateType": FRESHNESS_PREDICATE,
@@ -471,7 +465,20 @@ def build_freshness_bundle(subject_name, artifact_digest, repo, tag, commit,
                 "subject": {"name": subject_name, "digest": "sha256:" + artifact_digest},
             },
         },
-    })
+    }
+
+
+def build_freshness_bundle(subject_name, artifact_digest, repo, tag, commit,
+                           integrated_time=None, identity=FRESHNESS_WITNESS_IDENTITY, stmt=None):
+    """Freshness witness bundle for a code/platform artifact: a DSSE in-toto
+    statement (freshness-witness predicate) signed under the freshness-witness
+    identity, endorsing the same repo/tag/commit/subject the artifact resolves
+    to. The verifier checks its transparency-log time against a pinned appraisal
+    time within MaxFreshnessAge, so the caller pins verification_time to it.
+    Overriding identity / stmt / the endorses fields / integrated_time yields the
+    negative cases (wrong signer, malformed statement, mismatched endorsement)."""
+    statement = _canonical_json(
+        stmt if stmt is not None else freshness_statement(subject_name, artifact_digest, repo, tag, commit))
     bundle, _ = build_bundle(identity, statement, integrated_time=integrated_time)
     return bundle
 
