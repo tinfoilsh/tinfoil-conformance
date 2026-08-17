@@ -69,6 +69,10 @@ Shape: [`input.schema.json`](../schemas/v3/input.schema.json). Beyond the shape:
   bundle's own observer timestamps).
 - `nonce_hex` is the *verifier's* nonce. The adapter MUST use it — never the
   document's echoed nonce — as the expected value.
+- `schema_version` MUST equal `"1"`; anything else is malformed (exit 30).
+- When a document carries more than one reference-values entry of the same
+  format (distinct ids — duplicate ids already reject at parse), the **first**
+  entry in collateral order is used.
 
 ## 4. Output semantics
 
