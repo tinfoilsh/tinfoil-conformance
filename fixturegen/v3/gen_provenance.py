@@ -63,6 +63,18 @@ def code_bundle(ident=IDENTITY, stmt=None, **kw):
     return ss.build_bundle(ident, statement() if stmt is None else stmt, **kw)
 
 
+FRESH_FMT = "https://tinfoil.sh/collateral/sigstore-freshness/v1"
+SUBJECT = "cip"
+
+
+def code_freshness_entry():
+    """The code artifact's freshness witness collateral entry."""
+    bundle = ss.build_freshness_bundle(SUBJECT, DIGEST, REPO, TAG, COMMIT,
+                                       integrated_time=ss.INTEGRATED_TIME)
+    return {"id": "code-freshness", "role": ROLE_RV, "format": FRESH_FMT,
+            "data": {"sigstore_bundle": bundle}}
+
+
 def code_entry(bundle, digest=DIGEST, repo=REPO):
     return {"id": "sigstore-code", "role": ROLE_RV, "format": CODE_FMT,
             "data": {"repo": repo, "tag": TAG, "digest": digest, "sigstore_bundle": bundle}}
@@ -231,6 +243,21 @@ def p14_path():  # workflow path is not directly under .github/workflows
     return doc_with(b), t, False
 
 
+def p_ref_not_tag():  # cert SourceRepositoryRef is a branch, not a tag
+    b, t = code_bundle(source_ref="refs/heads/main")
+    return doc_with(b), t, False
+
+
+def p_tag_mismatch():  # cert tag != the collateral's declared tag
+    b, t = code_bundle(source_ref="refs/tags/v2.0.0")
+    return doc_with(b), t, False
+
+
+def p_bad_commit():  # cert SourceRepositoryDigest is not a 40-hex git commit
+    b, t = code_bundle(source_digest="not-a-commit")
+    return doc_with(b), t, False
+
+
 # Positive variations: valid alternatives that MUST accept, so a port that is
 # wrongly too strict (hard-codes the one happy identity/statement) is caught.
 def pos_wildcard_workflow():  # SAN allows any workflow filename under .github/workflows
@@ -272,6 +299,8 @@ MUTATIONS = {
     "p13-shape-missing-member": p13_shape_missing_member,
     "p13-shape-negative": p13_shape_negative,
     "p14-ref": p14_ref, "p14-path": p14_path,
+    "p-code-ref-not-tag": p_ref_not_tag, "p-code-tag-mismatch": p_tag_mismatch,
+    "p-code-bad-commit": p_bad_commit,
 }
 
 

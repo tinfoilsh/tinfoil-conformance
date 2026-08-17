@@ -98,6 +98,24 @@ def main():
     d, inp = _doc_inp(); _set_witness(d, "code-freshness", mismatch)
     fixtures.append(_fx("fr2-mismatched-endorsement", _encode(d, inp), False))
 
+    # Malformed witness statement: wrong _type / predicate / subject. Each is a
+    # single-field edit of an otherwise valid witness.
+    def _witness(mutate):
+        s = ss.freshness_statement(prov.SUBJECT, prov.DIGEST, prov.REPO, prov.TAG, prov.COMMIT)
+        mutate(s)
+        return ss.build_freshness_bundle(prov.SUBJECT, prov.DIGEST, prov.REPO, prov.TAG, prov.COMMIT,
+                                         integrated_time=ss.INTEGRATED_TIME, stmt=s)
+
+    def _wrong_type(s): s["_type"] = "https://in-toto.io/Statement/v0.9"
+    def _wrong_predicate(s): s["predicateType"] = "https://tinfoil.sh/predicate/other/v1"
+    def _wrong_subject(s): s["subject"][0]["name"] = "not-the-artifact"
+
+    for fid, mut in [("fr2-witness-wrong-type", _wrong_type),
+                     ("fr2-witness-wrong-predicate", _wrong_predicate),
+                     ("fr2-witness-subject-mismatch", _wrong_subject)]:
+        d, inp = _doc_inp(); _set_witness(d, "code-freshness", _witness(mut))
+        fixtures.append(_fx(fid, _encode(d, inp), False))
+
     # Boundary: exactly MaxFreshnessAge (7 days) still accepts — pins the constant.
     d, inp = _doc_inp()
     fixtures.append(_fx("fr2-pos-at-max-age", _encode(d, inp, verification_time_unix=APPRAISAL + 7 * DAY), True))

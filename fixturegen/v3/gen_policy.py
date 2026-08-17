@@ -292,7 +292,28 @@ def pos_multi_machine():  # several machines mapping into the policy set
     return doc_with(b), t, True
 
 
+def i_plat_ref_not_tag():  # platform cert SourceRepositoryRef is a branch, not a tag
+    b, t = _bundle(base_artifact(), source_ref="refs/heads/main")
+    return doc_with(b), t, False
+
+
+def i_plat_bad_commit():  # platform cert SourceRepositoryDigest is not a 40-hex commit
+    b, t = _bundle(base_artifact(), source_digest="not-a-commit")
+    return doc_with(b), t, False
+
+
+def i_plat_wrong_repo():  # collateral claims a repo other than the pinned platform repo
+    b, t = _bundle(base_artifact())  # signed under the pinned platform identity
+    e = platform_entry(b)
+    e["data"]["repo"] = "tinfoilsh/not-platform-endorsements"
+    d = base_doc()
+    d["collateral"] = [e]
+    return d, t, False
+
+
 MUTATIONS = {
+    "i-plat-ref-not-tag": i_plat_ref_not_tag, "i-plat-bad-commit": i_plat_bad_commit,
+    "i-plat-wrong-repo": i_plat_wrong_repo,
     "policy-happy": happy,
     "policy-pos-fmc-spl": pos_fmc_spl,
     "policy-pos-multi-machine": pos_multi_machine,
