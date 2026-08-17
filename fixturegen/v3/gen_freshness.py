@@ -109,12 +109,19 @@ def main():
     def _wrong_type(s): s["_type"] = "https://in-toto.io/Statement/v0.9"
     def _wrong_predicate(s): s["predicateType"] = "https://tinfoil.sh/predicate/other/v1"
     def _wrong_subject(s): s["subject"][0]["name"] = "not-the-artifact"
+    def _zero_subject(s): s["subject"] = []
 
     for fid, mut in [("fr2-witness-wrong-type", _wrong_type),
                      ("fr2-witness-wrong-predicate", _wrong_predicate),
-                     ("fr2-witness-subject-mismatch", _wrong_subject)]:
+                     ("fr2-witness-subject-mismatch", _wrong_subject),
+                     ("fr2-witness-zero-subject", _zero_subject)]:
         d, inp = _doc_inp(); _set_witness(d, "code-freshness", _witness(mut))
         fixtures.append(_fx(fid, _encode(d, inp), False))
+
+    # Witness DSSE signs bytes that are not an in-toto statement at all.
+    garbage = ss.build_bundle(ss.FRESHNESS_WITNESS_IDENTITY, b"not-an-in-toto-statement")[0]
+    d, inp = _doc_inp(); _set_witness(d, "code-freshness", garbage)
+    fixtures.append(_fx("fr2-witness-garbage-payload", _encode(d, inp), False))
 
     # Boundary: exactly MaxFreshnessAge (7 days) still accepts — pins the constant.
     d, inp = _doc_inp()
