@@ -34,7 +34,7 @@
 > deferred/not-yet-specified proposal, an explicitly-unenforced field, a
 > sequencing property verified by end-to-end ordering, a defensive check
 > unreachable via a well-formed input, or an open spec-question. `[ ]` = open.
-> **Status: 107 `[x]` + 14 `[~]` = 121/121 accounted-for, 0 open.**
+> **Status: 108 `[x]` + 13 `[~]` = 121/121 accounted-for, 0 open.**
 
 **ENVELOPE** (B1) — 17 rules
 
@@ -126,17 +126,21 @@
 
 **FRESHNESS** (B2) — 3 rules
 
-  `[x]FR1` `[~]FR2` `[x]FR3`
+  `[x]FR1` `[x]FR2` `[x]FR3`
 
   FR1 (nonce binding) is fixtured end-to-end by `gen_freshness.py` at
   `verify-attestation-v3`: `fr1-nonce-fresh` accepts, `fr1-nonce-stale` rejects
   when the verifier supplies a nonce other than the one bound into the quote's
   REPORT_DATA ladder — proving the verifier trusts its own nonce, not the
-  document's (collateral-expiry beyond crypto validity is deliberately not
-  enforced; capability `freshness_enforced=false`). FR3 (multiple endorsed
-  MRTD/RTMR0 stacks accepted, no anti-rollback bound) is the positive
-  `st2-multi-measurement`. FR2 (a periodically re-signed freshness witness) is a
-  deferred, not-yet-specified proposal outside the v3 spec — nothing to enforce.
+  document's. FR2 (per-artifact freshness witness, required since feat/v3 #109)
+  is both-sided: the golden documents carry valid `code-freshness` +
+  `platform-freshness` proofs, and `gen_freshness.py` rejects every fault at the
+  provenance layer — missing witness, stale (>7d) / future-dated (isolated by
+  moving the pinned appraisal clock, so the quote still authenticates), wrong
+  signing identity, and a witness endorsing a different commit. `fr2-pos-at-max-age`
+  pins `MaxFreshnessAge` (7 days). This closes the hole where a client that
+  skipped freshness would otherwise pass. FR3 (multiple endorsed MRTD/RTMR0
+  stacks accepted, no anti-rollback bound) is the positive `st2-multi-measurement`.
 
   Collateral *crypto-validity* windows (AMD/Intel CRL `ThisUpdate`/`NextUpdate`
   and certificate validity) **are** enforced against the verification clock.
@@ -156,7 +160,7 @@
 
   `[~]AM1` `[~]AM2` `[~]AM3` `[~]AM4` `[~]AM5`
 
-> Burn-down total: **107 fixtured (`[x]`) + 14 accounted-for by design (`[~]`) = 121 / 121**, 0 open. Complete layers (fixtured, both-sided, reason-audited): ENVELOPE, PROVENANCE, QUOTE-SEV, POLICY, STRUCTURAL; QUOTE-TDX 24/25 (T5 by design); IDENTITY, UNCHECKED, FRESHNESS have their enforced rules fixtured and the rest documented `[~]`.
+> Burn-down total: **108 fixtured (`[x]`) + 13 accounted-for by design (`[~]`) = 121 / 121**, 0 open. Complete layers (fixtured, both-sided, reason-audited): ENVELOPE, PROVENANCE, QUOTE-SEV, POLICY, STRUCTURAL, FRESHNESS; QUOTE-TDX 24/25 (T5 by design); IDENTITY, UNCHECKED have their enforced rules fixtured and the rest documented `[~]`.
 
 ---
 
