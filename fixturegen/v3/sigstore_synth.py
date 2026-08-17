@@ -39,10 +39,19 @@ from cryptography.x509.oid import NameOID, ObjectIdentifier
 # sigstore-go's certificate identity checks.
 OID_ISSUER_V1 = ObjectIdentifier("1.3.6.1.4.1.57264.1.1")  # raw string value
 OID_RUNNER_ENVIRONMENT = ObjectIdentifier("1.3.6.1.4.1.57264.1.11")  # DER string
+OID_SOURCE_REPO_DIGEST = ObjectIdentifier("1.3.6.1.4.1.57264.1.13")  # DER string
+OID_SOURCE_REPO_REF = ObjectIdentifier("1.3.6.1.4.1.57264.1.14")  # DER string
 OID_SCT_LIST = ObjectIdentifier("1.3.6.1.4.1.11129.2.4.2")  # RFC 6962 §3.3
 
 GITHUB_ACTIONS_ISSUER = "https://token.actions.githubusercontent.com"
 DSSE_PAYLOAD_TYPE = "application/vnd.in-toto+json"
+
+# Freshness witness (verifier requires a re-signed proof per Sigstore artifact).
+FRESHNESS_PREDICATE = "https://tinfoil.sh/predicate/freshness-witness/v1"
+FRESHNESS_WITNESS_IDENTITY = (
+    "https://github.com/tinfoilsh/freshness-witness"
+    "/.github/workflows/freshness.yml@refs/heads/main"
+)
 
 # Fixed instant all validity windows and timestamps hang off of. Verification is
 # anchored to the log's integrated time (observer timestamp), never wall-clock,
@@ -204,8 +213,8 @@ def _sct_list_extension_value(serialized_scts):
 
 
 # --- Leaf certificate with embedded SCT -------------------------------------
-def _leaf_extensions(identity_uri, int_key, issuer, runner_environment):
-    return [
+def _leaf_extensions(identity_uri, int_key, issuer, runner_environment, source_ref=None, source_digest=None):
+    exts = [
         (x509.BasicConstraints(ca=False, path_length=None), True),
         (x509.KeyUsage(
             digital_signature=True, content_commitment=False, key_encipherment=False,
@@ -218,10 +227,19 @@ def _leaf_extensions(identity_uri, int_key, issuer, runner_environment):
         (x509.UnrecognizedExtension(OID_RUNNER_ENVIRONMENT, _der_utf8_string(runner_environment)), False),
         (x509.SubjectAlternativeName([x509.UniformResourceIdentifier(identity_uri)]), True),
     ]
+    # Source ref/digest identify the signed release; the code/platform artifacts
+    # need them (the verifier reads the tag and commit), the freshness witness
+    # does not.
+    if source_ref is not None:
+        exts.append((x509.UnrecognizedExtension(OID_SOURCE_REPO_REF, _der_utf8_string(source_ref)), False))
+    if source_digest is not None:
+        exts.append((x509.UnrecognizedExtension(OID_SOURCE_REPO_DIGEST, _der_utf8_string(source_digest)), False))
+    return exts
 
 
 def _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=False,
-                issuer=GITHUB_ACTIONS_ISSUER, runner_environment="github-hosted"):
+                issuer=GITHUB_ACTIONS_ISSUER, runner_environment="github-hosted",
+                source_ref=None, source_digest=None):
     leaf_key = _key("leaf")
     int_name = int_cert.subject
     not_before = BASE_TIME - datetime.timedelta(minutes=5)
@@ -237,7 +255,8 @@ def _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=False,
             .not_valid_before(not_before)
             .not_valid_after(not_after)
         )
-        for ext, critical in _leaf_extensions(identity_uri, int_key, issuer, runner_environment):
+        for ext, critical in _leaf_extensions(identity_uri, int_key, issuer, runner_environment,
+                                               source_ref=source_ref, source_digest=source_digest):
             b = b.add_extension(ext, critical)
         return b
 
@@ -377,7 +396,8 @@ def _trusted_root(root_cert, int_cert):
 
 # --- Bundle assembly --------------------------------------------------------
 def build_bundle(identity_uri, statement_bytes, integrated_time=None, dup_sct=False, bad_dsse=False,
-                 issuer=GITHUB_ACTIONS_ISSUER, runner_environment="github-hosted"):
+                 issuer=GITHUB_ACTIONS_ISSUER, runner_environment="github-hosted",
+                 source_ref=None, source_digest=None):
     """Return (bundle_dict, trusted_root_dict) for a DSSE-signed in-toto
     statement whose signing certificate carries identity_uri as its SAN.
     integrated_time overrides the log timestamp (used to place it outside the
@@ -387,7 +407,8 @@ def build_bundle(identity_uri, statement_bytes, integrated_time=None, dup_sct=Fa
     it = INTEGRATED_TIME if integrated_time is None else integrated_time
     root_cert, int_cert, int_key = _build_ca()
     leaf, leaf_key = _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=dup_sct,
-                                 issuer=issuer, runner_environment=runner_environment)
+                                 issuer=issuer, runner_environment=runner_environment,
+                                 source_ref=source_ref, source_digest=source_digest)
     leaf_pem = leaf.public_bytes(serialization.Encoding.PEM)
 
     dsse_sig = _dsse_sign(statement_bytes, _key("ctlog") if bad_dsse else leaf_key)
@@ -426,6 +447,30 @@ def build_bundle(identity_uri, statement_bytes, integrated_time=None, dup_sct=Fa
         "dsseEnvelope": envelope,
     }
     return bundle, _trusted_root(root_cert, int_cert)
+
+
+def build_freshness_bundle(subject_name, artifact_digest, repo, tag, commit, integrated_time=None):
+    """Freshness witness bundle for a code/platform artifact: a DSSE in-toto
+    statement (freshness-witness predicate) signed under the freshness-witness
+    identity, endorsing the same repo/tag/commit/subject the artifact resolves
+    to. The verifier checks its transparency-log time against a pinned appraisal
+    time within MaxFreshnessAge, so the caller pins verification_time to it."""
+    statement = _canonical_json({
+        "_type": "https://in-toto.io/Statement/v1",
+        "subject": [{"name": subject_name, "digest": {"sha256": artifact_digest}}],
+        "predicateType": FRESHNESS_PREDICATE,
+        "predicate": {
+            "format": FRESHNESS_PREDICATE,
+            "endorses": {
+                "repo": repo,
+                "tag": tag,
+                "commit": commit,
+                "subject": {"name": subject_name, "digest": "sha256:" + artifact_digest},
+            },
+        },
+    })
+    bundle, _ = build_bundle(FRESHNESS_WITNESS_IDENTITY, statement, integrated_time=integrated_time)
+    return bundle
 
 
 def rogue_ca_cert_chain():
