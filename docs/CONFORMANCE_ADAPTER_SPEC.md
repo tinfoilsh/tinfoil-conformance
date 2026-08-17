@@ -78,7 +78,10 @@ Shape: [`output.schema.json`](../schemas/v3/output.schema.json). Exactly one of
 **On accept**, `outputs` MUST carry the verified facts: `code_digest`,
 `code_measurement` and `enclave_measurement` (each `{type, registers}` with
 registers in canonical order, lowercase hex), and the endorsed channel keys
-`tls_public_key_fp` / `hpke_public_key` when the document endorses them. When a
+`tls_public_key_fp` / `hpke_public_key`. On `verify-attestation-v3` both keys
+are REQUIRED: a document that verifies but endorses no usable `tls` (spki-fp)
+and `hpke` (x25519) crypto-material entry MUST reject with `ENVELOPE_REJECTED` —
+every real client would fail such a document at channel binding. When a
 fixture's `expected` declares any of these, the suite asserts byte-exact
 equality — an adapter that accepts but yields a different digest, a
 mis-ordered/mis-typed register set, or the wrong channel key is
