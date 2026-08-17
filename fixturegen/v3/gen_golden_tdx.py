@@ -90,8 +90,17 @@ def golden_tdx(artifact=None, code_rtmr1=RTMR1, code_rtmr2=RTMR2, report_data=No
 
 
 def fixture(fid, inp, accepted):
-    expected = ({"accepted": True, "tls_public_key_fp": env.TLS_FP, "hpke_public_key": env.HPKE_KEY}
-                if accepted else {"accepted": False, "code": "POLICY_REJECTED"})
+    if accepted:
+        expected = {
+            "accepted": True,
+            "code_digest": prov.DIGEST,
+            "code_measurement": {"type": env.MEAS_SNP_TDX_MULTI, "registers": ["ab" * 48, RTMR1, RTMR2]},
+            "enclave_measurement": {"type": env.MEAS_TDX_GUEST_V2,
+                                    "registers": [MRTD, RTMR0, RTMR1, RTMR2, "00" * 48]},
+            "tls_public_key_fp": env.TLS_FP, "hpke_public_key": env.HPKE_KEY,
+        }
+    else:
+        expected = {"accepted": False, "code": "POLICY_REJECTED"}
     return {"id": fid, "stage": "verify-attestation-v3", "input": inp, "expected": expected}
 
 

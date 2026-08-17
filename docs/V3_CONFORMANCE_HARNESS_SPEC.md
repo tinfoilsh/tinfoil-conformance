@@ -98,13 +98,16 @@ reject it once its collateral windows lapse.
   "rejection": { "code": "ENVELOPE_REJECTED" } }
 ```
 
-`tls_public_key_fp` / `hpke_public_key` are the endorsed channel keys the caller
-binds its connection to (hash-bound into the quote). Recovering them is the
-*point* of verification, so an accept fixture may declare them and the suite
-asserts the harness recovered exactly those — a client that accepts but surfaces
-the wrong key is non-conformant. The **live** binding (the connection's TLS key
-equals `tls_public_key_fp`) is out of the offline fixtures' reach and is checked
-by the opt-in live test, which dials the enclave and compares SPKI fingerprints.
+An accept fixture may declare **any** of the verified facts — `code_digest`,
+`code_measurement` / `enclave_measurement` (each `{type, registers}`), and the
+endorsed channel keys `tls_public_key_fp` / `hpke_public_key` — and the suite
+asserts the harness recovered *exactly* those. This is what forces cross-SDK
+**output equivalence**: a client that accepts but yields a different digest,
+a mis-ordered or mis-typed measurement register set, or the wrong channel key is
+non-conformant even though it "accepted". The **live** TLS binding (the
+connection's key equals `tls_public_key_fp`) is out of the offline fixtures'
+reach and is checked by the opt-in live test, which dials the enclave and
+compares SPKI fingerprints.
 
 **Rejection codes** are a **closed, layer-tagged taxonomy** and are **asserted**
 (not merely diagnostic): a reject fixture declares the code it expects and the

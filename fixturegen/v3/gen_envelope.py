@@ -33,6 +33,11 @@ NONCE = bytes(range(32))  # fixed; the fixture's nonce_hex must equal doc.challe
 TLS_FP = hashlib.sha256(b"synthetic-tls-spki").hexdigest()
 HPKE_KEY = hashlib.sha256(b"synthetic-hpke-x25519").hexdigest()
 
+# Measurement predicate types the verifier reports in accept outputs.
+MEAS_SNP_TDX_MULTI = "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1"
+MEAS_SEV_GUEST_V2 = "https://tinfoil.sh/predicate/sev-snp-guest/v2"
+MEAS_TDX_GUEST_V2 = "https://tinfoil.sh/predicate/tdx-guest/v2"
+
 
 def canon(obj) -> bytes:
     return json.dumps(obj, separators=(",", ":")).encode()

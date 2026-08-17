@@ -1,6 +1,23 @@
 {
   "expected": {
-    "accepted": true
+    "accepted": true,
+    "code_digest": "7dcf6bade47993752689e9574ae6fba39ebed0fa98427329fc184558488ad8f6",
+    "code_measurement": {
+      "type": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
+      "registers": [
+        "6d657b353726893ee7202d33efc7c849a62693049c646f9394a8c6e2a165ed9936c024c4200878927767317ba3cbca7a",
+        "a787299fe2e84295a406dde367abac5b40128c1e13aa81dfde4a5c2e39682e45cde7bb84cefc7f33f25ac645fc265030",
+        "e6a88b182c2ff45276c333482c88ce2b30329d8e62d83a5797016d7320a64bc9b70f4b02013e2670b5c145469a4655e7"
+      ]
+    },
+    "enclave_measurement": {
+      "type": "https://tinfoil.sh/predicate/sev-snp-guest/v2",
+      "registers": [
+        "6d657b353726893ee7202d33efc7c849a62693049c646f9394a8c6e2a165ed9936c024c4200878927767317ba3cbca7a"
+      ]
+    },
+    "tls_public_key_fp": "198c3340b8b007efdb5aa9b2bff68eb6776c4710f0731121f195c65e6410c232",
+    "hpke_public_key": "4539df144c761e852824083b1e0e23026ab8fec4fa0612ca16b2672a7a45983e"
   },
   "id": "real-sev-inference-tinfoil",
   "input": {
