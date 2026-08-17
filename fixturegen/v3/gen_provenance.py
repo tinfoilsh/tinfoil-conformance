@@ -28,6 +28,7 @@ PRED = "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1"
 TAG = "v1.0.0"
 IDENTITY = f"https://github.com/{REPO}/.github/workflows/release.yml@refs/tags/{TAG}"
 DIGEST = hashlib.sha256(b"code-artifact-v1").hexdigest()
+COMMIT = hashlib.sha1(b"code-commit-v1").hexdigest()  # 40-hex source commit
 
 
 def base_predicate():
@@ -54,6 +55,14 @@ def _pred_without(*keys):
     return p
 
 
+def code_bundle(ident=IDENTITY, stmt=None, **kw):
+    """A code bundle whose signing cert carries the release tag + commit the
+    verifier now reads, unless a caller overrides source_ref/source_digest."""
+    kw.setdefault("source_ref", "refs/tags/" + TAG)
+    kw.setdefault("source_digest", COMMIT)
+    return ss.build_bundle(ident, statement() if stmt is None else stmt, **kw)
+
+
 def code_entry(bundle, digest=DIGEST, repo=REPO):
     return {"id": "sigstore-code", "role": ROLE_RV, "format": CODE_FMT,
             "data": {"repo": repo, "tag": TAG, "digest": digest, "sigstore_bundle": bundle}}
@@ -66,7 +75,7 @@ def doc_with(bundle, digest=DIGEST):
 
 
 def _happy_bundle():
-    return ss.build_bundle(IDENTITY, statement())
+    return code_bundle()
 
 
 # Each mutation returns (document, trusted_root, accepted).
@@ -226,13 +235,13 @@ def p14_path():  # workflow path is not directly under .github/workflows
 # wrongly too strict (hard-codes the one happy identity/statement) is caught.
 def pos_wildcard_workflow():  # SAN allows any workflow filename under .github/workflows
     ident = f"https://github.com/{REPO}/.github/workflows/ci.yml@refs/tags/{TAG}"
-    b, t = ss.build_bundle(ident, statement())
+    b, t = code_bundle(ident)
     return doc_with(b), t, True
 
 
 def pos_other_tag():  # any tag ref is accepted
     ident = f"https://github.com/{REPO}/.github/workflows/release.yml@refs/tags/v9.9.9-rc.1"
-    b, t = ss.build_bundle(ident, statement())
+    b, t = code_bundle(ident)
     return doc_with(b), t, True
 
 
@@ -243,7 +252,7 @@ def pos_multi_subject():  # extra subjects are fine as long as subject[0] matche
                     {"name": "extra", "digest": {"sha256": "11" * 32}}],
         "predicateType": PRED, "predicate": base_predicate(),
     }, separators=(",", ":")).encode()
-    b, t = ss.build_bundle(IDENTITY, stmt)
+    b, t = code_bundle(IDENTITY, stmt)
     return doc_with(b), t, True
 
 
