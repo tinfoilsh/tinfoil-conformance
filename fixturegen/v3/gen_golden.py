@@ -107,8 +107,19 @@ def golden(artifact=None, report_measurement=MEASUREMENT, code_measurement=None,
 
 
 def fixture(fid, inp, accepted):
-    expected = ({"accepted": True, "tls_public_key_fp": env.TLS_FP, "hpke_public_key": env.HPKE_KEY}
-                if accepted else {"accepted": False, "code": "POLICY_REJECTED"})
+    if accepted:
+        # Every accepting golden resolves to the same verified facts (no accept
+        # varies the measurement); pin them so a port must reproduce them.
+        expected = {
+            "accepted": True,
+            "code_digest": prov.DIGEST,
+            "code_measurement": {"type": env.MEAS_SNP_TDX_MULTI,
+                                 "registers": [MEASUREMENT.hex(), "bb" * 48, "cc" * 48]},
+            "enclave_measurement": {"type": env.MEAS_SEV_GUEST_V2, "registers": [MEASUREMENT.hex()]},
+            "tls_public_key_fp": env.TLS_FP, "hpke_public_key": env.HPKE_KEY,
+        }
+    else:
+        expected = {"accepted": False, "code": "POLICY_REJECTED"}
     return {"id": fid, "stage": "verify-attestation-v3", "input": inp, "expected": expected}
 
 

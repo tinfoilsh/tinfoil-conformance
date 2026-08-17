@@ -46,6 +46,28 @@
         "hpke_public_key": {
           "type": "string",
           "description": "Endorsed HPKE public key the verified document must recover (accept fixtures only)."
+        },
+        "code_digest": {
+          "type": "string",
+          "description": "Verified code artifact digest the accept must yield (accept fixtures only)."
+        },
+        "code_measurement": {
+          "type": "object",
+          "description": "Verified code measurement {type, registers} the accept must yield.",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "type": "string" },
+            "registers": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "enclave_measurement": {
+          "type": "object",
+          "description": "Verified enclave measurement {type, registers} the accept must yield.",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "type": "string" },
+            "registers": { "type": "array", "items": { "type": "string" } }
+          }
         }
       },
       "allOf": [

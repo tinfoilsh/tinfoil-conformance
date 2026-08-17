@@ -53,7 +53,8 @@ def validate_fixture(path):
     if not isinstance(inp.get("document_b64"), str):
         errs.append("input.document_b64 missing/not a string")
     exp = f["expected"]
-    exp_keys = {"accepted", "code", "tls_public_key_fp", "hpke_public_key"}
+    exp_keys = {"accepted", "code", "tls_public_key_fp", "hpke_public_key",
+                "code_digest", "code_measurement", "enclave_measurement"}
     if not isinstance(exp, dict) or not set(exp) <= exp_keys:
         errs.append(f"expected has unknown keys {sorted(set(exp) - exp_keys)}")
     if not isinstance(exp.get("accepted"), bool):
