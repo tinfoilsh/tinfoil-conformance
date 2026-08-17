@@ -53,12 +53,15 @@ def validate_fixture(path):
     if not isinstance(inp.get("document_b64"), str):
         errs.append("input.document_b64 missing/not a string")
     exp = f["expected"]
-    if not isinstance(exp, dict) or not set(exp) <= {"accepted", "code"}:
-        errs.append(f"expected has unknown keys {sorted(set(exp) - {'accepted', 'code'})}")
+    exp_keys = {"accepted", "code", "tls_public_key_fp", "hpke_public_key"}
+    if not isinstance(exp, dict) or not set(exp) <= exp_keys:
+        errs.append(f"expected has unknown keys {sorted(set(exp) - exp_keys)}")
     if not isinstance(exp.get("accepted"), bool):
         errs.append("expected.accepted missing/not a bool")
     elif exp["accepted"] and "code" in exp:
         errs.append("accept fixture must not carry a code")
+    elif not exp["accepted"] and (exp.get("tls_public_key_fp") or exp.get("hpke_public_key")):
+        errs.append("reject fixture must not carry endorsed keys")
     elif not exp["accepted"]:
         if exp.get("code") not in CODES:
             errs.append(f"reject fixture code {exp.get('code')!r} not in the taxonomy")

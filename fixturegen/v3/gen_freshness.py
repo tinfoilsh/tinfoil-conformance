@@ -18,6 +18,7 @@ import json
 import os
 
 import gen_golden as gg
+import gen_envelope as env
 
 
 def main():
@@ -25,8 +26,8 @@ def main():
     os.makedirs(out, exist_ok=True)
     _, inp = gg.golden()
 
-    fresh = {"id": "fr1-nonce-fresh", "stage": "verify-attestation-v3",
-             "input": inp, "expected": {"accepted": True}}
+    fresh = {"id": "fr1-nonce-fresh", "stage": "verify-attestation-v3", "input": inp,
+             "expected": {"accepted": True, "tls_public_key_fp": env.TLS_FP, "hpke_public_key": env.HPKE_KEY}}
 
     # Verifier supplies a different nonce than the one bound into the document;
     # verify-attestation-v3 must reject (it uses its own nonce, not the doc's).
