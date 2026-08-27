@@ -15,7 +15,7 @@ public API surface an SDK exposes and the rule that the full-verify stage and
 [V3_CONFORMANCE_HARNESS_SPEC.md](V3_CONFORMANCE_HARNESS_SPEC.md)
 (rule→stage map), [SPEC_COVERAGE_V3.md](SPEC_COVERAGE_V3.md) (coverage matrix).
 
-Versioning: this contract is frozen at **1.0.0**. Additive, backward-compatible
+Versioning: current contract version **1.1.0** (1.0.0 + the §7 integration lane). Additive, backward-compatible
 changes (new optional Input/expected fields, new stages) bump the minor;
 anything an existing adapter would break on bumps the major. `Input.schema_version`
 stays `"1"` for all 1.x.
