@@ -141,9 +141,11 @@ roots, current time, no injection seams.
   adapter's composed flow or injected seams), and emits the standard Output
   (all accept facts) plus, when the platform can inspect the transport,
   `outputs.channel_binding: "tls-spki"` after asserting the live connection's
-  SPKI SHA-256 fingerprint equals the endorsed `tls_public_key_fp`. Platforms
-  that bind via EHBP/HPKE instead declare `channel_binding: "hpke"` semantics
-  in capabilities. Exit codes as §1.
+  SPKI SHA-256 fingerprint equals the endorsed `tls_public_key_fp`.
+  `outputs.channel_binding` names the check the *adapter* performed; the
+  adapter is test tooling and MAY dial TLS even when the shipped product
+  cannot (e.g. a browser SDK whose Node adapter checks tls-spki). Exit codes
+  as §1.
 - The runner's `--live host,repo` mode drives every adapter's `live-verify`
   and **deep-compares the emitted facts across SDKs** — the live analogue of
   the fixture-level output-equivalence oracle.

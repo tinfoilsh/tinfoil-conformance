@@ -38,7 +38,7 @@ semantics, parameters, and error behavior are identical.
 | surface (Go form) | semantics |
 |---|---|
 | `SecureClient.Verify()` / `VerifyV3()` | fetch + verify a live enclave and retain the ground truth |
-| channel binding | every subsequent connection is bound to the endorsed key: TLS SPKI pinning where the platform can inspect the transport, EHBP/HPKE key binding otherwise (declared via `channel_binding` capability) |
+| channel binding | every subsequent connection is bound to the endorsed key: TLS SPKI pinning where the platform can inspect the transport (Go), EHBP/HPKE key binding otherwise (browser/JS — encrypt to the endorsed `hpke_public_key`, so only the attested enclave can decrypt). `capabilities.channel_binding` declares the **product client's** mechanism, not the adapter's test-time check |
 | verification-document accessor | expose the verified facts to applications in the SDK's established document shape |
 
 ## 4. Change control
