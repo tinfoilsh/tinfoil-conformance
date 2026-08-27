@@ -28,7 +28,9 @@
             "sigstore": { "type": "boolean" }
           }
         },
-        "freshness_enforced": { "type": "boolean" }
+        "freshness_enforced": { "type": "boolean" },
+        "live_verify": { "type": "boolean" },
+        "channel_binding": { "enum": ["tls-spki", "hpke", "none"] }
       }
     }
   }

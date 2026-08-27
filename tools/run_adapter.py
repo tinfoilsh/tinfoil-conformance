@@ -51,14 +51,62 @@ def run_fixture(adapter, path):
     return status[0], status[1], proc.returncode, out
 
 
+def run_live(hostrepo, adapters):
+    """Integration lane: each adapter verifies the live enclave through its
+    public API; the emitted facts must be identical across adapters."""
+    host, repo = hostrepo.split(",", 1)
+    req = json.dumps({"host": host, "repo": repo}).encode()
+    outputs = []
+    for adapter in adapters:
+        proc = subprocess.run(adapter + ["live-verify"], input=req, capture_output=True)
+        name = " ".join(adapter)
+        if proc.returncode == EXIT_UNSUPPORTED:
+            print(f"SKIP  {name}: live-verify unsupported")
+            continue
+        try:
+            out = json.loads(proc.stdout)
+        except (ValueError, json.JSONDecodeError):
+            print(f"FAIL  {name}: no JSON output (exit {proc.returncode}); "
+                  f"stderr: {proc.stderr[:300].decode(errors='replace')}")
+            return 1
+        if proc.returncode != EXIT_ACCEPTED or not out.get("accepted"):
+            print(f"FAIL  {name}: live verification rejected (exit {proc.returncode}, {out.get('rejection')})")
+            return 1
+        facts = out.get("outputs") or {}
+        print(f"OK    {name}: digest={facts.get('code_digest', '')[:16]} binding={facts.get('channel_binding', 'n/a')}")
+        outputs.append((name, facts))
+    if len(outputs) < 2:
+        print("live: fewer than two adapters produced facts; nothing to compare")
+        return 0 if outputs else 1
+    base_name, base = outputs[0]
+    ok = True
+    compared = ("code_digest", "code_measurement", "enclave_measurement",
+                "tls_public_key_fp", "hpke_public_key")
+    for name, facts in outputs[1:]:
+        for k in compared:
+            if facts.get(k) != base.get(k):
+                print(f"DIVERGE {k}: {base_name}={json.dumps(base.get(k))[:60]} vs {name}={json.dumps(facts.get(k))[:60]}")
+                ok = False
+    print(f"\nlive facts {'IDENTICAL' if ok else 'DIVERGENT'} across {len(outputs)} adapters")
+    return 0 if ok else 1
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--adapter", required=True, help="adapter command, e.g. 'node dist/cli.js'")
+    ap.add_argument("--adapter", action="append", required=True,
+                    help="adapter command (repeatable; --live compares across all)")
     ap.add_argument("--dirs", help="comma-separated fixture dirs (default: all of vectors/v3)")
     ap.add_argument("--report", help="write a per-fixture JSON report (exit code + full wire output) here")
+    ap.add_argument("--live", metavar="HOST,REPO",
+                    help="integration lane: run each adapter's live-verify against a real "
+                         "enclave and deep-compare the emitted facts across adapters")
     ap.add_argument("files", nargs="*", help="individual fixture files")
     args = ap.parse_args()
-    adapter = args.adapter.split()
+    if args.live:
+        sys.exit(run_live(args.live, [a.split() for a in args.adapter]))
+    if len(args.adapter) != 1:
+        ap.error("multiple --adapter is only valid with --live")
+    adapter = args.adapter[0].split()
 
     root = os.path.join(os.path.dirname(__file__), "..", "vectors", "v3")
     if args.files:
