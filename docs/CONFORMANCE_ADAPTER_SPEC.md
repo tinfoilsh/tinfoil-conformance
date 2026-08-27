@@ -9,7 +9,10 @@ Keywords MUST / MUST NOT / SHOULD are RFC 2119. The JSON Schemas in
 [`schemas/v3/`](../schemas/v3/) are authoritative for all wire shapes and
 enums; this document defines the semantics. Reference implementation:
 `tinfoil-go` `cmd/tinfoil-conformance` (built with `-tags tinfoil_conformance`).
-Informative companions: [V3_CONFORMANCE_HARNESS_SPEC.md](V3_CONFORMANCE_HARNESS_SPEC.md)
+Companion normative spec: [SDK_SURFACE_SPEC.md](SDK_SURFACE_SPEC.md) — the
+public API surface an SDK exposes and the rule that the full-verify stage and
+`live-verify` consume it. Informative companions:
+[V3_CONFORMANCE_HARNESS_SPEC.md](V3_CONFORMANCE_HARNESS_SPEC.md)
 (rule→stage map), [SPEC_COVERAGE_V3.md](SPEC_COVERAGE_V3.md) (coverage matrix).
 
 Versioning: this contract is frozen at **1.0.0**. Additive, backward-compatible
