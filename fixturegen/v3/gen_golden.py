@@ -250,6 +250,11 @@ def BUILDERS():
     yield ("e-missing-tls-key", golden(cm_items=[
         {"id": "hpke", "format": env.KEY_X25519_HPKE, "data": env.HPKE_KEY}])[1],
         False, "ENVELOPE_REJECTED")
+    # PLATFORM_INFO bit 6 (Turin iommu_write_safe): the member parses so
+    # artifacts carrying Turin policies stay readable, but a selected policy
+    # requiring it cannot be enforced and must fail closed at assembly.
+    yield ("pos-iommu-false-present", golden(artifact=_pi(iommu_write_safe=False))[1], True)
+    yield ("pl-iommu-required", golden(artifact=_pi(iommu_write_safe=True))[1], False)
     yield ("e-hpke-wrong-format", golden(cm_items=[
         {"id": "tls", "format": env.KEY_SPKI_FP, "data": env.TLS_FP},
         {"id": "hpke", "format": env.KEY_SPKI_FP, "data": env.HPKE_KEY}])[1],

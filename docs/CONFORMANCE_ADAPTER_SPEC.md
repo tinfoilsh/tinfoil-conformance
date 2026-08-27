@@ -1,4 +1,4 @@
-# Conformance Adapter Specification — v1.0.0
+# Conformance Adapter Specification — v1.1.0
 
 The normative contract a tinfoil SDK implements to be driven by the shared v3
 conformance suite. An SDK that passes the suite under this contract rejects
@@ -126,15 +126,30 @@ can inject), `freshness_enforced` (true for any SDK on the current v3
 verifier). The suite uses capabilities to gate fixtures; behavioral divergence
 is expressed as a capability, never as a tolerated failing fixture.
 
-## 7. Real material (SHOULD)
+## 7. Integration lane (v1.1)
 
-- **capture**: a subcommand that fetches a live enclave's v3 attestation,
-  verifies it against the embedded production roots, and — only if accepted —
-  freezes it as a fixture pinned to its capture time (`verification_time_unix`).
-- **live check**: an opt-in test that fetches and verifies a live enclave at
-  the current time and binds the channel: the connection's TLS SPKI SHA-256
-  fingerprint MUST equal the endorsed `tls_public_key_fp`. Skipped by default
-  so suite runs stay offline.
+The fixture stages prove the *verifier*; the integration lane proves the SDK
+**as applications consume it** — the public production entry point, embedded
+roots, current time, no injection seams.
+
+- **`live-verify`** (SHOULD): `tinfoil-conformance live-verify` reads
+  `{"host": "...", "repo": "..."}` on stdin, fetches a fresh attestation with a
+  fresh random nonce, verifies it through the SDK's **public API** (never the
+  adapter's composed flow or injected seams), and emits the standard Output
+  (all accept facts) plus, when the platform can inspect the transport,
+  `outputs.channel_binding: "tls-spki"` after asserting the live connection's
+  SPKI SHA-256 fingerprint equals the endorsed `tls_public_key_fp`. Platforms
+  that bind via EHBP/HPKE instead declare `channel_binding: "hpke"` semantics
+  in capabilities. Exit codes as §1.
+- The runner's `--live host,repo` mode drives every adapter's `live-verify`
+  and **deep-compares the emitted facts across SDKs** — the live analogue of
+  the fixture-level output-equivalence oracle.
+- Capabilities declare `"live_verify": true|false` and
+  `"channel_binding": "tls-spki"|"hpke"|"none"`.
+- **capture** (SHOULD): a subcommand that fetches a live enclave's v3
+  attestation, verifies it against the embedded production roots, and — only
+  if accepted — freezes it as a fixture pinned to its capture time
+  (`verification_time_unix`).
 
 ## 8. Running the suite
 
