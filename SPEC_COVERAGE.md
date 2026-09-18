@@ -70,7 +70,11 @@ have at least one hermetic vector, or an explicit reason why it is out of scope.
 The legacy `verify-full` pinned vectors exercise adapter composition: SEV
 verification followed by comparison against the supplied code pin. Acceptance
 vectors assert mode, platform, the complete attestation measurement, and its
-fingerprint. Rejections assert both code and originating sub-stage.
+fingerprint. Because every acceptance vector reuses one report, `512` (uppercase
+pin, lowercase expected output) is what distinguishes extracting the measurement
+from the report from echoing the pin back. `523` (matching pin, tampered
+signature) is what detects an adapter that skips report authentication once a
+pin is present. Rejections assert both code and originating sub-stage.
 
 These fixtures do not prove public-client constructor behavior, high-level
 OpenAI-client exposure, TDX pinning, or Swift support. Adapter normalization
