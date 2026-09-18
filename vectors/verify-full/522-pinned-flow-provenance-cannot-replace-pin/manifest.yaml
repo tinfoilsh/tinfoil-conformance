@@ -1,0 +1,20 @@
+id: 522-pinned-flow-provenance-cannot-replace-pin
+stage: verify-full
+title: |
+  Valid release provenance cannot replace a mismatching caller pin.
+spec_refs: ["11.3", "7.3"]
+expects:
+  exit_code: 10
+  rejection_code: "MEASUREMENT_MISMATCH"
+  rejection_stage: "verify-measurement"
+required_capabilities:
+  attestation_sev.supported: true
+  attestation_sev.injected_collateral_supported: true
+  flow_modes_supported: "pinned"
+fixture_kind: composite
+notes: |
+  Combines 520's mismatching caller pin with 500's release
+  provenance, whose measurement matches the authenticated report.
+  The pin remains authoritative: falling back to the release
+  measurement must not turn this rejection into acceptance.
+  This is adapter-composition coverage, not public-client proof.

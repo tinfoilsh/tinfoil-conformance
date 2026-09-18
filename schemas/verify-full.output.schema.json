@@ -29,7 +29,7 @@
         },
         "final_measurement_fingerprint_hex": {
           "type": "string",
-          "description": "SHA-256 fingerprint of the accepted measurement per SPEC §7.2."
+          "description": "Fingerprint of the accepted measurement per SPEC §7.2; a single SEV-SNP register is returned directly, without hashing."
         }
       }
     },

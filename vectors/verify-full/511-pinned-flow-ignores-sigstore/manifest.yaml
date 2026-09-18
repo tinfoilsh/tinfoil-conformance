@@ -1,0 +1,19 @@
+id: 511-pinned-flow-ignores-sigstore
+stage: verify-full
+title: |
+  Pinned SEV flow accepts despite supplied Sigstore digest mismatch.
+spec_refs: ["11.3"]
+expects:
+  exit_code: 0
+required_capabilities:
+  attestation_sev.supported: true
+  attestation_sev.injected_collateral_supported: true
+  flow_modes_supported: "pinned"
+fixture_kind: composite
+notes: |
+  Reuses the authenticated SEV evidence from 510 and the Sigstore
+  digest mismatch from sigstore/016 (also exercised by 501).
+  Code provenance is not an acceptance prerequisite in pinned mode.
+  The supplied Sigstore policy uses only verify-full schema fields.
+  This checks observable adapter behavior, not a call-count proof
+  that no Sigstore function or network request was executed.

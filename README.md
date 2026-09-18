@@ -134,6 +134,20 @@ expose:
 Pure transform on `results/latest/results.json` — no SDK invocation, no
 fixture re-running.
 
+## Testing the harness
+
+From the repository root:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ./harness
+.venv/bin/python -m unittest discover -s harness/tests -v
+```
+
+These tests check runner behavior, legacy pinned-fixture schemas, and generator
+determinism. Synthetic subprocess responses test the runner only; they are not
+SDK conformance results. See `SPEC_COVERAGE.md` for pinned-flow coverage limits.
+
 ## Adding a new fixture
 
 Each fixture is a directory under `vectors/<stage>/`:

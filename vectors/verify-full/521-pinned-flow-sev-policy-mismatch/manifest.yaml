@@ -1,0 +1,22 @@
+id: 521-pinned-flow-sev-policy-mismatch
+stage: verify-full
+title: |
+  Matching code pin does not override a failing SEV attestation policy.
+spec_refs: ["11.3", "3.7", "3.8"]
+expects:
+  exit_code: 10
+  rejection_code: "MEASUREMENT_MISMATCH"
+  rejection_stage: "verify-attestation-sev"
+required_capabilities:
+  attestation_sev.supported: true
+  attestation_sev.injected_collateral_supported: true
+  flow_modes_supported: "pinned"
+  attestation_sev.extended_checks_supported: true
+fixture_kind: composite
+notes: |
+  The top-level pin matches the unchanged authenticated report.
+  Reuses attestation-sev/400, including its failing post-signature
+  measurement policy, VCEK, and frozen verification time.
+  Rejection must originate in verify-attestation-sev, not the
+  later verify-measurement comparison. No TLS certificate input
+  or public-client verification is exercised.

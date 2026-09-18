@@ -16,7 +16,7 @@ have at least one hermetic vector, or an explicit reason why it is out of scope.
 | `verify-measurement` | 17 | §7.1-§7.3 | Strong |
 | `verify-attestation-sev` | 26 | §3, selected §8 bindings | Broad, gaps remain |
 | `verify-attestation-tdx` | 51 | §4, selected §8 bindings | Broad, gaps remain |
-| `verify-full` | 7 | §11 composition | Partial, checks sub-stage propagation and envelope presence |
+| `verify-full` | 13 | §11 adapter composition | Partial; pinned SEV outputs, provenance independence, normalization, and sub-stage rejection |
 
 ## Coverage By SPEC Section
 
@@ -58,12 +58,32 @@ have at least one hermetic vector, or an explicit reason why it is out of scope.
 | §8 Report data / nonce binding | SEV host/report data pins and TDX report data pin. HPKE layout is not fully isolated. | `attestation-sev/410-host-data-pin-mismatch`, `420-report-data-pin-mismatch`, `461-all-pins-match`, `attestation-tdx/460-report-data-pinned-mismatch` | Partial |
 | §9 Enclave certificate verification | Not a first-class conformance stage yet. | N/A | Gap |
 | §10 Attestation bundle format | Some `verify-full` fixtures use bundle envelopes; schema edge cases are minimal. | `verify-full/500-standard-flow-sev-happy`, `510-pinned-flow-sev-happy` | Partial |
-| §11 End-to-end verification flows | Standard SEV happy path, Sigstore rejection propagation, SEV attestation rejection propagation, missing standard-flow blocks, pinned happy path, pinned mismatch. | `verify-full/500-standard-flow-sev-happy`, `501-standard-flow-sigstore-digest-mismatch`, `502-standard-flow-sev-attestation-pin-mismatch`, `503-standard-flow-missing-sigstore-block`, `504-standard-flow-missing-attestation-block`, `510-pinned-flow-sev-happy`, `520-pinned-flow-measurement-mismatch` | Partial |
+| §11 End-to-end verification flows | Adapter composition: standard-flow propagation/envelope checks; pinned SEV accept outputs, ignored failing provenance, uppercase pin, mismatch, retained attestation policy, and no fallback to release provenance. | `verify-full/500-*` through `506-*`, `510-pinned-flow-sev-happy`, `511-pinned-flow-ignores-sigstore`, `512-pinned-flow-uppercase`, `520-pinned-flow-measurement-mismatch`, `521-pinned-flow-sev-policy-mismatch`, `522-pinned-flow-provenance-cannot-replace-pin` | Partial; not public-client integration |
 | §12 Infrastructure | Proxy/discovery/GitHub/cache behavior not covered by hermetic core suite. | N/A | Out of current scope |
 | §13 Constants | Exercised indirectly by SEV/TDX/Sigstore vectors. No constant-audit stage. | N/A | Partial |
 | §14 SDK client architecture | Not covered by core conformance suite. | N/A | Out of current scope |
 | §15 Error handling | Rejection-code mapping is covered per stage schemas; SDK exception hierarchy is not. | All rejection fixtures | Partial |
 | §16 Retry and recovery | Not covered by core conformance suite. | N/A | Out of current scope |
+
+## Pinned-Flow Coverage Limits
+
+The legacy `verify-full` pinned vectors exercise adapter composition: SEV
+verification followed by comparison against the supplied code pin. Acceptance
+vectors assert mode, platform, the complete attestation measurement, and its
+fingerprint. Rejections assert both code and originating sub-stage.
+
+These fixtures do not prove public-client constructor behavior, high-level
+OpenAI-client exposure, TDX pinning, or Swift support. Adapter normalization
+and validation must not be attributed to native SDK APIs. SEV policy-pin
+vectors such as `attestation-sev/400` and `460` are lower-level checks, not
+public-client pinning tests. A capability-gated skip is not conformance.
+
+The provenance fixtures test acceptance/rejection independence, not function
+call counts or absence of network traffic. A public-API integration lane is
+still missing: invoke native pinned clients with only external I/O and time
+injected, observe skipped release work and provenance metadata, check channel
+binding and application-data gating, and preserve the pin across re-verification.
+The current legacy input/output schema cannot express those observations.
 
 ## Priority Gap Backlog
 

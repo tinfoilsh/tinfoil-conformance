@@ -8,9 +8,33 @@ name: v3 conformance gate
 on:
   push:
     branches: [main, feat/v3-conformance]
-    paths: ["vectors/v3/**", "schemas/v3/**", "fixturegen/v3/**", "docs/SPEC_COVERAGE_V3.md", "tools/validate_suite.py"]
+    paths:
+      - "vectors/v3/**"
+      - "schemas/v3/**"
+      - "fixturegen/v3/**"
+      - "docs/SPEC_COVERAGE_V3.md"
+      - "tools/validate_suite.py"
+      - "harness/**"
+      - "vectors/verify-full/**"
+      - "vectors/attestation-sev/**"
+      - "vectors/sigstore/**"
+      - "schemas/verify-full.*.schema.json"
+      - "fixturegen/verify_full_phase1_fixtures.py"
+      - ".github/workflows/v3-conformance.yml"
   pull_request:
-    paths: ["vectors/v3/**", "schemas/v3/**", "fixturegen/v3/**", "docs/SPEC_COVERAGE_V3.md", "tools/validate_suite.py"]
+    paths:
+      - "vectors/v3/**"
+      - "schemas/v3/**"
+      - "fixturegen/v3/**"
+      - "docs/SPEC_COVERAGE_V3.md"
+      - "tools/validate_suite.py"
+      - "harness/**"
+      - "vectors/verify-full/**"
+      - "vectors/attestation-sev/**"
+      - "vectors/sigstore/**"
+      - "schemas/verify-full.*.schema.json"
+      - "fixturegen/verify_full_phase1_fixtures.py"
+      - ".github/workflows/v3-conformance.yml"
   workflow_dispatch:
 
 permissions:
@@ -25,8 +49,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install harness dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -e ./harness
       - name: Validate fixtures against schemas + assert coverage matrix
-        run: python3 tools/validate_suite.py
+        run: .venv/bin/python tools/validate_suite.py
+      - name: Test runner and legacy pinned-fixture contracts
+        run: .venv/bin/python -m unittest discover -s harness/tests -v
 
   harness:
     name: go reference harness

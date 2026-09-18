@@ -1,0 +1,8 @@
+{
+  "stage": "verify-full",
+  "accepted": false,
+  "rejection": {
+    "code": "MEASUREMENT_MISMATCH",
+    "stage": "verify-attestation-sev"
+  }
+}

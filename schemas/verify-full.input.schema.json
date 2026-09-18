@@ -10,7 +10,7 @@
     "schema_version": {"const": "1"},
     "mode": {
       "enum": ["standard", "bundle", "pinned"],
-      "description": "SPEC §11 flow mode. 'standard' (§11.1): fetch attestation + verify sigstore + cross-compare. 'bundle' (§11.2): all materials pre-assembled in one envelope. 'pinned' (§11.3): skip sigstore + hw lookup; require attestation to match a caller-pinned measurement."
+      "description": "SPEC §11 flow mode. 'standard' (§11.1): fetch attestation + verify sigstore + cross-compare. 'bundle' (§11.2): all materials pre-assembled in one envelope. 'pinned' (§11.3): replace release lookup and Sigstore code-provenance verification with a caller-pinned measurement; hardware attestation and applicable platform-policy checks remain required."
     },
     "sigstore": {
       "type": "object",
@@ -84,7 +84,7 @@
         "type": {"type": "string"},
         "registers": {"type": "array", "items": {"type": "string"}}
       },
-      "description": "Used only when mode='pinned'. The caller-supplied measurement that the hardware attestation MUST match (SPEC §11.3 — skips sigstore + hw lookup; suitable for re-verification or out-of-band pinning)."
+      "description": "Used only when mode='pinned'. The caller-supplied measurement that the hardware attestation MUST match (SPEC §11.3). Replaces code provenance only, not hardware-attestation or applicable platform verification."
     }
   },
   "allOf": [
