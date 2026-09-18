@@ -24,6 +24,7 @@ UPPERCASE = "512-pinned-flow-uppercase"
 MISMATCH = "520-pinned-flow-measurement-mismatch"
 POLICY_MISMATCH = "521-pinned-flow-sev-policy-mismatch"
 NO_FALLBACK = "522-pinned-flow-provenance-cannot-replace-pin"
+SIGNATURE_INVALID = "523-pinned-flow-sev-signature-invalid"
 PINNED_FIXTURES = {
     HAPPY,
     IGNORED_PROVENANCE,
@@ -31,6 +32,7 @@ PINNED_FIXTURES = {
     MISMATCH,
     POLICY_MISMATCH,
     NO_FALLBACK,
+    SIGNATURE_INVALID,
 }
 EXPECTED_OUTPUT_KEYS = {
     "mode",
@@ -143,6 +145,44 @@ class PinnedFixtureTests(unittest.TestCase):
         )
         self.assertEqual(
             manifest["expects"]["rejection_stage"], "verify-attestation-sev"
+        )
+
+    def test_signature_failure_keeps_matching_pin_and_untouched_measurement(self):
+        # The pin must still equal the report's measurement bytes so that only
+        # signature verification, not comparison, can produce the rejection.
+        baseline = read_json(VECTORS / HAPPY / "input.json")
+        payload = read_json(VECTORS / SIGNATURE_INVALID / "input.json")
+        tampered_source = read_json(
+            ROOT
+            / "vectors"
+            / "attestation-sev"
+            / "220-signature-byte-flipped"
+            / "input.json"
+        )
+        tampered_source.pop("schema_version")
+        self.assertEqual(payload["pinned_measurement"], baseline["pinned_measurement"])
+        self.assertEqual(payload["attestation_sev"], tampered_source)
+        self.assertEqual(
+            payload["attestation_sev"]["vcek_der_b64"],
+            baseline["attestation_sev"]["vcek_der_b64"],
+        )
+        self.assertNotEqual(
+            payload["attestation_sev"]["attestation_doc_b64"],
+            baseline["attestation_sev"]["attestation_doc_b64"],
+        )
+        self.assertNotIn("policy", payload["attestation_sev"])
+        manifest = yaml.safe_load(
+            (VECTORS / SIGNATURE_INVALID / "manifest.yaml").read_text()
+        )
+        self.assertNotIn(
+            "attestation_sev.extended_checks_supported",
+            manifest["required_capabilities"],
+        )
+        self.assertEqual(
+            manifest["expects"]["rejection_stage"], "verify-attestation-sev"
+        )
+        self.assertEqual(
+            manifest["expects"]["rejection_code"], "REPORT_SIGNATURE_INVALID"
         )
 
     def test_provenance_cases_keep_caller_pin_authoritative(self):

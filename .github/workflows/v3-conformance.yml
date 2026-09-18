@@ -1,4 +1,4 @@
-name: v3 conformance gate
+name: conformance gate
 
 # Fast gate for the v3 suite: (1) validate every fixture against the published
 # JSON Schemas and assert the coverage matrix is fully accounted-for (pure

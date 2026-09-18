@@ -92,10 +92,7 @@ def write_fixture(
     }
     for cap, val in (required_caps or default_caps).items():
         manifest += f"  {cap}: {json.dumps(val)}\n"
-    manifest += (
-        "fixture_kind: composite\n"
-        "notes: |\n"
-    )
+    manifest += "fixture_kind: composite\nnotes: |\n"
     for line in notes.strip().splitlines():
         manifest += f"  {line}\n"
     (dst / "manifest.yaml").write_text(manifest)
@@ -450,6 +447,35 @@ def main() -> None:
         ),
     )
 
+    # 523 — Matching pin, tampered report signature. attestation-sev/220 is the
+    # 200 report with one signature byte flipped, so the measurement bytes the
+    # pin compares against are unchanged. Only report authentication can reject
+    # this; an adapter that trusts the pin and skips signature verification
+    # would accept it.
+    signature_reject_payload = deepcopy(pinned_payload)
+    signature_reject_payload["attestation_sev"] = _load_sev_input(
+        "220-signature-byte-flipped"
+    )
+    signature_reject_payload["attestation_sev"].pop("schema_version")
+    write_fixture(
+        fixture_id="523-pinned-flow-sev-signature-invalid",
+        title="Matching code pin does not excuse an unauthenticated SEV report.",
+        spec_refs=["11.3", "3.6"],
+        payload=signature_reject_payload,
+        accepted=False,
+        rejection_code="REPORT_SIGNATURE_INVALID",
+        rejection_stage="verify-attestation-sev",
+        required_caps=pinned_caps,
+        notes=(
+            "The pin equals the measurement carried by the report, but the\n"
+            "report's ECDSA signature is tampered (attestation-sev/220). The\n"
+            "adapter MUST reject in verify-attestation-sev before any\n"
+            "measurement comparison. Unlike 521 this needs no optional policy\n"
+            "block, so it holds for every SEV-capable adapter and is the\n"
+            "fixture that detects skipping report verification when pinned."
+        ),
+    )
+
     provenance_cannot_replace_pin = deepcopy(pinned_mismatch_payload)
     provenance_cannot_replace_pin["sigstore"] = supplied_sigstore
     write_fixture(
@@ -483,6 +509,7 @@ def main() -> None:
         "520-pinned-flow-measurement-mismatch",
         "521-pinned-flow-sev-policy-mismatch",
         "522-pinned-flow-provenance-cannot-replace-pin",
+        "523-pinned-flow-sev-signature-invalid",
     ):
         print(f"  - {VECTORS_DIR / fid}")
 

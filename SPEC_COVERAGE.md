@@ -16,7 +16,7 @@ have at least one hermetic vector, or an explicit reason why it is out of scope.
 | `verify-measurement` | 17 | §7.1-§7.3 | Strong |
 | `verify-attestation-sev` | 26 | §3, selected §8 bindings | Broad, gaps remain |
 | `verify-attestation-tdx` | 51 | §4, selected §8 bindings | Broad, gaps remain |
-| `verify-full` | 13 | §11 adapter composition | Partial; pinned SEV outputs, provenance independence, normalization, and sub-stage rejection |
+| `verify-full` | 14 | §11 adapter composition | Partial; pinned SEV outputs, provenance independence, normalization, retained report authentication, and sub-stage rejection |
 
 ## Coverage By SPEC Section
 
@@ -58,7 +58,7 @@ have at least one hermetic vector, or an explicit reason why it is out of scope.
 | §8 Report data / nonce binding | SEV host/report data pins and TDX report data pin. HPKE layout is not fully isolated. | `attestation-sev/410-host-data-pin-mismatch`, `420-report-data-pin-mismatch`, `461-all-pins-match`, `attestation-tdx/460-report-data-pinned-mismatch` | Partial |
 | §9 Enclave certificate verification | Not a first-class conformance stage yet. | N/A | Gap |
 | §10 Attestation bundle format | Some `verify-full` fixtures use bundle envelopes; schema edge cases are minimal. | `verify-full/500-standard-flow-sev-happy`, `510-pinned-flow-sev-happy` | Partial |
-| §11 End-to-end verification flows | Adapter composition: standard-flow propagation/envelope checks; pinned SEV accept outputs, ignored failing provenance, uppercase pin, mismatch, retained attestation policy, and no fallback to release provenance. | `verify-full/500-*` through `506-*`, `510-pinned-flow-sev-happy`, `511-pinned-flow-ignores-sigstore`, `512-pinned-flow-uppercase`, `520-pinned-flow-measurement-mismatch`, `521-pinned-flow-sev-policy-mismatch`, `522-pinned-flow-provenance-cannot-replace-pin` | Partial; not public-client integration |
+| §11 End-to-end verification flows | Adapter composition: standard-flow propagation/envelope checks; pinned SEV accept outputs, ignored failing provenance, uppercase pin, mismatch, retained attestation policy, retained report signature verification, and no fallback to release provenance. | `verify-full/500-*` through `506-*`, `510-pinned-flow-sev-happy`, `511-pinned-flow-ignores-sigstore`, `512-pinned-flow-uppercase`, `520-pinned-flow-measurement-mismatch`, `521-pinned-flow-sev-policy-mismatch`, `522-pinned-flow-provenance-cannot-replace-pin`, `523-pinned-flow-sev-signature-invalid` | Partial; not public-client integration |
 | §12 Infrastructure | Proxy/discovery/GitHub/cache behavior not covered by hermetic core suite. | N/A | Out of current scope |
 | §13 Constants | Exercised indirectly by SEV/TDX/Sigstore vectors. No constant-audit stage. | N/A | Partial |
 | §14 SDK client architecture | Not covered by core conformance suite. | N/A | Out of current scope |

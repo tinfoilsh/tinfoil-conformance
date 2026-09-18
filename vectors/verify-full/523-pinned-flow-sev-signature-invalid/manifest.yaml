@@ -1,0 +1,21 @@
+id: 523-pinned-flow-sev-signature-invalid
+stage: verify-full
+title: |
+  Matching code pin does not excuse an unauthenticated SEV report.
+spec_refs: ["11.3", "3.6"]
+expects:
+  exit_code: 10
+  rejection_code: "REPORT_SIGNATURE_INVALID"
+  rejection_stage: "verify-attestation-sev"
+required_capabilities:
+  attestation_sev.supported: true
+  attestation_sev.injected_collateral_supported: true
+  flow_modes_supported: "pinned"
+fixture_kind: composite
+notes: |
+  The pin equals the measurement carried by the report, but the
+  report's ECDSA signature is tampered (attestation-sev/220). The
+  adapter MUST reject in verify-attestation-sev before any
+  measurement comparison. Unlike 521 this needs no optional policy
+  block, so it holds for every SEV-capable adapter and is the
+  fixture that detects skipping report verification when pinned.
