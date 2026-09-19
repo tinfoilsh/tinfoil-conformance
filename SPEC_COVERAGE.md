@@ -13,10 +13,10 @@ have at least one hermetic vector, or an explicit reason why it is out of scope.
 |---|---:|---|---|
 | `verify-sigstore` | 48 | §5, with some §7.3 normalization | Strong |
 | `verify-hardware-measurements` | 11 | §6.3, §7.3 normalization | Strong |
-| `verify-measurement` | 17 | §7.1-§7.3 | Strong |
+| `verify-measurement` | 17 | §7.1-§7.3 | Legacy layouts/comparison covered; canonical target-platform fingerprints not covered |
 | `verify-attestation-sev` | 26 | §3, selected §8 bindings | Broad, gaps remain |
 | `verify-attestation-tdx` | 51 | §4, selected §8 bindings | Broad, gaps remain |
-| `verify-full` | 7 | §11 composition | Partial, checks sub-stage propagation and envelope presence |
+| `verify-full` | 14 | §11 adapter composition | Partial; pinned SEV outputs, provenance independence, normalization, retained report authentication, and sub-stage rejection |
 
 ## Coverage By SPEC Section
 
@@ -53,17 +53,50 @@ have at least one hermetic vector, or an explicit reason why it is out of scope.
 | §5.5 Predicate extraction | Predicate allowlists, null/empty allowlists, missing SNP/TDX registers, trailing slash exactness. | `sigstore/013-*`, `018-*`, `051-*`, `062-*`, `077-*`, `080-*`, `081-*` | Strong |
 | §6.3 Hardware measurement matching | Single/second/duplicate first match, no match, partial field mismatch, wrong enclave type/count, case normalization. | `hardware-measurements/200-*` through `230-hardware-case-normalization` | Strong |
 | §7.1 Measurement layouts | Register count validation for known types. | `measurement/123-compare-multiplatform-to-tdx-bad-target-count`, `hardware-measurements/221-*`, `222-*` | Partial |
-| §7.2 Measurement fingerprint | SEV, TDX, multiplatform, uppercase normalization. | `measurement/100-*`, `101-*`, `102-*`, `103-*` | Strong |
+| §7.2 Measurement fingerprint | Legacy predicate-local hashes for SEV, TDX, multiplatform, and uppercase normalization. | `measurement/100-*`, `101-*`, `102-*`, `103-*` | Partial; not canonical code/enclave equality |
 | §7.3 Cross-platform comparison | Same-type, MP to TDX, MP to SEV, reverse comparison, unsupported direct TDX to SEV, RTMR3 nonzero. | `measurement/110-*` through `150-*` | Strong |
 | §8 Report data / nonce binding | SEV host/report data pins and TDX report data pin. HPKE layout is not fully isolated. | `attestation-sev/410-host-data-pin-mismatch`, `420-report-data-pin-mismatch`, `461-all-pins-match`, `attestation-tdx/460-report-data-pinned-mismatch` | Partial |
 | §9 Enclave certificate verification | Not a first-class conformance stage yet. | N/A | Gap |
 | §10 Attestation bundle format | Some `verify-full` fixtures use bundle envelopes; schema edge cases are minimal. | `verify-full/500-standard-flow-sev-happy`, `510-pinned-flow-sev-happy` | Partial |
-| §11 End-to-end verification flows | Standard SEV happy path, Sigstore rejection propagation, SEV attestation rejection propagation, missing standard-flow blocks, pinned happy path, pinned mismatch. | `verify-full/500-standard-flow-sev-happy`, `501-standard-flow-sigstore-digest-mismatch`, `502-standard-flow-sev-attestation-pin-mismatch`, `503-standard-flow-missing-sigstore-block`, `504-standard-flow-missing-attestation-block`, `510-pinned-flow-sev-happy`, `520-pinned-flow-measurement-mismatch` | Partial |
+| §11 End-to-end verification flows | Adapter composition: standard-flow propagation/envelope checks; pinned SEV accept outputs, ignored failing provenance, uppercase pin, mismatch, retained attestation policy, retained report signature verification, and no fallback to release provenance. | `verify-full/500-*` through `506-*`, `510-pinned-flow-sev-happy`, `511-pinned-flow-ignores-sigstore`, `512-pinned-flow-uppercase`, `520-pinned-flow-measurement-mismatch`, `521-pinned-flow-sev-policy-mismatch`, `522-pinned-flow-provenance-cannot-replace-pin`, `523-pinned-flow-sev-signature-invalid` | Partial; not public-client integration |
 | §12 Infrastructure | Proxy/discovery/GitHub/cache behavior not covered by hermetic core suite. | N/A | Out of current scope |
 | §13 Constants | Exercised indirectly by SEV/TDX/Sigstore vectors. No constant-audit stage. | N/A | Partial |
 | §14 SDK client architecture | Not covered by core conformance suite. | N/A | Out of current scope |
 | §15 Error handling | Rejection-code mapping is covered per stage schemas; SDK exception hierarchy is not. | All rejection fixtures | Partial |
 | §16 Retry and recovery | Not covered by core conformance suite. | N/A | Out of current scope |
+
+## Pinned-Flow Coverage Limits
+
+The legacy `verify-measurement` schema fingerprints source and target under
+their own predicate types. Its cross-platform vectors therefore do not test
+the canonical target-platform equality required by the corrected SPEC §7.2.
+They remain legacy compatibility fixtures; they must not be used to claim
+coverage of normalized TDX code/enclave fingerprint equality. A new targeted
+lane needs authenticated platform inputs, a fixed expected canonical hash,
+and independent mismatches for all five TDX registers. This is separate from
+the seven legacy SEV pinned-flow vectors below.
+
+The legacy `verify-full` pinned vectors exercise adapter composition: SEV
+verification followed by comparison against the supplied code pin. Acceptance
+vectors assert mode, platform, the complete attestation measurement, and its
+fingerprint. Because every acceptance vector reuses one report, `512` (uppercase
+pin, lowercase expected output) is what distinguishes extracting the measurement
+from the report from echoing the pin back. `523` (matching pin, tampered
+signature) is what detects an adapter that skips report authentication once a
+pin is present. Rejections assert both code and originating sub-stage.
+
+These fixtures do not prove public-client constructor behavior, high-level
+OpenAI-client exposure, TDX pinning, or Swift support. Adapter normalization
+and validation must not be attributed to native SDK APIs. SEV policy-pin
+vectors such as `attestation-sev/400` and `460` are lower-level checks, not
+public-client pinning tests. A capability-gated skip is not conformance.
+
+The provenance fixtures test acceptance/rejection independence, not function
+call counts or absence of network traffic. A public-API integration lane is
+still missing: invoke native pinned clients with only external I/O and time
+injected, observe skipped release work and provenance metadata, check channel
+binding and application-data gating, and preserve the pin across re-verification.
+The current legacy input/output schema cannot express those observations.
 
 ## Priority Gap Backlog
 

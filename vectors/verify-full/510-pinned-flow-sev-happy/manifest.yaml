@@ -14,7 +14,9 @@ notes: |
   SPEC §11.3 pinned-measurement flow. No Sigstore involvement —
   the caller supplies the trusted measurement directly (from
   previous verification, out-of-band trust, or developer intent)
-  and the SDK only needs to verify the fresh hardware attestation
-  matches it. Common case: re-verification on every connection.
+  and the adapter verifies the supplied hardware attestation
+  matches it. Outputs are anchored to attestation-sev/200.
+  This tests adapter composition, not public-client integration
+  or re-verification on an actual connection.
   
   Skips on SDKs lacking flow_modes_supported='pinned'.

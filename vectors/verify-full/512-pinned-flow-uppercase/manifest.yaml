@@ -1,0 +1,17 @@
+id: 512-pinned-flow-uppercase
+stage: verify-full
+title: |
+  Uppercase SEV pin matches the same authenticated measurement.
+spec_refs: ["11.3", "7.3"]
+expects:
+  exit_code: 0
+required_capabilities:
+  attestation_sev.supported: true
+  attestation_sev.injected_collateral_supported: true
+  flow_modes_supported: "pinned"
+fixture_kind: composite
+notes: |
+  Only the caller's pin spelling differs from 510. The report and
+  expected lowercase attestation measurement are unchanged.
+  Exercises adapter normalization; it does not establish that
+  public SDK constructors normalize pins.

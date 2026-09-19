@@ -209,6 +209,36 @@ def run_fixture(
             reason=f"exit {got_exit}, want {want_exit}",
         )
 
+    if got_exit in (EXIT_ACCEPT, EXIT_REJECT):
+        envelope_error = ""
+        if not isinstance(got_output, dict):
+            envelope_error = "stdout must be a JSON object"
+        elif got_output.get("stage") != stage:
+            envelope_error = f"stage={got_output.get('stage')!r}, want {stage!r}"
+        elif got_output.get("accepted") is not (got_exit == EXIT_ACCEPT):
+            envelope_error = (
+                f"accepted={got_output.get('accepted')!r}, "
+                f"want {got_exit == EXIT_ACCEPT} for exit {got_exit}"
+            )
+        elif got_exit == EXIT_ACCEPT and not isinstance(
+            got_output.get("outputs"), dict
+        ):
+            envelope_error = "accepted output requires an outputs object"
+        elif got_exit == EXIT_REJECT:
+            rejection = got_output.get("rejection")
+            if not isinstance(rejection, dict):
+                envelope_error = "rejected output requires a rejection object"
+            elif not isinstance(rejection.get("code"), str):
+                envelope_error = "rejection.code must be a string"
+        if envelope_error:
+            return FixtureResult(
+                status="fail",
+                got_exit=got_exit,
+                got_output=got_output if isinstance(got_output, dict) else None,
+                stderr_excerpt=stderr_excerpt,
+                reason=envelope_error,
+            )
+
     if got_exit == EXIT_REJECT:
         want_code = expects.get("rejection_code")
         got_rejection = (got_output or {}).get("rejection", {})

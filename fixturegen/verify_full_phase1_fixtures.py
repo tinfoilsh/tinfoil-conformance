@@ -27,6 +27,13 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 VECTORS_DIR = REPO_ROOT / "vectors" / "verify-full"
 SIG_DIR = REPO_ROOT / "vectors" / "sigstore"
 SEV_DIR = REPO_ROOT / "vectors" / "attestation-sev"
+SIGSTORE_POLICY_FIELDS = (
+    "oidc_issuer",
+    "workflow_ref_prefix",
+    "predicate_types_allowed",
+    "in_toto_statement_types_allowed",
+    "payload_type",
+)
 
 
 def _load_sigstore_input(fixture_id: str) -> dict[str, Any]:
@@ -48,6 +55,7 @@ def write_fixture(
     rejection_code: str | list[str] | None = None,
     rejection_stage: str | None = None,
     required_caps: dict[str, Any] | None = None,
+    expected_outputs: dict[str, Any] | None = None,
 ) -> None:
     dst = VECTORS_DIR / fixture_id
     dst.mkdir(parents=True, exist_ok=True)
@@ -55,6 +63,8 @@ def write_fixture(
 
     if accepted:
         expected: dict[str, Any] = {"stage": "verify-full", "accepted": True}
+        if expected_outputs is not None:
+            expected["outputs"] = expected_outputs
     else:
         assert rejection_code is not None
         rej: dict[str, Any] = {"code": rejection_code}
@@ -82,10 +92,7 @@ def write_fixture(
     }
     for cap, val in (required_caps or default_caps).items():
         manifest += f"  {cap}: {json.dumps(val)}\n"
-    manifest += (
-        "fixture_kind: composite\n"
-        "notes: |\n"
-    )
+    manifest += "fixture_kind: composite\nnotes: |\n"
     for line in notes.strip().splitlines():
         manifest += f"  {line}\n"
     (dst / "manifest.yaml").write_text(manifest)
@@ -262,6 +269,20 @@ def main() -> None:
     )
 
     # 510 — Pinned-measurement flow (SPEC §11.3)
+    sev_measurement = json.loads(
+        (SEV_DIR / "200-real-sev-snp-happy" / "expected.json").read_text()
+    )["outputs"]["measurement"]
+    pinned_outputs = {
+        "mode": "pinned",
+        "platform": "sev-snp",
+        "attestation_measurement": sev_measurement,
+        "final_measurement_fingerprint_hex": sev_measurement["registers"][0],
+    }
+    pinned_caps = {
+        "attestation_sev.supported": True,
+        "attestation_sev.injected_collateral_supported": True,
+        "flow_modes_supported": "pinned",
+    }
     pinned_payload = {
         "schema_version": "1",
         "mode": "pinned",
@@ -287,6 +308,7 @@ def main() -> None:
         spec_refs=["11.3"],
         payload=pinned_payload,
         accepted=True,
+        expected_outputs=pinned_outputs,
         required_caps={
             "attestation_sev.supported": True,
             "attestation_sev.injected_collateral_supported": True,
@@ -296,10 +318,64 @@ def main() -> None:
             "SPEC §11.3 pinned-measurement flow. No Sigstore involvement —\n"
             "the caller supplies the trusted measurement directly (from\n"
             "previous verification, out-of-band trust, or developer intent)\n"
-            "and the SDK only needs to verify the fresh hardware attestation\n"
-            "matches it. Common case: re-verification on every connection.\n"
+            "and the adapter verifies the supplied hardware attestation\n"
+            "matches it. Outputs are anchored to attestation-sev/200.\n"
+            "This tests adapter composition, not public-client integration\n"
+            "or re-verification on an actual connection.\n"
             "\n"
             "Skips on SDKs lacking flow_modes_supported='pinned'."
+        ),
+    )
+
+    ignored_provenance_payload = deepcopy(pinned_payload)
+    supplied_sigstore = deepcopy(standard_payload["sigstore"])
+    supplied_sigstore["policy"] = {
+        key: value
+        for key, value in supplied_sigstore["policy"].items()
+        if key in SIGSTORE_POLICY_FIELDS and value is not None
+    }
+    ignored_provenance_payload["sigstore"] = deepcopy(supplied_sigstore)
+    ignored_provenance_payload["sigstore"]["expected_digest_sha256_hex"] = (
+        _load_sigstore_input("016-subject-digest-mismatch")[
+            "expected_digest_sha256_hex"
+        ]
+    )
+    write_fixture(
+        fixture_id="511-pinned-flow-ignores-sigstore",
+        title="Pinned SEV flow accepts despite supplied Sigstore digest mismatch.",
+        spec_refs=["11.3"],
+        payload=ignored_provenance_payload,
+        accepted=True,
+        expected_outputs=pinned_outputs,
+        required_caps=pinned_caps,
+        notes=(
+            "Reuses the authenticated SEV evidence from 510 and the Sigstore\n"
+            "digest mismatch from sigstore/016 (also exercised by 501).\n"
+            "Code provenance is not an acceptance prerequisite in pinned mode.\n"
+            "The supplied Sigstore policy uses only verify-full schema fields.\n"
+            "This checks observable adapter behavior, not a call-count proof\n"
+            "that no Sigstore function or network request was executed."
+        ),
+    )
+
+    uppercase_payload = deepcopy(pinned_payload)
+    uppercase_payload["pinned_measurement"]["registers"] = [
+        register.upper()
+        for register in pinned_payload["pinned_measurement"]["registers"]
+    ]
+    write_fixture(
+        fixture_id="512-pinned-flow-uppercase",
+        title="Uppercase SEV pin matches the same authenticated measurement.",
+        spec_refs=["11.3", "7.3"],
+        payload=uppercase_payload,
+        accepted=True,
+        expected_outputs=pinned_outputs,
+        required_caps=pinned_caps,
+        notes=(
+            "Only the caller's pin spelling differs from 510. The report and\n"
+            "expected lowercase attestation measurement are unchanged.\n"
+            "Exercises adapter normalization; it does not establish that\n"
+            "public SDK constructors normalize pins."
         ),
     )
 
@@ -344,6 +420,82 @@ def main() -> None:
         ),
     )
 
+    policy_reject_payload = deepcopy(pinned_payload)
+    policy_reject_payload["attestation_sev"] = _load_sev_input(
+        "400-measurement-pin-mismatch"
+    )
+    policy_reject_payload["attestation_sev"].pop("schema_version")
+    write_fixture(
+        fixture_id="521-pinned-flow-sev-policy-mismatch",
+        title="Matching code pin does not override a failing SEV attestation policy.",
+        spec_refs=["11.3", "3.7", "3.8"],
+        payload=policy_reject_payload,
+        accepted=False,
+        rejection_code="MEASUREMENT_MISMATCH",
+        rejection_stage="verify-attestation-sev",
+        required_caps={
+            **pinned_caps,
+            "attestation_sev.extended_checks_supported": True,
+        },
+        notes=(
+            "The top-level pin matches the unchanged authenticated report.\n"
+            "Reuses attestation-sev/400, including its failing post-signature\n"
+            "measurement policy, VCEK, and frozen verification time.\n"
+            "Rejection must originate in verify-attestation-sev, not the\n"
+            "later verify-measurement comparison. No TLS certificate input\n"
+            "or public-client verification is exercised."
+        ),
+    )
+
+    # 523 — Matching pin, tampered report signature. attestation-sev/220 is the
+    # 200 report with one signature byte flipped, so the measurement bytes the
+    # pin compares against are unchanged. Only report authentication can reject
+    # this; an adapter that trusts the pin and skips signature verification
+    # would accept it.
+    signature_reject_payload = deepcopy(pinned_payload)
+    signature_reject_payload["attestation_sev"] = _load_sev_input(
+        "220-signature-byte-flipped"
+    )
+    signature_reject_payload["attestation_sev"].pop("schema_version")
+    write_fixture(
+        fixture_id="523-pinned-flow-sev-signature-invalid",
+        title="Matching code pin does not excuse an unauthenticated SEV report.",
+        spec_refs=["11.3", "3.6"],
+        payload=signature_reject_payload,
+        accepted=False,
+        rejection_code="REPORT_SIGNATURE_INVALID",
+        rejection_stage="verify-attestation-sev",
+        required_caps=pinned_caps,
+        notes=(
+            "The pin equals the measurement carried by the report, but the\n"
+            "report's ECDSA signature is tampered (attestation-sev/220). The\n"
+            "adapter MUST reject in verify-attestation-sev before any\n"
+            "measurement comparison. Unlike 521 this needs no optional policy\n"
+            "block, so it holds for every SEV-capable adapter and is the\n"
+            "fixture that detects skipping report verification when pinned."
+        ),
+    )
+
+    provenance_cannot_replace_pin = deepcopy(pinned_mismatch_payload)
+    provenance_cannot_replace_pin["sigstore"] = supplied_sigstore
+    write_fixture(
+        fixture_id="522-pinned-flow-provenance-cannot-replace-pin",
+        title="Valid release provenance cannot replace a mismatching caller pin.",
+        spec_refs=["11.3", "7.3"],
+        payload=provenance_cannot_replace_pin,
+        accepted=False,
+        rejection_code="MEASUREMENT_MISMATCH",
+        rejection_stage="verify-measurement",
+        required_caps=pinned_caps,
+        notes=(
+            "Combines 520's mismatching caller pin with 500's release\n"
+            "provenance, whose measurement matches the authenticated report.\n"
+            "The pin remains authoritative: falling back to the release\n"
+            "measurement must not turn this rejection into acceptance.\n"
+            "This is adapter-composition coverage, not public-client proof."
+        ),
+    )
+
     print("Wrote Phase 1 verify-full fixtures:")
     for fid in (
         "500-standard-flow-sev-happy",
@@ -352,7 +504,12 @@ def main() -> None:
         "503-standard-flow-missing-sigstore-block",
         "504-standard-flow-missing-attestation-block",
         "510-pinned-flow-sev-happy",
+        "511-pinned-flow-ignores-sigstore",
+        "512-pinned-flow-uppercase",
         "520-pinned-flow-measurement-mismatch",
+        "521-pinned-flow-sev-policy-mismatch",
+        "522-pinned-flow-provenance-cannot-replace-pin",
+        "523-pinned-flow-sev-signature-invalid",
     ):
         print(f"  - {VECTORS_DIR / fid}")
 
