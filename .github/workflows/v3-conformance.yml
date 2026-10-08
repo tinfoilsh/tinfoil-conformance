@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: tinfoilsh/tinfoil-go
-          ref: feat/v3-conformance-harness
+          ref: main
           path: sdks/tinfoil-go
           token: ${{ secrets.SDK_TOKEN || github.token }}
       - name: Run the shared v3 fixtures through the harness
@@ -50,11 +50,11 @@ jobs:
           for d in "$GITHUB_WORKSPACE"/vectors/v3/*/; do
             echo "== $(basename "$d")"
             TINFOIL_CONFORMANCE_FIXTURES="$d" \
-              go test -count=1 -tags tinfoil_conformance -run TestFixtures ./verifier/conformance/
+              go test -count=1 -tags tinfoil_conformance -run TestFixtures ./verify/conformance/
           done
       - name: Verify a live enclave against the embedded production roots
         working-directory: sdks/tinfoil-go
         env:
           TINFOIL_LIVE_HOST: inference.tinfoil.sh
           TINFOIL_LIVE_REPO: tinfoilsh/confidential-model-router
-        run: go test -count=1 -v -tags tinfoil_conformance -run TestLiveVerification ./verifier/conformance/
+        run: go test -count=1 -v -tags tinfoil_conformance -run TestLiveVerification ./verify/conformance/

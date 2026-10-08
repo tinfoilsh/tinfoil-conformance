@@ -41,6 +41,8 @@ OID_ISSUER_V1 = ObjectIdentifier("1.3.6.1.4.1.57264.1.1")  # raw string value
 OID_RUNNER_ENVIRONMENT = ObjectIdentifier("1.3.6.1.4.1.57264.1.11")  # DER string
 OID_SOURCE_REPO_DIGEST = ObjectIdentifier("1.3.6.1.4.1.57264.1.13")  # DER string
 OID_SOURCE_REPO_REF = ObjectIdentifier("1.3.6.1.4.1.57264.1.14")  # DER string
+OID_SOURCE_REPO_ID = ObjectIdentifier("1.3.6.1.4.1.57264.1.15")
+OID_SOURCE_OWNER_ID = ObjectIdentifier("1.3.6.1.4.1.57264.1.17")
 OID_SCT_LIST = ObjectIdentifier("1.3.6.1.4.1.11129.2.4.2")  # RFC 6962 §3.3
 
 GITHUB_ACTIONS_ISSUER = "https://token.actions.githubusercontent.com"
@@ -213,7 +215,8 @@ def _sct_list_extension_value(serialized_scts):
 
 
 # --- Leaf certificate with embedded SCT -------------------------------------
-def _leaf_extensions(identity_uri, int_key, issuer, runner_environment, source_ref=None, source_digest=None):
+def _leaf_extensions(identity_uri, int_key, issuer, runner_environment, source_ref=None, source_digest=None,
+                     source_repo_id=None, source_owner_id=None):
     exts = [
         (x509.BasicConstraints(ca=False, path_length=None), True),
         (x509.KeyUsage(
@@ -234,12 +237,16 @@ def _leaf_extensions(identity_uri, int_key, issuer, runner_environment, source_r
         exts.append((x509.UnrecognizedExtension(OID_SOURCE_REPO_REF, _der_utf8_string(source_ref)), False))
     if source_digest is not None:
         exts.append((x509.UnrecognizedExtension(OID_SOURCE_REPO_DIGEST, _der_utf8_string(source_digest)), False))
+    if source_repo_id is not None:
+        exts.append((x509.UnrecognizedExtension(OID_SOURCE_REPO_ID, _der_utf8_string(source_repo_id)), False))
+    if source_owner_id is not None:
+        exts.append((x509.UnrecognizedExtension(OID_SOURCE_OWNER_ID, _der_utf8_string(source_owner_id)), False))
     return exts
 
 
 def _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=False,
                 issuer=GITHUB_ACTIONS_ISSUER, runner_environment="github-hosted",
-                source_ref=None, source_digest=None):
+                source_ref=None, source_digest=None, source_repo_id=None, source_owner_id=None):
     leaf_key = _key("leaf")
     int_name = int_cert.subject
     not_before = BASE_TIME - datetime.timedelta(minutes=5)
@@ -256,7 +263,8 @@ def _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=False,
             .not_valid_after(not_after)
         )
         for ext, critical in _leaf_extensions(identity_uri, int_key, issuer, runner_environment,
-                                               source_ref=source_ref, source_digest=source_digest):
+                                               source_ref=source_ref, source_digest=source_digest,
+                                               source_repo_id=source_repo_id, source_owner_id=source_owner_id):
             b = b.add_extension(ext, critical)
         return b
 
@@ -397,7 +405,7 @@ def _trusted_root(root_cert, int_cert):
 # --- Bundle assembly --------------------------------------------------------
 def build_bundle(identity_uri, statement_bytes, integrated_time=None, dup_sct=False, bad_dsse=False,
                  issuer=GITHUB_ACTIONS_ISSUER, runner_environment="github-hosted",
-                 source_ref=None, source_digest=None):
+                 source_ref=None, source_digest=None, source_repo_id=None, source_owner_id=None):
     """Return (bundle_dict, trusted_root_dict) for a DSSE-signed in-toto
     statement whose signing certificate carries identity_uri as its SAN.
     integrated_time overrides the log timestamp (used to place it outside the
@@ -408,7 +416,8 @@ def build_bundle(identity_uri, statement_bytes, integrated_time=None, dup_sct=Fa
     root_cert, int_cert, int_key = _build_ca()
     leaf, leaf_key = _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=dup_sct,
                                  issuer=issuer, runner_environment=runner_environment,
-                                 source_ref=source_ref, source_digest=source_digest)
+                                 source_ref=source_ref, source_digest=source_digest,
+                                 source_repo_id=source_repo_id, source_owner_id=source_owner_id)
     leaf_pem = leaf.public_bytes(serialization.Encoding.PEM)
 
     dsse_sig = _dsse_sign(statement_bytes, _key("ctlog") if bad_dsse else leaf_key)
