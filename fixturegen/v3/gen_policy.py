@@ -25,6 +25,8 @@ PLAT_FMT_COLL = "https://tinfoil.sh/collateral/sigstore-platform/v1"
 ARTIFACT_FMT = "https://tinfoil.sh/predicate/platform-endorsements/v1"
 ROLE_RV = "reference-values"
 PLAT_REPO = "tinfoilsh/platform-endorsements"
+PLAT_REPO_ID = "1289572272"
+TINFOIL_ORG_ID = "168487856"
 TAG = "v1.0.0"
 IDENTITY = f"https://github.com/{PLAT_REPO}/.github/workflows/build.yml@refs/tags/{TAG}"
 DIGEST = hashlib.sha256(b"platform-endorsements-v1").hexdigest()
@@ -94,6 +96,8 @@ def doc_with(bundle, digest=DIGEST):
 def _bundle(artifact, identity=IDENTITY, **kw):
     kw.setdefault("source_ref", "refs/tags/" + TAG)
     kw.setdefault("source_digest", COMMIT)
+    kw.setdefault("source_repo_id", PLAT_REPO_ID)
+    kw.setdefault("source_owner_id", TINFOIL_ORG_ID)
     return ss.build_bundle(identity, statement(artifact), **kw)
 
 
