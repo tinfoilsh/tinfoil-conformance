@@ -40,10 +40,13 @@ The **`capture`** subcommand is the real-frozen lane, the one path synthetic
 fixtures cannot reach: it fetches a live enclave's v3 attestation, verifies it
 against the **embedded production roots** (empty anchors), and — only if it
 accepts — writes a fixture pinned to that capture time via
-`verification_time_unix`, so it replays offline forever. The result is the
-cross-SDK accept oracle: every SDK must accept the same real bytes. The first is
-`vectors/v3/real-frozen/real-sev-inference-tinfoil.json`, from the live SEV-SNP
-enclave `inference.tinfoil.sh` (repo `tinfoilsh/confidential-model-router`).
+`verification_time_unix`, so it can replay offline while its publisher remains
+trusted. `vectors/v3/real-frozen/real-sev-inference-tinfoil.json` preserves a
+capture from `inference.tinfoil.sh` using the retired platform-endorsements
+publisher. It must reject with `PROVENANCE_REJECTED` under cvmimage-only trust.
+After ATC and guest collateral caches migrate, capture a new accepting document
+with the embedded production roots. Synthetic fixtures do not replace that
+live rollout check.
 
 Each SDK SHOULD also ship an opt-in live check that fetches and verifies a real
 enclave directly (skipped by default, so runs stay offline). The Go harness's is

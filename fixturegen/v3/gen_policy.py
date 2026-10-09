@@ -24,15 +24,15 @@ from gen_envelope import base_doc, canon, b64, REPO
 PLAT_FMT_COLL = "https://tinfoil.sh/collateral/sigstore-platform/v1"
 ARTIFACT_FMT = "https://tinfoil.sh/predicate/platform-endorsements/v1"
 ROLE_RV = "reference-values"
-PLAT_REPO = "tinfoilsh/platform-endorsements"
-PLAT_REPO_ID = "1289572272"
+PLAT_REPO = "tinfoilsh/cvmimage"
+PLAT_REPO_ID = "902195777"
 TINFOIL_ORG_ID = "168487856"
-TAG = "v1.0.0"
-IDENTITY = f"https://github.com/{PLAT_REPO}/.github/workflows/build.yml@refs/tags/{TAG}"
+TAG = "platform-v1.0.0"
+IDENTITY = f"https://github.com/{PLAT_REPO}/.github/workflows/platform-release.yml@refs/tags/{TAG}"
 DIGEST = hashlib.sha256(b"platform-endorsements-v1").hexdigest()
 COMMIT = hashlib.sha1(b"platform-commit-v1").hexdigest()  # 40-hex source commit
 FRESH_FMT = "https://tinfoil.sh/collateral/sigstore-freshness/v1"
-SUBJECT = "platform"
+SUBJECT = "platform-endorsements-classic.json"
 
 SEV_CHIP = "ab" * 64   # 128 hex chars = 64-byte CHIP_ID
 TDX_PPID = "cd" * 16   # 32 hex chars = 16-byte PPID
@@ -76,7 +76,7 @@ def base_artifact():
 def statement(artifact):
     return json.dumps({
         "_type": "https://in-toto.io/Statement/v1",
-        "subject": [{"name": "platform", "digest": {"sha256": DIGEST}}],
+        "subject": [{"name": SUBJECT, "digest": {"sha256": DIGEST}}],
         "predicateType": ARTIFACT_FMT,
         "predicate": artifact,
     }, separators=(",", ":")).encode()
@@ -134,8 +134,8 @@ def p15():  # platform-endorsements identity is the wrong workflow file
     return doc_with(b), t, False
 
 
-def p15_tag():  # platform identity tag lacks the required v<digit> prefix
-    ident = f"https://github.com/{PLAT_REPO}/.github/workflows/build.yml@refs/tags/release"
+def p15_tag():  # platform identity tag lacks the required platform-v<digit> prefix
+    ident = f"https://github.com/{PLAT_REPO}/.github/workflows/platform-release.yml@refs/tags/release"
     b, t = _bundle(base_artifact(), identity=ident)
     return doc_with(b), t, False
 

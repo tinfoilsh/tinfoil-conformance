@@ -146,11 +146,10 @@
   and certificate validity) **are** enforced against the verification clock.
   `gen_frozen_time.py` proves it and the `verification_time_unix` pin together:
   the same expired-CRL SEV document accepts pinned inside the CRL window and
-  rejects pinned outside it. The pin also lets a real-frozen document replay
-  offline forever — the accepting embedded-root lane, populated by
-  `vectors/v3/real-frozen/real-sev-inference-tinfoil.json` (captured from the
-  live `inference.tinfoil.sh` SEV-SNP enclave), the cross-SDK accept oracle of
-  real production material.
+  rejects pinned outside it. The real-frozen document in
+  `vectors/v3/real-frozen/real-sev-inference-tinfoil.json` retains real production
+  bytes but now tests rejection of the retired platform publisher. A new
+  accepting production capture is required after the cvmimage publisher rollout.
 
 **UNCHECKED** (—) — 6 rules (negative-assertion fixtures: prove these are *not* enforced / are ignored)
 
