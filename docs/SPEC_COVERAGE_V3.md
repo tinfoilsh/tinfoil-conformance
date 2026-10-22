@@ -146,7 +146,11 @@
   and certificate validity) **are** enforced against the verification clock.
   `gen_frozen_time.py` proves it and the `verification_time_unix` pin together:
   the same expired-CRL SEV document accepts pinned inside the CRL window and
-  rejects pinned outside it. The real-frozen document in
+  rejects pinned outside it. Windows are checked at both ends: `gen_tdx.py`
+  pins the clock and rejects Intel TCB Info or QE Identity whose `issueDate` is
+  after it (`t24-tcb-info-issued-later`, `t24-qe-identity-issued-later`), and
+  accepts collateral issued exactly at it (`t24-issued-at-verification-time`).
+  The real-frozen document in
   `vectors/v3/real-frozen/real-sev-inference-tinfoil.json` retains real production
   bytes but now tests rejection of the retired platform publisher. A new
   accepting production capture is required after the cvmimage publisher rollout.
