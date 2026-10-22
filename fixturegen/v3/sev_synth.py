@@ -183,12 +183,12 @@ def _build_chain(vcek_key, tcb_parts, hwid):
     return ark, ask, vcek
 
 
-def _build_crl(revoke_serial=None, expired=False):
+def _build_crl(revoke_serial=None, expired=False, this_update=NOT_BEFORE):
     ark_key, _ = _keys()
     builder = (
         x509.CertificateRevocationListBuilder()
         .issuer_name(_name("ARK-Genoa"))
-        .last_update(NOT_BEFORE)
+        .last_update(this_update)
         .next_update(NOT_BEFORE + datetime.timedelta(days=1) if expired else NOT_AFTER)
     )
     if revoke_serial is not None:
@@ -245,7 +245,7 @@ def _pem(cert):
 def build_sev(report_data=b"\x00" * 64, measurement=b"\xaa" * 48, chip_id=b"\x11" * 64,
               tcb_parts=None, vcek_tcb_parts=None, policy=0x30000, host_data=b"\x00" * 32,
               tamper_report_sig=False, version=3, signer_info=0, fms=GENOA_FMS,
-              vcek_hwid=None, revoke_ask=False, crl_expired=False,
+              vcek_hwid=None, revoke_ask=False, crl_expired=False, crl_this_update=NOT_BEFORE,
               guest_svn=0, vmpl=0, family_id=b"\x00" * 16, image_id=b"\x00" * 16,
               id_key_digest=b"\x00" * 48, report_id=b"\x00" * 32, report_id_ma=b"\x00" * 32,
               current_tcb_parts=None, committed_tcb_parts=None):
@@ -273,7 +273,8 @@ def build_sev(report_data=b"\x00" * 64, measurement=b"\xaa" * 48, chip_id=b"\x11
         r = bytes(r)
 
     # go-sev-guest checks ASK (serial 2) revocation against the CRL, not the VCEK.
-    crl = _build_crl(revoke_serial=2 if revoke_ask else None, expired=crl_expired)
+    crl = _build_crl(revoke_serial=2 if revoke_ask else None, expired=crl_expired,
+                     this_update=crl_this_update)
     return {
         "report": bytes(r),
         "vcek_der": vcek.public_bytes(serialization.Encoding.DER),

@@ -150,6 +150,10 @@
   pins the clock and rejects Intel TCB Info or QE Identity whose `issueDate` is
   after it (`t24-tcb-info-issued-later`, `t24-qe-identity-issued-later`), and
   accepts collateral issued exactly at it (`t24-issued-at-verification-time`).
+  A CRL whose `ThisUpdate` is after the pinned clock rejects on both platforms
+  (`struct-crl-not-yet-valid`, `t24-crl-not-yet-valid`), and one whose
+  `ThisUpdate` equals it accepts (`struct-crl-at-this-update`,
+  `t24-crl-at-this-update`).
   The real-frozen document in
   `vectors/v3/real-frozen/real-sev-inference-tinfoil.json` retains real production
   bytes but now tests rejection of the retired platform publisher. A new
@@ -284,7 +288,7 @@ This checklist captures every testable normative rule (MUST/MUST-NOT/REQUIRED/SH
 | **T21** | POLICY_VALIDATION.md §3.2a, bytes (QE Report) 0–15, 16–19, 48–63, 128–159, 256–259, 320–383 | QUOTE-TDX | QE Report (signature section): CPUSVN, MISCSELECT, ATTRIBUTES, MRSIGNER, ISVPRODID, ISVSVN all vendor-checked against TCB Info / QE Identity. REPORTDATA must equal SHA-256(attestation key ‖ QE auth data), binding attestation key to QE. | Reject if QE Report fields do not verify against vendor collateral. | QE Report with valid vendor matches. | QE Report with mismatched fields or REPORTDATA. |
 | **T22** | POLICY_VALIDATION.md §3.2a, lines 185–192 | QUOTE-TDX | PCESVN (not a report field, but in PCK leaf SGX extension): matched against TCB Info levels, selected status MUST be exactly `UpToDate`. Policy carries no QE/PCE SVN floors; the library's `MinimumQeSvn`/`MinimumPceSvn` options compare reserved v4 header bytes (which SDK pins to zero). Real SVN enforcement is Intel's signed collateral. | Reject if PCESVN or QE ISVSVN status ≠ `UpToDate`. | Quote with `UpToDate` status in collateral. | Collateral with non-`UpToDate` status. |
 | **T23** | POLICY_VALIDATION.md §3.2a, lines 193–197 | QUOTE-TDX | Collateral-level floor: `tcbEvaluationDataNumber` observed in verified TCB Info and QE Identity MUST meet policy floor `minimum_tcb_evaluation_data_number`; unobserved REJECTS. | Reject if collateral `tcbEvaluationDataNumber` < policy minimum or missing. | Quote with `tcbEvaluationDataNumber` ≥ minimum in both TCB Info and QE Identity. | Collateral with `tcbEvaluationDataNumber` < minimum. |
-| **T24** | SPEC_V3.md §5, lines 215–223 | QUOTE-TDX | CPU evidence verified against Intel PCS collateral (captured, document-carried, no network fetches). PCK chain pinned to Intel SGX root CA. Revocation checked. | Reject if PCK chain does not reach pinned Intel root or revocation check fails. | Valid PCK certificate chain to Intel root with valid revocation status. | PCK chain to untrusted root; revoked certificate. |
+| **T24** | SPEC_V3.md §5, lines 215–223 | QUOTE-TDX | CPU evidence verified against Intel PCS collateral (captured, document-carried, no network fetches). PCK chain pinned to Intel SGX root CA. Revocation checked. TCB Info, QE Identity and CRLs are checked against their validity windows, at both ends, at the verification time (checked by SDK). | Reject if PCK chain does not reach pinned Intel root, revocation check fails, or collateral is outside its validity window. | Valid PCK certificate chain to Intel root with valid revocation status; collateral valid at the verification time. | PCK chain to untrusted root; revoked certificate; collateral issued after or expired before the verification time. |
 | **T25** | SPEC_V3.md §5, line 223, VERIFICATION_ARCHITECTURE.md §3.3 | QUOTE-TDX | Intel SGX root CA MUST be pinned in the verifier (embedded). PCK chain verification and revocation checking are unconditional (no network). | Reject if PCK chain does not reach pinned Intel root. | PCK certificate with valid chain to Intel root. | PCK from untrusted root; broken chain. |
 
 ---

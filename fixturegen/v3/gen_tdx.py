@@ -51,7 +51,7 @@ def _tcb_levels(status="UpToDate"):
 
 
 def build_tdx(body=None, tcb_levels=None, tcb_eval=18, qe_mrsigner=None, crl_expired=False,
-              tcb_issue_date=None, qe_issue_date=None):
+              tcb_issue_date=None, qe_issue_date=None, crl_this_update=None):
     chain = tsx.build_synth_chain(pce_svn=PCE_SVN)
     body = body or tsx.TdBodyFields(tee_tcb_svn=b"\x00\x03\x05\x00" + b"\x00" * 12)
     qkw = {"qe_mrsigner": qe_mrsigner} if qe_mrsigner is not None else {}
@@ -68,6 +68,8 @@ def build_tdx(body=None, tcb_levels=None, tcb_eval=18, qe_mrsigner=None, crl_exp
     if crl_expired:
         crl_kw = {"not_before": datetime(2023, 1, 1, tzinfo=timezone.utc),
                   "not_after": datetime(2023, 2, 1, tzinfo=timezone.utc)}
+    elif crl_this_update is not None:
+        crl_kw = {"not_before": crl_this_update}
     responses = [
         _resp(TCB_URL, "Tcb-Info-Issuer-Chain", tcb_chain, tcb),
         _resp(QE_URL, "Sgx-Enclave-Identity-Issuer-Chain", tcb_chain, qe),
@@ -145,10 +147,10 @@ def t24_crl_expired():  # T24: captured PCK CRL outside its validity window
     return fx("t24-crl-expired", tdx_document(quote, responses), chain.root_ca.pem, False)
 
 
-# T24: TCB Info and QE Identity are valid only from their issueDate. The clock is
-# pinned inside every other validity window (certificates and CRLs 2023-2030,
-# nextUpdate 2030), so issueDate alone decides; vendor libraries often check
-# only nextUpdate.
+# T24: TCB Info and QE Identity are valid only from their issueDate, and a CRL
+# only from its thisUpdate. The clock is pinned inside every other validity
+# window (certificates and CRLs 2023-2030, nextUpdate 2030), so the one moved
+# start alone decides; vendor libraries often check only the end of a window.
 ISSUED_AT = datetime(2026, 1, 15, tzinfo=timezone.utc)
 ISSUED_AT_UNIX = int(ISSUED_AT.timestamp())
 
@@ -172,6 +174,18 @@ def t24_qe_identity_issued_later():  # T24: QE Identity issued one second after 
 def t24_issued_at_verification_time():  # T24: issued exactly at the verification time is valid
     chain, quote, responses = build_tdx(tcb_issue_date=_issue_date(ISSUED_AT), qe_issue_date=_issue_date(ISSUED_AT))
     return fx("t24-issued-at-verification-time", tdx_document(quote, responses), chain.root_ca.pem, True,
+              verification_time_unix=ISSUED_AT_UNIX)
+
+
+def t24_crl_not_yet_valid():  # T24: PCK CRL first valid one day after the verification time
+    chain, quote, responses = build_tdx(crl_this_update=ISSUED_AT + timedelta(days=1))
+    return fx("t24-crl-not-yet-valid", tdx_document(quote, responses), chain.root_ca.pem, False,
+              verification_time_unix=ISSUED_AT_UNIX)
+
+
+def t24_crl_at_this_update():  # T24: PCK CRL first valid exactly at the verification time
+    chain, quote, responses = build_tdx(crl_this_update=ISSUED_AT)
+    return fx("t24-crl-at-this-update", tdx_document(quote, responses), chain.root_ca.pem, True,
               verification_time_unix=ISSUED_AT_UNIX)
 
 
@@ -204,7 +218,8 @@ def t22_pcesvn():  # T22: PCK leaf PCESVN below the matched TCB level's pcesvn
 
 BUILDERS = [happy, t1_version, t3_reserved, t3_extra_bytes, t_signature,
             t21_qe_mismatch, t24_missing_pcs, t24_crl_expired, t24_tcb_info_issued_later,
-            t24_qe_identity_issued_later, t24_issued_at_verification_time, t25_wrong_root,
+            t24_qe_identity_issued_later, t24_issued_at_verification_time, t24_crl_not_yet_valid,
+            t24_crl_at_this_update, t25_wrong_root,
             t8_mrsignerseam, t9_seamattributes, t22_pcesvn]
 
 

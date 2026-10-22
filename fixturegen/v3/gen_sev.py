@@ -15,6 +15,7 @@ the `v3-validate-quote` slice.
 
 import base64
 import copy
+import datetime
 import json
 import os
 
@@ -37,10 +38,12 @@ def sev_document(art):
     return d
 
 
-def fx(fid, doc, art, accepted):
-    return {"id": fid, "stage": "v3-authenticate-quote",
-            "input": {"schema_version": "1", "document_b64": b64(canon(doc)), "nonce_hex": "",
-                      "repo": REPO, "amd_root_ca_pem": art["ark_pem"], "ask_pem": art["ask_pem"]},
+def fx(fid, doc, art, accepted, verification_time_unix=None):
+    inp = {"schema_version": "1", "document_b64": b64(canon(doc)), "nonce_hex": "",
+           "repo": REPO, "amd_root_ca_pem": art["ark_pem"], "ask_pem": art["ask_pem"]}
+    if verification_time_unix is not None:
+        inp["verification_time_unix"] = verification_time_unix
+    return {"id": fid, "stage": "v3-authenticate-quote", "input": inp,
             "expected": {"accepted": accepted} if accepted else {"accepted": False, "code": "QUOTE_REJECTED"}}
 
 
@@ -113,6 +116,24 @@ def struct_crl_expired():
     return fx("struct-crl-expired", sev_document(art), art, False)
 
 
+# S25: the CRL is valid only from its thisUpdate. It starts a day after the
+# certificates (NOT_BEFORE), so a clock pinned between the two is inside every
+# other window and the CRL's start alone decides.
+CRL_THIS_UPDATE = ss.NOT_BEFORE + datetime.timedelta(days=1)
+
+
+def struct_crl_not_yet_valid():
+    art = ss.build_sev(crl_this_update=CRL_THIS_UPDATE)
+    return fx("struct-crl-not-yet-valid", sev_document(art), art, False,
+              verification_time_unix=int((CRL_THIS_UPDATE - datetime.timedelta(hours=12)).timestamp()))
+
+
+def struct_crl_at_this_update():
+    art = ss.build_sev(crl_this_update=CRL_THIS_UPDATE)
+    return fx("struct-crl-at-this-update", sev_document(art), art, True,
+              verification_time_unix=int(CRL_THIS_UPDATE.timestamp()))
+
+
 def struct_no_vcek():
     doc, art = _happy_doc_art()
     doc["collateral"] = [e for e in doc["collateral"] if e["id"] != "vcek"]
@@ -132,7 +153,8 @@ def struct_no_crl():
 BUILDERS = [
     happy, s1_version, s8_s25_signature, s12_signer, s20_product,
     s_revoked, s26_root, struct_empty_vcek, struct_bad_chain,
-    struct_empty_crl, struct_crl_expired, struct_no_vcek, struct_no_crl,
+    struct_empty_crl, struct_crl_expired, struct_crl_not_yet_valid, struct_crl_at_this_update,
+    struct_no_vcek, struct_no_crl,
 ]
 
 
