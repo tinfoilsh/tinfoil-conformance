@@ -12,7 +12,7 @@ document authenticates through `v3-authenticate-quote`; mutations reject there.
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # fixturegen/ (for lib)
@@ -50,15 +50,18 @@ def _tcb_levels(status="UpToDate"):
     }]
 
 
-def build_tdx(body=None, tcb_levels=None, tcb_eval=18, qe_mrsigner=None, crl_expired=False):
+def build_tdx(body=None, tcb_levels=None, tcb_eval=18, qe_mrsigner=None, crl_expired=False,
+              tcb_issue_date=None, qe_issue_date=None):
     chain = tsx.build_synth_chain(pce_svn=PCE_SVN)
     body = body or tsx.TdBodyFields(tee_tcb_svn=b"\x00\x03\x05\x00" + b"\x00" * 12)
     qkw = {"qe_mrsigner": qe_mrsigner} if qe_mrsigner is not None else {}
     quote, _ = tsx.build_tdx_quote_v4(chain, body=body, **qkw)
+    tcb_kw = {"issue_date": tcb_issue_date} if tcb_issue_date is not None else {}
+    qe_kw = {"issue_date": qe_issue_date} if qe_issue_date is not None else {}
     tcb = tsx.build_tcb_info_response(chain, tcb_levels=tcb_levels or _tcb_levels(),
-                                      tcb_evaluation_data_number=tcb_eval)
+                                      tcb_evaluation_data_number=tcb_eval, **tcb_kw)
     qe = tsx.build_qe_identity_response(chain, mrsigner_hex="DC" * 32, isv_prod_id=2,
-                                        isv_svn=8, tcb_evaluation_data_number=tcb_eval)
+                                        isv_svn=8, tcb_evaluation_data_number=tcb_eval, **qe_kw)
     tcb_chain = tsx.url_encoded_pem_chain(chain.tcb_signer, chain.root_ca)
     pck_chain = tsx.url_encoded_pem_chain(chain.platform_ca, chain.root_ca)
     crl_kw = {}
@@ -83,10 +86,12 @@ def tdx_document(quote, responses):
     return d
 
 
-def fx(fid, doc, root_pem, accepted):
-    return {"id": fid, "stage": "v3-authenticate-quote",
-            "input": {"schema_version": "1", "document_b64": b64(canon(doc)), "nonce_hex": "",
-                      "repo": REPO, "intel_sgx_root_pem": root_pem},
+def fx(fid, doc, root_pem, accepted, verification_time_unix=None):
+    inp = {"schema_version": "1", "document_b64": b64(canon(doc)), "nonce_hex": "",
+           "repo": REPO, "intel_sgx_root_pem": root_pem}
+    if verification_time_unix is not None:
+        inp["verification_time_unix"] = verification_time_unix
+    return {"id": fid, "stage": "v3-authenticate-quote", "input": inp,
             "expected": {"accepted": accepted} if accepted else {"accepted": False, "code": "QUOTE_REJECTED"}}
 
 
@@ -140,6 +145,36 @@ def t24_crl_expired():  # T24: captured PCK CRL outside its validity window
     return fx("t24-crl-expired", tdx_document(quote, responses), chain.root_ca.pem, False)
 
 
+# T24: TCB Info and QE Identity are valid only from their issueDate. The clock is
+# pinned inside every other validity window (certificates and CRLs 2023-2030,
+# nextUpdate 2030), so issueDate alone decides; vendor libraries often check
+# only nextUpdate.
+ISSUED_AT = datetime(2026, 1, 15, tzinfo=timezone.utc)
+ISSUED_AT_UNIX = int(ISSUED_AT.timestamp())
+
+
+def _issue_date(t):
+    return t.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def t24_tcb_info_issued_later():  # T24: TCB Info issued one second after the verification time
+    chain, quote, responses = build_tdx(tcb_issue_date=_issue_date(ISSUED_AT + timedelta(seconds=1)))
+    return fx("t24-tcb-info-issued-later", tdx_document(quote, responses), chain.root_ca.pem, False,
+              verification_time_unix=ISSUED_AT_UNIX)
+
+
+def t24_qe_identity_issued_later():  # T24: QE Identity issued one second after the verification time
+    chain, quote, responses = build_tdx(qe_issue_date=_issue_date(ISSUED_AT + timedelta(seconds=1)))
+    return fx("t24-qe-identity-issued-later", tdx_document(quote, responses), chain.root_ca.pem, False,
+              verification_time_unix=ISSUED_AT_UNIX)
+
+
+def t24_issued_at_verification_time():  # T24: issued exactly at the verification time is valid
+    chain, quote, responses = build_tdx(tcb_issue_date=_issue_date(ISSUED_AT), qe_issue_date=_issue_date(ISSUED_AT))
+    return fx("t24-issued-at-verification-time", tdx_document(quote, responses), chain.root_ca.pem, True,
+              verification_time_unix=ISSUED_AT_UNIX)
+
+
 def t25_wrong_root():  # T25: quote does not chain to the pinned Intel root
     chain, quote, responses = build_tdx()
     rogue = tsx.build_synth_chain(pce_svn=PCE_SVN)
@@ -168,7 +203,8 @@ def t22_pcesvn():  # T22: PCK leaf PCESVN below the matched TCB level's pcesvn
 
 
 BUILDERS = [happy, t1_version, t3_reserved, t3_extra_bytes, t_signature,
-            t21_qe_mismatch, t24_missing_pcs, t24_crl_expired, t25_wrong_root,
+            t21_qe_mismatch, t24_missing_pcs, t24_crl_expired, t24_tcb_info_issued_later,
+            t24_qe_identity_issued_later, t24_issued_at_verification_time, t25_wrong_root,
             t8_mrsignerseam, t9_seamattributes, t22_pcesvn]
 
 
