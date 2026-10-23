@@ -15,11 +15,9 @@
     "accepted": true,
     "code_digest": "3b29117bcc96bb282879514cc03c32f3f7eb8a7bd031b829dd3864c591b87c50",
     "code_measurement": {
-      "type": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
+      "type": "https://tinfoil.sh/predicate/sev-snp-guest/v2",
       "registers": [
-        "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
-        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
       ]
     },
     "enclave_measurement": {

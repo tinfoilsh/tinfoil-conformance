@@ -14,11 +14,13 @@
     "accepted": true,
     "code_digest": "3b29117bcc96bb282879514cc03c32f3f7eb8a7bd031b829dd3864c591b87c50",
     "code_measurement": {
-      "type": "https://tinfoil.sh/predicate/snp-tdx-multiplatform/v1",
+      "type": "https://tinfoil.sh/predicate/tdx-guest/v2",
       "registers": [
-        "abababababababababababababababababababababababababababababababababababababababababababababababab",
+        "",
+        "",
         "333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333",
-        "444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444"
+        "444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444",
+        ""
       ]
     },
     "enclave_measurement": {

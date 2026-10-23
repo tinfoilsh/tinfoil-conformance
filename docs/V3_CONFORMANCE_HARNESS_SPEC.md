@@ -104,7 +104,8 @@ reject it once its collateral windows lapse.
 ```
 
 An accept fixture may declare **any** of the verified facts — `code_digest`,
-`code_measurement` / `enclave_measurement` (each `{type, registers}`), and the
+`code_measurement` / `enclave_measurement` (each `{type, registers}`, laid out
+per [CONFORMANCE_ADAPTER_SPEC §4](CONFORMANCE_ADAPTER_SPEC.md#4-output-semantics)), and the
 endorsed channel keys `tls_public_key_fp` / `hpke_public_key` — and the suite
 asserts the harness recovered *exactly* those. This is what forces cross-SDK
 **output equivalence**: a client that accepts but yields a different digest,
