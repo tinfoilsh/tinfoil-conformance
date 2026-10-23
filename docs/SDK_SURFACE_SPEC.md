@@ -27,7 +27,7 @@ semantics, parameters, and error behavior are identical.
 | surface (Go form) | semantics |
 |---|---|
 | `VerifyDocumentV3(docBytes, nonce, repo) → VerifiedDocumentV3` | full offline verification of a v3 document: envelope check → code+platform provenance each with its freshness proof → quote authenticate → policy assemble/validate. Embedded production roots, current time. Throws/returns layer-attributable errors |
-| `VerifiedDocumentV3` | carries `CodeDigest`, `CodeMeasurement`, `EnclaveMeasurement` (type + canonical registers), and the endorsed crypto material |
+| `VerifiedDocumentV3` | carries `CodeDigest`, `CodeMeasurement` (the registers the release fixes, in the enclave platform's layout), `EnclaveMeasurement` (the quote's registers), and the endorsed crypto material |
 | `TLSPublicKeyFP(v)` / `HPKEPublicKey(v)` | recover the endorsed channel keys (`tls` spki-fp-sha256 / `hpke` x25519) from the verified document; error when absent or format-mismatched |
 | `Fetch(host, nonce) → docBytes` | GET `https://<host>/.well-known/tinfoil-attestation?nonce=<hex>`; host may carry a port |
 | `RandomNonce() → bytes` / `NonceSize = 32` | fresh 32-byte verifier nonce |

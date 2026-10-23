@@ -313,6 +313,18 @@ MUTATIONS = {
 
 
 def fixture(fid, doc, troot, accepted):
+    if accepted:
+        # Every accept signs the base predicate; the release's measurement is
+        # reported in predicate order: SNP launch, then TDX RTMR1 and RTMR2.
+        p = base_predicate()
+        expected = {
+            "accepted": True,
+            "code_digest": DIGEST,
+            "code_measurement": {"type": PRED, "registers": [
+                p["snp_measurement"], p["tdx_measurement"]["rtmr1"], p["tdx_measurement"]["rtmr2"]]},
+        }
+    else:
+        expected = {"accepted": False, "code": "PROVENANCE_REJECTED"}
     return {
         "id": fid,
         "stage": "v3-authenticate-provenance",
@@ -323,7 +335,7 @@ def fixture(fid, doc, troot, accepted):
             "repo": REPO,
             "sigstore_trusted_root_json_b64": b64(json.dumps(troot).encode()),
         },
-        "expected": {"accepted": accepted} if accepted else {"accepted": False, "code": "PROVENANCE_REJECTED"},
+        "expected": expected,
     }
 
 

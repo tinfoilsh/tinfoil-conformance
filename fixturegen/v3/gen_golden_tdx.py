@@ -91,10 +91,12 @@ def golden_tdx(artifact=None, code_rtmr1=RTMR1, code_rtmr2=RTMR2, report_data=No
 
 def fixture(fid, inp, accepted):
     if accepted:
+        # The release fixes only RTMR1 and RTMR2; "" marks the registers it
+        # leaves to the platform endorsement and the verifier.
         expected = {
             "accepted": True,
             "code_digest": prov.DIGEST,
-            "code_measurement": {"type": env.MEAS_SNP_TDX_MULTI, "registers": ["ab" * 48, RTMR1, RTMR2]},
+            "code_measurement": {"type": env.MEAS_TDX_GUEST_V2, "registers": ["", "", RTMR1, RTMR2, ""]},
             "enclave_measurement": {"type": env.MEAS_TDX_GUEST_V2,
                                     "registers": [MRTD, RTMR0, RTMR1, RTMR2, "00" * 48]},
             "tls_public_key_fp": env.TLS_FP, "hpke_public_key": env.HPKE_KEY,

@@ -83,8 +83,8 @@ Shape: [`output.schema.json`](../schemas/v3/output.schema.json). Exactly one of
 `outputs` / `rejection`.
 
 **On accept**, `outputs` MUST carry the verified facts: `code_digest`,
-`code_measurement` and `enclave_measurement` (each `{type, registers}` with
-registers in canonical order, lowercase hex), and the endorsed channel keys
+`code_measurement` and `enclave_measurement` (each `{type, registers}`, laid
+out as below), and the endorsed channel keys
 `tls_public_key_fp` / `hpke_public_key`. On `verify-attestation-v3` both keys
 are REQUIRED: a document that verifies but endorses no usable `tls` (spki-fp)
 and `hpke` (x25519) crypto-material entry MUST reject with `ENVELOPE_REJECTED` —
@@ -93,6 +93,22 @@ fixture's `expected` declares any of these, the suite asserts byte-exact
 equality — an adapter that accepts but yields a different digest, a
 mis-ordered/mis-typed register set, or the wrong channel key is
 **non-conformant**.
+
+Measurements are laid out per platform, each register lowercase hex:
+
+| `type` | `registers` |
+|---|---|
+| `https://tinfoil.sh/predicate/sev-snp-guest/v2` | `[launch]` |
+| `https://tinfoil.sh/predicate/tdx-guest/v2` | `[MRTD, RTMR0, RTMR1, RTMR2, RTMR3]` |
+
+`enclave_measurement` is the quote's registers, all set. On
+`verify-attestation-v3`, `code_measurement` is the registers the release fixes,
+in the layout of the enclave's platform, with `""` for a register the release
+leaves to the platform endorsement or the verifier: a
+`snp-tdx-multiplatform/v1` release on TDX fixes only RTMR1 and RTMR2.
+`v3-authenticate-provenance` sees no quote, so its `code_measurement` is the
+signed predicate as is: `snp-tdx-multiplatform/v1` with
+`[SNP launch, RTMR1, RTMR2]`.
 
 **On reject**, `rejection.code` MUST be one of the closed taxonomy, attributed
 to the *verification step that failed* (never derived by matching error

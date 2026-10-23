@@ -109,12 +109,12 @@ def golden(artifact=None, report_measurement=MEASUREMENT, code_measurement=None,
 def fixture(fid, inp, accepted, code="POLICY_REJECTED"):
     if accepted:
         # Every accepting golden resolves to the same verified facts (no accept
-        # varies the measurement); pin them so a port must reproduce them.
+        # varies the measurement); pin them so a port must reproduce them. The
+        # code measurement is the release's SEV-SNP registers only.
         expected = {
             "accepted": True,
             "code_digest": prov.DIGEST,
-            "code_measurement": {"type": env.MEAS_SNP_TDX_MULTI,
-                                 "registers": [MEASUREMENT.hex(), "bb" * 48, "cc" * 48]},
+            "code_measurement": {"type": env.MEAS_SEV_GUEST_V2, "registers": [MEASUREMENT.hex()]},
             "enclave_measurement": {"type": env.MEAS_SEV_GUEST_V2, "registers": [MEASUREMENT.hex()]},
             "tls_public_key_fp": env.TLS_FP, "hpke_public_key": env.HPKE_KEY,
         }
