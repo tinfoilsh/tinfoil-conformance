@@ -1,0 +1,9 @@
+{
+  "stage": "verify-sigstore",
+  "accepted": false,
+  "rejection": {
+    "code": [
+      "OBSERVER_TIMESTAMP_INSUFFICIENT"
+    ]
+  }
+}

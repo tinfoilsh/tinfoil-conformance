@@ -7,10 +7,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from . import fulcio, rekor, trust_root
+from . import tsa as tsa_lib
 from .bundle import build_bundle
 from .dsse import SignedEnvelope, sign_envelope
 from .fulcio import LeafCertSpec, build_leaf_final, build_leaf_pre_sct, build_root_ca
-from .keys import P256KeyPair
+from .keys import Ed25519KeyPair, P256KeyPair
 from .sct import make_sct
 
 
@@ -96,6 +97,16 @@ class FixtureSpec:
     integrated_time: datetime = field(
         default_factory=lambda: datetime(2026, 1, 1, 0, 2, tzinfo=timezone.utc)
     )
+    # Rekor v2: log the envelope as a hashedrekord 0.0.2 entry in a synthetic
+    # Ed25519 rekor-tiles log (no integratedTime / SET) and anchor it with an
+    # RFC 3161 timestamp from a synthetic TSA. The token's genTime is the wall
+    # clock at generation, so put leaf_valid_from/until around now.
+    rekor_v2: bool = False
+    rekor_v2_origin: str = "log2026-1.rekor.tinfoil-conformance.test"
+    # Rekor v2: log a different digest than SHA-256(PAE) to break the binding.
+    rekor_v2_digest_override: bytes | None = None
+    # Attach an RFC 3161 timestamp to a Rekor v1 bundle too.
+    rfc3161_timestamp: bool = False
 
     # Trust-root validity windows. start <= sct_timestamp and start <=
     # integrated_time, so the SDK's key-validity-window checks pass.
@@ -204,17 +215,40 @@ def build_bundle_and_trust_root(spec: FixtureSpec) -> GeneratedFixture:
     # tree-size-1 inclusion proof signed by the same Rekor key; they differ
     # only in integratedTime + logIndex so the cert/sig/payload bindings all
     # still match the bundle's DSSE envelope.
-    entries = [
-        rekor.build_size_1_rekor_entry(
-            envelope=envelope,
-            leaf_cert_pem=leaf.cert_pem,
-            rekor_key=rekor_key,
-            integrated_time=spec.integrated_time
-            + __import__("datetime").timedelta(seconds=i),
-            log_index=i,
+    rekor_v2_log = None
+    if spec.rekor_v2:
+        log_key = Ed25519KeyPair.generate()
+        rekor_v2_log = (log_key, spec.rekor_v2_origin)
+        entries = [
+            rekor.build_size_1_rekor_v2_entry(
+                envelope=envelope,
+                leaf_cert_der=leaf.cert_der,
+                log_key=log_key,
+                origin=spec.rekor_v2_origin,
+                digest_override=spec.rekor_v2_digest_override,
+            )
+        ]
+    else:
+        entries = [
+            rekor.build_size_1_rekor_entry(
+                envelope=envelope,
+                leaf_cert_pem=leaf.cert_pem,
+                rekor_key=rekor_key,
+                integrated_time=spec.integrated_time
+                + __import__("datetime").timedelta(seconds=i),
+                log_index=i,
+            )
+            for i in range(spec.num_tlog_entries)
+        ]
+
+    timestamps: list[bytes] = []
+    tsa_entries: list[dict] = []
+    if spec.rekor_v2 or spec.rfc3161_timestamp:
+        tsa = tsa_lib.build_synth_tsa(
+            not_before=spec.root_valid_from, not_after=spec.root_valid_until
         )
-        for i in range(spec.num_tlog_entries)
-    ]
+        timestamps = [tsa_lib.timestamp(tsa, envelope.signature_der)]
+        tsa_entries = [tsa_lib.trust_root_entry(tsa)]
 
     # 8. Assemble bundle + matching trust root. `num_dsse_signatures > 1`
     # duplicates the same signature in the envelope's signatures array — tests
@@ -224,6 +258,7 @@ def build_bundle_and_trust_root(spec: FixtureSpec) -> GeneratedFixture:
         envelope=envelope,
         rekor_entries=entries,
         num_dsse_signatures=spec.num_dsse_signatures,
+        rfc3161_timestamps=timestamps,
     )
     tr = trust_root.build_trust_root(
         fulcio_root=root,
@@ -231,6 +266,8 @@ def build_bundle_and_trust_root(spec: FixtureSpec) -> GeneratedFixture:
         ct_log_valid_from=spec.ctlog_valid_from,
         rekor_key=rekor_key,
         rekor_valid_from=spec.rekor_valid_from,
+        rekor_v2_log=rekor_v2_log,
+        timestamp_authorities=tsa_entries,
     )
     return GeneratedFixture(bundle=bundle, trust_root=tr)
 

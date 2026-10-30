@@ -1,0 +1,18 @@
+id: 100-rekor-v1-set-tampered
+stage: verify-sigstore
+title: |
+  Rekor v1 inclusion promise (SET) with a tampered signature must reject.
+spec_refs: ["5.2"]
+expects:
+  exit_code: 10
+  rejection_code: ["REKOR_INCLUSION_INVALID", "TLOG_COUNT_OUT_OF_RANGE"]
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+fixture_kind: synthetic
+notes: |
+  The Merkle leaf covers only the entry body; integratedTime is authenticated
+  solely by the signed entry timestamp. One byte of it is flipped here.
+  sigstore-go skips the entry and then fails its log threshold (TLOG_COUNT_OUT_OF_RANGE).

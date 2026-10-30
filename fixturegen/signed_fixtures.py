@@ -100,8 +100,15 @@ def write_fixture(
     rejection_code: str | list[str] | None,
     expected_outputs: dict[str, Any] | None = None,
     extra_capabilities: dict[str, Any] | None = None,
+    mutate_bundle=None,
+    mutate_trust_root=None,
+    fixture_kind: str = "synthetic",
 ) -> None:
     g = build_bundle_and_trust_root(spec)
+    if mutate_bundle:
+        mutate_bundle(g.bundle)
+    if mutate_trust_root:
+        mutate_trust_root(g.trust_root)
     policy = default_policy(repo)
     if policy_override:
         policy.update(policy_override)
@@ -153,7 +160,7 @@ def write_fixture(
     manifest += "required_capabilities:\n"
     for path, value in capabilities.items():
         manifest += f"  {path}: {json.dumps(value)}\n"
-    manifest += "fixture_kind: synthetic\n"
+    manifest += f"fixture_kind: {fixture_kind}\n"
     manifest += "notes: |\n"
     for line in notes.strip().splitlines():
         manifest += f"  {line}\n"

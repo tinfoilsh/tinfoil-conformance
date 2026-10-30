@@ -97,6 +97,10 @@
           "type": "boolean",
           "description": "True if the SDK only checks subject[0].digest.sha256 (SPEC §5.4 wording 'If the subject array contains multiple entries, only the first entry is checked'). sigstore-go iterates ALL subjects when matching the artifact digest, accepting bundles where subject[0] is bad but subject[1] matches."
         },
+        "rekor_v2_supported": {
+          "type": "boolean",
+          "description": "True if the SDK verifies Rekor v2 (rekor-tiles) entries: hashedrekord 0.0.2 recording SHA-256(PAE) of the DSSE envelope, Ed25519 checkpoint with no integratedTime or inclusion promise, RFC 3161 TSA timestamp as the observer time. tinfoil-js via @freedomofpress/sigstore-browser 0.1.x only accepts hashedrekord entries for messageSignature bundles."
+        },
         "in_toto_statement_tolerates_extra_fields": {
           "type": "boolean",
           "description": "True if the SDK tolerates unknown top-level fields on the in-toto statement (forward-compat). sigstore-go's strict in-toto parser rejects unknown fields."

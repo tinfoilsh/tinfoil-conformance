@@ -19,22 +19,31 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from .dsse import SignedEnvelope
-from .keys import P256KeyPair
+from .dsse import SignedEnvelope, compute_pae
+from .keys import Ed25519KeyPair, P256KeyPair
+
+
+def _b64(b: bytes) -> str:
+    return base64.standard_b64encode(b).decode()
 
 
 @dataclass
 class RekorEntry:
-    """Everything needed to populate one `verificationMaterial.tlogEntries` entry."""
+    """Everything needed to populate one `verificationMaterial.tlogEntries` entry.
+
+    Rekor v1 entries carry integrated_time + a SET; Rekor v2 (hashedrekord
+    0.0.2) entries carry neither and rely on an RFC 3161 timestamp."""
 
     log_index: int
     log_id_b64: str
-    integrated_time: int
     canonicalized_body_b64: str
-    signed_entry_timestamp_b64: str   # may be a placeholder; Rust doesn't verify
     inclusion_proof_root_hash_b64: str
     inclusion_proof_tree_size: int
     inclusion_proof_log_index: int
+    kind: str = "dsse"
+    version: str = "0.0.1"
+    integrated_time: int | None = None
+    signed_entry_timestamp_b64: str | None = None
     inclusion_proof_hashes: list[str] = field(default_factory=list)
     checkpoint_envelope: str = ""
 
@@ -203,4 +212,64 @@ def build_size_1_rekor_entry(
         inclusion_proof_log_index=0,
         inclusion_proof_hashes=[],
         checkpoint_envelope=checkpoint,
+    )
+
+
+def build_hashedrekord_v2_body(
+    *, envelope: SignedEnvelope, cert_der: bytes, digest: bytes | None = None
+) -> bytes:
+    """Rekor v2 hashedrekord 0.0.2 body: canonical protojson of the rekor-tiles
+    Entry. DSSE envelopes are logged as SHA-256(PAE) (rekor-v2-spec §6.1.4);
+    `digest` overrides that to build a body that does not match the bundle."""
+    if digest is None:
+        digest = hashlib.sha256(
+            compute_pae(envelope.payload_type, envelope.payload_bytes)
+        ).digest()
+    body = {
+        "apiVersion": "0.0.2",
+        "kind": "hashedrekord",
+        "spec": {
+            "hashedRekordV002": {
+                "data": {"algorithm": "SHA2_256", "digest": _b64(digest)},
+                "signature": {
+                    "content": envelope.signature_b64,
+                    "verifier": {
+                        "keyDetails": "PKIX_ECDSA_P256_SHA_256",
+                        "x509Certificate": {"rawBytes": _b64(cert_der)},
+                    },
+                },
+            }
+        },
+    }
+    return json.dumps(body, separators=(",", ":"), sort_keys=True).encode()
+
+
+def build_size_1_rekor_v2_entry(
+    *,
+    envelope: SignedEnvelope,
+    leaf_cert_der: bytes,
+    log_key: Ed25519KeyPair,
+    origin: str,
+    digest_override: bytes | None = None,
+) -> RekorEntry:
+    """Rekor v2 tree-size-1 entry. The checkpoint origin is the bare log host
+    (no " - treeID" suffix, which is how sigstore-go tells v1 from v2) and the
+    signature line is named after it with the rekor-tiles key hint."""
+    body = build_hashedrekord_v2_body(
+        envelope=envelope, cert_der=leaf_cert_der, digest=digest_override
+    )
+    leaf = rfc6962_leaf_hash(body)
+    note = f"{origin}\n1\n{_b64(leaf)}\n"
+    sig = log_key.sign(note.encode())
+    hint = log_key.log_id(origin)[:4]
+    return RekorEntry(
+        log_index=0,
+        log_id_b64=_b64(log_key.log_id(origin)),
+        canonicalized_body_b64=_b64(body),
+        inclusion_proof_root_hash_b64=_b64(leaf),
+        inclusion_proof_tree_size=1,
+        inclusion_proof_log_index=0,
+        kind="hashedrekord",
+        version="0.0.2",
+        checkpoint_envelope=f"{note}\n\u2014 {origin} {_b64(hint + sig)}\n",
     )

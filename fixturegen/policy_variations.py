@@ -380,7 +380,7 @@ def main() -> None:
             "REKOR_KEY_NOT_TRUSTED",
             "REKOR_INCLUSION_INVALID",
             "TLOG_COUNT_OUT_OF_RANGE",
-        ],
+        , "TRUST_ROOT_INVALID"],
         expected_outputs=None,
     )
 

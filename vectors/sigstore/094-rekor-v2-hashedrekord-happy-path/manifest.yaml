@@ -1,0 +1,20 @@
+id: 094-rekor-v2-hashedrekord-happy-path
+stage: verify-sigstore
+title: |
+  Rekor v2 entry (hashedrekord 0.0.2 over the DSSE PAE, Ed25519 checkpoint, RFC 3161 observer timestamp) must verify.
+spec_refs: ["5.2"]
+expects:
+  exit_code: 0
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+  sigstore.rekor_v2_supported: true
+fixture_kind: synthetic
+notes: |
+  rekor-tiles logs DSSE envelopes as hashedrekord 0.0.2 with data.digest =
+  SHA-256(PAE); the entry has no integratedTime or inclusion promise, the
+  checkpoint origin is the bare log host signed with the log's Ed25519 key
+  (key hint = rekor-tiles log id prefix), and the only observer timestamp
+  is an RFC 3161 token over the DSSE signature from the trust root's TSA.

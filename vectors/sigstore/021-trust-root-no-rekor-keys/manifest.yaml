@@ -5,7 +5,7 @@ title: |
 spec_refs: ["5.1", "5.2"]
 expects:
   exit_code: 10
-  rejection_code: ["REKOR_KEY_NOT_TRUSTED", "REKOR_INCLUSION_INVALID", "TLOG_COUNT_OUT_OF_RANGE"]
+  rejection_code: ["REKOR_KEY_NOT_TRUSTED", "REKOR_INCLUSION_INVALID", "TLOG_COUNT_OUT_OF_RANGE", "TRUST_ROOT_INVALID"]
 required_capabilities:
   sigstore.trust_root_loading: "configurable"
   sigstore.verification_time_override: ["supported", "bundle-supplied-only"]

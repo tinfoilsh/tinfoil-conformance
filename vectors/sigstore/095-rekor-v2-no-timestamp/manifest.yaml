@@ -1,0 +1,18 @@
+id: 095-rekor-v2-no-timestamp
+stage: verify-sigstore
+title: |
+  Rekor v2 entry with no RFC 3161 timestamp has no observer time and must reject.
+spec_refs: ["5.2"]
+expects:
+  exit_code: 10
+  rejection_code: ["OBSERVER_TIMESTAMP_INSUFFICIENT"]
+required_capabilities:
+  sigstore.trust_root_loading: "configurable"
+  sigstore.verification_time_override: ["supported", "bundle-supplied-only"]
+  sigstore.policy_fields_configurable.workflow_ref_prefix: true
+  sigstore.policy_fields_configurable.predicate_types_allowed: true
+  sigstore.rekor_v2_supported: true
+fixture_kind: synthetic
+notes: |
+  Same bundle as 094 with timestampVerificationData removed. Nothing binds the
+  signature to a time inside the certificate window.
