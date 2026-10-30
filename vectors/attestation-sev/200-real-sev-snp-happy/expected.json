@@ -54,14 +54,14 @@
       "report_id_ma_hex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
       "reported_tcb_hex": "0a00000000001754",
       "chip_id_hex": "1af1aa6c1f56037a05849a59b8815cf909583f9ba9ef2f053218c437f33ba183e4e415b039b37f8205250ad15f8b88a0a3add9f4c081c0779a48ed2214378e44",
-      "committed_tcb_hex": "2837010028370100",
-      "current_build": 10,
-      "current_minor": 0,
-      "current_major": 0,
-      "committed_build": 0,
-      "committed_minor": 0,
-      "committed_major": 23,
-      "launch_tcb_hex": "0000000000000000"
+      "committed_tcb_hex": "0a00000000001754",
+      "current_build": 40,
+      "current_minor": 55,
+      "current_major": 1,
+      "committed_build": 40,
+      "committed_minor": 55,
+      "committed_major": 1,
+      "launch_tcb_hex": "0a00000000001754"
     }
   }
 }
