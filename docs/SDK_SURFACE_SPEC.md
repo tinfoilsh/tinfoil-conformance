@@ -1,4 +1,4 @@
-# SDK Surface Specification — v2.0.0
+# SDK Surface Specification — v0.2.0
 
 The normative **public API surface** a v3 SDK exposes. The adapter spec
 ([CONFORMANCE_ADAPTER_SPEC.md](CONFORMANCE_ADAPTER_SPEC.md)) pins *behavior*;
@@ -188,11 +188,13 @@ statement construction, `verify/document/collateral` entry types, and the Go
 
 ## 5. Change control
 
-Surface additions bump this spec's minor version; renames/removals bump the
-major and require a coordinated release across SDKs. An SDK's conformance
-claim states the surface-spec version it implements.
+The surface is not yet stable. While the version is 0.x, any change —
+including renames and removals — bumps the minor version. From 1.0.0,
+surface additions bump the minor version; renames/removals bump the major
+and require a coordinated release across SDKs. An SDK's conformance claim
+states the surface-spec version it implements.
 
-v2.0.0 (from 1.0.0): reference moved to `tinfoil-go` `main`.
+v0.2.0 (from 1.0.0, renumbered as pre-stable): reference moved to `tinfoil-go` `main`.
 `VerifyDocumentV3` → `Verifier.VerifyV3`/`VerifyV3At`; `VerifiedDocumentV3`
 → `Verification`; free `TLSPublicKeyFP(v)`/`HPKEPublicKey(v)` → accessors;
 public `Fetch(host, nonce)` removed (wire contract kept, §2.5); verifier
