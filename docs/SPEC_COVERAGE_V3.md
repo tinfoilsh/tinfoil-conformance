@@ -1,8 +1,8 @@
 # V3 Conformance — Spec Coverage Matrix
-> Branch `feat/v3-conformance`. Living burn-down of every normative rule in the v3 spec
+> Living burn-down of every normative rule in the v3 spec
 > (`SPEC_V3`, `POLICY_VALIDATION`, `PLATFORM_ENDORSEMENTS`, `VERIFICATION_ARCHITECTURE`,
 > `FORMAT_DECISIONS`) against fixtures in this suite. Reference implementation: **tinfoil-go
-> `feat/v3`** (pinned; if `pr/assembled-policy` ever lands, the SEV rows will correctly flag the
+> `main`** (if `pr/assembled-policy` ever lands, the SEV rows will correctly flag the
 > exact-equality regression). Coexists with the v2 stages — v2 is retired per-SDK as it ports.
 
 **Scope:** 121 normative rules — 116 across 9 layers (mapped to block-aligned stages below) + 5 ambiguous/underspecified (tracked as spec-questions, Phase 3). Each mappable rule needs ≥1 fixture (accept **and** reject where both are meaningful). Done = every rule has a fixture and a go-status (or, for ambiguous rules, a resolved spec-question).

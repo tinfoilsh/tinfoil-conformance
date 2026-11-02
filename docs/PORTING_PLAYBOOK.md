@@ -11,11 +11,11 @@ person or agent team starting `tinfoil-python`, `tinfoil-rs`, etc.
    (stages, exit codes, wire shapes) and exposing the public API pinned by
    [SDK_SURFACE_SPEC.md](SDK_SURFACE_SPEC.md) (Tier 1 now, Tier 2 before release).
 
-References, in order of authority: the two specs → `tinfoil-go` `feat/v3`
-(primary source — port its check order and error conditions exactly) →
-`tinfoil-js` `feat/v3-verifier` (second opinion; shows the shape of a port,
-including full TDX DCAP without a platform library). Where Go delegates to
-go-sev-guest / go-tdx-guest / sigstore-go, implement exactly the subset its
+References, in order of authority: the two specs → `tinfoil-go` `main`
+(primary source — port its check order and error conditions exactly; the
+verifier is `verify/`, the adapter `verify/conformance/` and
+`cmd/tinfoil-conformance/`). Where Go delegates to go-sev-guest (Tinfoil's
+fork) / go-tdx-guest / sigstore-go, implement exactly the subset its
 configured options exercise — read those libraries, not just the wrappers.
 
 ## Definition of done
@@ -48,11 +48,11 @@ via its own fixture directory, and must not touch the others' files:
 
 | slice | Go source | gate (`--dirs`) | notes |
 |---|---|---|---|
-| provenance + freshness | `verifier/provenance/` | `provenance,policy` | use your language's Sigstore library if it verifies v0.3 DSSE bundles against a supplied trusted root with SCT + tlog-inclusion + observer-timestamp semantics; implement every tinfoil check it lacks (identity regex, issuer/runner_env/source-ref extensions, subject digest, one-signature, legacy-format rejection, freshness witness) |
-| SEV-SNP | `verifier/quote/sev/` + go-sev-guest | `quote-sev` | chain (RSA-PSS-SHA384), CRL fail-closed, report ABI, expectations |
-| TDX | `verifier/quote/tdx/` + go-tdx-guest | `quote-tdx` | the long pole: full DCAP quote-v4 verification, no library exists outside Go. `fixturegen/lib/tdx_synth.py` is a complete spec of the material; tinfoil-js `v3/tdx/` is a worked port |
+| provenance + freshness | `verify/internal/endorsement/` | `provenance,policy` | use your language's Sigstore library if it verifies v0.3 DSSE bundles against a supplied trusted root with SCT + tlog-inclusion + observer-timestamp semantics; implement every tinfoil check it lacks (identity regex, issuer/runner_env/source-ref extensions, subject digest, one-signature, legacy-format rejection, freshness witness) |
+| SEV-SNP | `verify/internal/quote/sev/` + go-sev-guest | `quote-sev` | chain (RSA-PSS-SHA384), CRL fail-closed, report ABI, expectations |
+| TDX | `verify/internal/quote/tdx/` + go-tdx-guest | `quote-tdx` | the long pole: full DCAP quote-v4 verification, no library exists outside Go. `fixturegen/lib/tdx_synth.py` is a complete spec of the material |
 
-**Phase 3 — integration (one worker).** `quote` dispatch + `verifyDocumentV3`
+**Phase 3 — integration (one worker).** `quote` dispatch + `Verifier.VerifyV3At`
 (one appraisal time pins freshness *and* the quote clock) + remaining adapter
 stages with layer attribution and the five accept facts. Gate: full suite,
 then the comparator, then the browser/live lanes as applicable.
