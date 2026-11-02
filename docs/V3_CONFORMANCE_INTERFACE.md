@@ -1,5 +1,12 @@
 # V3 Conformance Interface (DRAFT)
 
+> **Superseded.** This early draft is kept for history; its stage names,
+> wire shapes and reference functions (`envelope.Check`,
+> `client.VerifyDocumentV3`, …) no longer match the suite. The normative
+> contract is [CONFORMANCE_ADAPTER_SPEC.md](CONFORMANCE_ADAPTER_SPEC.md) and
+> [SDK_SURFACE_SPEC.md](SDK_SURFACE_SPEC.md); the reference implementation is
+> `tinfoil-go` `main`.
+
 > Branch `feat/v3-conformance`. The cross-SDK contract the v3 conformance suite drives.
 > Companion to [SPEC_COVERAGE_V3.md](SPEC_COVERAGE_V3.md) (the rule burn-down).
 
