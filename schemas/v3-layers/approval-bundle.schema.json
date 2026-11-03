@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/v3-layers/approval-bundle.schema.json",
+  "title": "key-signed approval bundle layer vector",
+  "description": "One language-neutral unit-test case for the key-signed approval-bundle verification layer: a Sigstore v0.3 DSSE bundle with a public-key hint, the trusted root and pinned signing keys to verify it under, the artifact digest its statement must name, and the expected verdict. Consumed by SDK unit tests, not driven by the conformance adapter.",
+  "type": "object",
+  "required": ["id", "description", "input", "expected"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Unique, filesystem-safe vector id (the file's basename)."
+    },
+    "description": {
+      "type": "string",
+      "description": "One sentence: what the vector exercises and, for a reject, which single rule it breaks."
+    },
+    "input": {
+      "type": "object",
+      "required": ["schema_version", "trusted_root_json_b64", "signing_keys_pem", "bundle_json_b64", "artifact_digest_hex"],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "const": "1" },
+        "trusted_root_json_b64": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "Sigstore trusted root (trustedroot+json version 0.1) whose transparency logs may witness the bundle's log entries."
+        },
+        "signing_keys_pem": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "description": "The pinned approval signing keys, each a PEM-encoded ECDSA P-256 SubjectPublicKeyInfo. The bundle's hint must name one of them."
+        },
+        "bundle_json_b64": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "The Sigstore v0.3 bundle (protojson) under test."
+        },
+        "artifact_digest_hex": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 of the approved artifact; a subject of the signed in-toto statement must carry it as its sha256 digest."
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "required": ["accepted"],
+      "additionalProperties": false,
+      "properties": {
+        "accepted": { "type": "boolean" },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Informative short tag naming the rule a reject breaks (rejects only). Not a closed taxonomy; SDKs need not echo it."
+        },
+        "signing_key_hint": {
+          "type": "string",
+          "description": "The hint (standard base64 of SHA-256 over the DER SubjectPublicKeyInfo) of the pinned key that verified; an accept must report exactly this key (accepts only)."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "accepted": { "const": false } } },
+          "then": { "required": ["reason"], "not": { "required": ["signing_key_hint"] } },
+          "else": { "required": ["signing_key_hint"], "not": { "required": ["reason"] } }
+        }
+      ]
+    }
+  }
+}

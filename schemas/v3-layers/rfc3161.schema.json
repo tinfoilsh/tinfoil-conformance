@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinfoil.sh/conformance/v3-layers/rfc3161.schema.json",
+  "title": "RFC 3161 timestamp layer vector",
+  "description": "One language-neutral unit-test case for the RFC 3161 timestamp verification layer: a DER TimeStampResp, the bytes it must cover, the trusted root whose timestamp authorities may authenticate it, and the expected verdict. Consumed by SDK unit tests, not driven by the conformance adapter.",
+  "type": "object",
+  "required": ["id", "description", "input", "expected"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Unique, filesystem-safe vector id (the file's basename)."
+    },
+    "description": {
+      "type": "string",
+      "description": "One sentence: what the vector exercises and, for a reject, which single rule it breaks."
+    },
+    "input": {
+      "type": "object",
+      "required": ["schema_version", "trusted_root_json_b64", "response_b64", "input_b64"],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "const": "1" },
+        "trusted_root_json_b64": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "Sigstore trusted root (trustedroot+json version 0.1) whose timestampAuthorities may authenticate the response."
+        },
+        "response_b64": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "The DER-encoded TimeStampResp under test."
+        },
+        "input_b64": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "The bytes the timestamp covers; the TSTInfo messageImprint must be their SHA-256."
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "required": ["accepted"],
+      "additionalProperties": false,
+      "properties": {
+        "accepted": { "type": "boolean" },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Informative short tag naming the rule a reject breaks (rejects only). Not a closed taxonomy; SDKs need not echo it."
+        },
+        "time": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "description": "The TSTInfo genTime an accept must report, RFC 3339 in UTC (accepts only). The vector pins no freshness policy: an SDK applying one must anchor its clock to this time."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "accepted": { "const": false } } },
+          "then": { "required": ["reason"], "not": { "required": ["time"] } },
+          "else": { "required": ["time"], "not": { "required": ["reason"] } }
+        }
+      ]
+    }
+  }
+}

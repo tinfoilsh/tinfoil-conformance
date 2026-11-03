@@ -48,7 +48,7 @@ via its own fixture directory, and must not touch the others' files:
 
 | slice | Go source | gate (`--dirs`) | notes |
 |---|---|---|---|
-| provenance + freshness | `verify/internal/endorsement/` | `provenance,policy` | use your language's Sigstore library if it verifies v0.3 DSSE bundles against a supplied trusted root with SCT + tlog-inclusion + observer-timestamp semantics; implement every tinfoil check it lacks (identity regex, issuer/runner_env/source-ref extensions, subject digest, one-signature, legacy-format rejection, freshness witness) |
+| provenance + freshness | `verify/internal/endorsement/` | `provenance,policy` | use your language's Sigstore library if it verifies v0.3 DSSE bundles against a supplied trusted root with SCT + tlog-inclusion + observer-timestamp semantics; implement every tinfoil check it lacks (identity regex, issuer/runner_env/source-ref extensions, subject digest, one-signature, legacy-format rejection, freshness witness). The key-signed approval verifier and the RFC 3161 timestamp verifier are below the stages: unit-test them against the [layer vectors](LAYER_VECTORS.md) in `vectors/v3-layers/` |
 | SEV-SNP | `verify/internal/quote/sev/` + go-sev-guest | `quote-sev` | chain (RSA-PSS-SHA384), CRL fail-closed, report ABI, expectations |
 | TDX | `verify/internal/quote/tdx/` + go-tdx-guest | `quote-tdx` | the long pole: full DCAP quote-v4 verification, no library exists outside Go. `fixturegen/lib/tdx_synth.py` is a complete spec of the material |
 
