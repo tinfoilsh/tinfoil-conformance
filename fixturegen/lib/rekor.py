@@ -204,3 +204,171 @@ def build_size_1_rekor_entry(
         inclusion_proof_hashes=[],
         checkpoint_envelope=checkpoint,
     )
+
+
+# ---------------------------------------------------------------------------
+# Rekor v2 (rekor-tiles) hashedrekord 0.0.2 entries.
+#
+# A key-signed approval bundle carries hashedrekord 0.0.2 entries whose body
+# is the protojson form of the rekor-tiles `Entry` message in RFC 8785
+# canonical JSON, and whose checkpoint is a signed note (C2SP tlog-checkpoint)
+# whose origin and signer name are the hostname of the log's base URL. The
+# verifier rebuilds the body from the bundle (digest of the signed PAE bytes,
+# the DSSE signature, the pinned key's SPKI) and checks the inclusion proof
+# against the checkpoint root, so the body bytes must be exactly canonical.
+#
+# References used while implementing:
+#   * sigstore-go pkg/verify/tlog.go (reconstructV2EntryHash, hasRekorV1STH)
+#   * rekor-tiles pkg/note/note.go (key hashes: ECDSA = sha256(SPKI)[:4],
+#     Ed25519 = sha256(origin || "\n" || 0x01 || raw_key)[:4])
+#   * RFC 6962 §2.1 (Merkle tree hash and inclusion proof path)
+
+HASHEDREKORD_KIND = "hashedrekord"
+HASHEDREKORD_VERSION = "0.0.2"
+
+
+def build_hashedrekord_v002_body(
+    *,
+    digest: bytes,
+    signature_der: bytes,
+    verifier_spki_der: bytes,
+    hash_algorithm: str = "SHA2_256",
+    key_details: str = "PKIX_ECDSA_P256_SHA_256",
+) -> bytes:
+    """The canonicalizedBody bytes of a hashedrekord 0.0.2 entry: protojson
+    of the rekor-tiles Entry in RFC 8785 canonical form (sorted keys, no
+    whitespace — identical for these ASCII-only members)."""
+    body = {
+        "apiVersion": HASHEDREKORD_VERSION,
+        "kind": HASHEDREKORD_KIND,
+        "spec": {
+            "hashedRekordV002": {
+                "data": {
+                    "algorithm": hash_algorithm,
+                    "digest": base64.standard_b64encode(digest).decode(),
+                },
+                "signature": {
+                    "content": base64.standard_b64encode(signature_der).decode(),
+                    "verifier": {
+                        "keyDetails": key_details,
+                        "publicKey": {
+                            "rawBytes": base64.standard_b64encode(verifier_spki_der).decode()
+                        },
+                    },
+                },
+            }
+        },
+    }
+    return json.dumps(body, separators=(",", ":"), sort_keys=True).encode()
+
+
+def rfc6962_hash_children(left: bytes, right: bytes) -> bytes:
+    """RFC 6962 interior node hash: sha256(0x01 || left || right)."""
+    return hashlib.sha256(b"\x01" + left + right).digest()
+
+
+def merkle_root(leaf_hashes: list[bytes]) -> bytes:
+    """RFC 6962 §2.1 Merkle tree hash over already-hashed leaves."""
+    n = len(leaf_hashes)
+    if n == 0:
+        return hashlib.sha256(b"").digest()
+    if n == 1:
+        return leaf_hashes[0]
+    k = _largest_power_of_two_below(n)
+    return rfc6962_hash_children(merkle_root(leaf_hashes[:k]), merkle_root(leaf_hashes[k:]))
+
+
+def merkle_inclusion_proof(leaf_hashes: list[bytes], index: int) -> list[bytes]:
+    """RFC 6962 §2.1.1 audit path for leaf `index`, leaf-to-root order (the
+    order sigstore-go / transparency-dev `proof.VerifyInclusion` expect)."""
+    n = len(leaf_hashes)
+    if not 0 <= index < n:
+        raise ValueError(f"leaf index {index} outside a tree of {n} leaves")
+    if n == 1:
+        return []
+    k = _largest_power_of_two_below(n)
+    if index < k:
+        return merkle_inclusion_proof(leaf_hashes[:k], index) + [merkle_root(leaf_hashes[k:])]
+    return merkle_inclusion_proof(leaf_hashes[k:], index - k) + [merkle_root(leaf_hashes[:k])]
+
+
+def _largest_power_of_two_below(n: int) -> int:
+    k = 1
+    while k * 2 < n:
+        k *= 2
+    return k
+
+
+def note_key_hint(log_key, origin: str) -> bytes:
+    """The 4-byte key hint a checkpoint signature line carries for `log_key`.
+
+    ECDSA keys hash their SPKI DER; Ed25519 keys follow the signed-note
+    standard: sha256(origin || "\\n" || 0x01 || raw 32-byte key)."""
+    if hasattr(log_key, "public_raw"):
+        return hashlib.sha256(origin.encode() + b"\n\x01" + log_key.public_raw).digest()[:4]
+    return hashlib.sha256(log_key.public_der).digest()[:4]
+
+
+def build_v2_checkpoint_envelope(
+    *,
+    origin: str,
+    tree_size: int,
+    root_hash: bytes,
+    log_key,
+    signer_name: str | None = None,
+) -> str:
+    """A Rekor v2 signed checkpoint: "<origin>\\n<size>\\n<root_b64>\\n" signed
+    as a note by the log key. The origin must NOT carry a " - <treeID>"
+    suffix (that marks a Rekor v1 STH) and must equal the hostname of the
+    log's trusted-root base URL, which is also the signature line's name."""
+    text = f"{origin}\n{tree_size}\n{base64.standard_b64encode(root_hash).decode()}\n"
+    if hasattr(log_key, "public_raw"):
+        sig = log_key.sign(text.encode())
+    else:
+        sig = log_key.sign_prehashed_sha256(text.encode())
+    hint = note_key_hint(log_key, origin)
+    line = f"— {signer_name or origin} {base64.standard_b64encode(hint + sig).decode()}"
+    return f"{text}\n{line}\n"
+
+
+def filler_leaf_hash(origin: str, index: int) -> bytes:
+    """A deterministic leaf hash for the other positions of a synthetic tree."""
+    return rfc6962_leaf_hash(f"{origin} filler leaf {index}".encode())
+
+
+def build_rekor_v2_entry(
+    *,
+    body: bytes,
+    log_key,
+    log_id: bytes,
+    origin: str,
+    log_index: int,
+    tree_size: int,
+    kind: str = HASHEDREKORD_KIND,
+    version: str = HASHEDREKORD_VERSION,
+) -> dict:
+    """One `verificationMaterial.tlogEntries` element (protojson shape) for a
+    Rekor v2 entry sitting at `log_index` of a `tree_size`-leaf tree whose
+    other leaves are deterministic filler, with a real inclusion proof and a
+    checkpoint signed by `log_key`. No integratedTime, no inclusionPromise."""
+    leaves = [filler_leaf_hash(origin, i) for i in range(tree_size)]
+    leaves[log_index] = rfc6962_leaf_hash(body)
+    root = merkle_root(leaves)
+    proof = merkle_inclusion_proof(leaves, log_index)
+    return {
+        "logIndex": str(log_index),
+        "logId": {"keyId": base64.standard_b64encode(log_id).decode()},
+        "kindVersion": {"kind": kind, "version": version},
+        "inclusionProof": {
+            "logIndex": str(log_index),
+            "rootHash": base64.standard_b64encode(root).decode(),
+            "treeSize": str(tree_size),
+            "hashes": [base64.standard_b64encode(h).decode() for h in proof],
+            "checkpoint": {
+                "envelope": build_v2_checkpoint_envelope(
+                    origin=origin, tree_size=tree_size, root_hash=root, log_key=log_key
+                )
+            },
+        },
+        "canonicalizedBody": base64.standard_b64encode(body).decode(),
+    }

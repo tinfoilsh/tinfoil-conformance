@@ -5,7 +5,8 @@ Usage: run_adapter.py --adapter "cmd args..." [--dirs d1,d2 | fixture.json ...]
 
 For every fixture: pipe input JSON to `cmd <stage>`, then assert the verdict
 (exit code + accepted), the declared reject code, and any declared accept facts
-(code_digest, measurements, channel keys). Exit nonzero on any mismatch.
+(code_digest, measurements, channel keys, signing_key_hint, timestamp). Exit
+nonzero on any mismatch.
 """
 
 import argparse
@@ -17,7 +18,7 @@ import sys
 
 EXIT_ACCEPTED, EXIT_REJECTED, EXIT_UNSUPPORTED, EXIT_MALFORMED = 0, 10, 20, 30
 FACTS = ("code_digest", "code_measurement", "enclave_measurement",
-         "tls_public_key_fp", "hpke_public_key")
+         "tls_public_key_fp", "hpke_public_key", "signing_key_hint", "timestamp")
 
 
 def run_fixture(adapter, path):

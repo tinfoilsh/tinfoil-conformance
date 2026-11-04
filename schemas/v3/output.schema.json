@@ -15,7 +15,9 @@
       "properties": {
         "code_digest": { "type": "string" },
         "code_measurement": { "$ref": "#/$defs/measurement" },
-        "enclave_measurement": { "$ref": "#/$defs/measurement" }
+        "enclave_measurement": { "$ref": "#/$defs/measurement" },
+        "signing_key_hint": { "type": "string", "description": "v3-authenticate-approval accept: the hint of the pinned key that verified (standard base64 of SHA-256 over the DER SubjectPublicKeyInfo)" },
+        "timestamp": { "type": "string", "description": "v3-verify-timestamp accept: the TSTInfo genTime, RFC 3339 in UTC at second precision (e.g. 2026-11-03T21:32:16Z)" }
       }
     },
     "rejection": {

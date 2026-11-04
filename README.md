@@ -25,8 +25,11 @@ vectors/                Test fixtures, grouped by stage
   sigstore/             Sigstore stage (SPEC §5)
   …                     attestation-sev, attestation-tdx, measurement,
                         tls-pinning, cert-binding, ehbp (planned)
+  v3/                   v3 adapter fixtures (docs/CONFORMANCE_ADAPTER_SPEC.md)
+    approval-bundle/    v3-authenticate-approval: key-signed approval bundles
+    rfc3161/            v3-verify-timestamp: RFC 3161 timestamp responses
 harness/                Python test runner: spawns SDK binaries, diffs JSON
-fixturegen/             (Planned) Synthetic-bundle generator for crafted fixtures
+fixturegen/             Synthetic-bundle generators for crafted fixtures
 .github/workflows/      Reusable workflows each SDK repo can call
 ```
 
