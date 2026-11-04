@@ -68,7 +68,7 @@ class P256KeyPair:
 
 class P384KeyPair(P256KeyPair):
     """An ECDSA P-384 keypair. The production Sigstore timestamp authority
-    signs with a P-384 key over SHA-256 digests, so the layer vectors need one."""
+    signs with a P-384 key over SHA-256 digests, so the rfc3161 fixtures need one."""
 
     CURVE = ec.SECP384R1
 

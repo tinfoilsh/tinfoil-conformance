@@ -17,7 +17,7 @@
         "stages_supported": {
           "type": "array",
           "items": {
-            "enum": ["v3-check-envelope", "v3-authenticate-provenance", "v3-assemble-policy", "v3-authenticate-quote", "verify-attestation-v3"]
+            "enum": ["v3-check-envelope", "v3-authenticate-provenance", "v3-assemble-policy", "v3-authenticate-quote", "verify-attestation-v3", "v3-authenticate-approval", "v3-verify-timestamp"]
           }
         },
         "synthetic_roots": {

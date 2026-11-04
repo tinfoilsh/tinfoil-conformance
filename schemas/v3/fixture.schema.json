@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://tinfoil.sh/conformance/v3/fixture.schema.json",
   "title": "v3 conformance fixture",
-  "description": "One shared, language-neutral conformance case: an Input driven through a stage, with the expected verdict and (for rejects) the spec-layer reject code.",
+  "description": "One shared, language-neutral conformance case: an Input driven through a stage, with the expected verdict and (for rejects) the spec-layer reject code. Which Input members a stage requires is stated per stage in allOf below.",
   "type": "object",
   "required": ["id", "stage", "input", "expected"],
   "additionalProperties": false,
@@ -19,7 +19,9 @@
         "v3-authenticate-provenance",
         "v3-assemble-policy",
         "v3-authenticate-quote",
-        "verify-attestation-v3"
+        "verify-attestation-v3",
+        "v3-authenticate-approval",
+        "v3-verify-timestamp"
       ]
     },
     "input": { "$ref": "input.schema.json" },
@@ -68,6 +70,15 @@
             "type": { "type": "string" },
             "registers": { "type": "array", "items": { "type": "string" } }
           }
+        },
+        "signing_key_hint": {
+          "type": "string",
+          "description": "v3-authenticate-approval: the hint (standard base64 of SHA-256 over the DER SubjectPublicKeyInfo) of the pinned key the accept must report as the one that verified (accept fixtures only)."
+        },
+        "timestamp": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "description": "v3-verify-timestamp: the TSTInfo genTime the accept must report, RFC 3339 in UTC at second precision (accept fixtures only)."
         }
       },
       "allOf": [
@@ -78,5 +89,44 @@
         }
       ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "enum": [
+              "v3-check-envelope",
+              "v3-authenticate-provenance",
+              "v3-assemble-policy",
+              "v3-authenticate-quote",
+              "verify-attestation-v3"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": { "input": { "required": ["document_b64"] } }
+      }
+    },
+    {
+      "if": { "properties": { "stage": { "const": "v3-authenticate-approval" } } },
+      "then": {
+        "properties": {
+          "input": { "required": ["bundle_json_b64", "signing_keys_pem", "artifact_digest_hex"] }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "stage": { "const": "v3-verify-timestamp" } } },
+      "then": {
+        "properties": {
+          "input": {
+            "required": ["timestamp_response_b64", "timestamp_input_b64", "verification_time_unix"],
+            "properties": { "verification_time_unix": { "minimum": 1 } }
+          }
+        }
+      }
+    }
+  ]
 }

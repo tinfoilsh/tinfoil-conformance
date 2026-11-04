@@ -1,4 +1,4 @@
-# Conformance Adapter Specification — v1.1.0
+# Conformance Adapter Specification — v1.2.0
 
 The normative contract a tinfoil SDK implements to be driven by the shared v3
 conformance suite. An SDK that passes the suite under this contract rejects
@@ -15,7 +15,8 @@ public API surface an SDK exposes and the rule that the full-verify stage and
 [V3_CONFORMANCE_HARNESS_SPEC.md](V3_CONFORMANCE_HARNESS_SPEC.md)
 (rule→stage map), [SPEC_COVERAGE_V3.md](SPEC_COVERAGE_V3.md) (coverage matrix).
 
-Versioning: current contract version **1.1.0** (1.0.0 + the §7 integration lane). Additive, backward-compatible
+Versioning: current contract version **1.2.0** (1.1.0 + the two §2.1 stages,
+`v3-authenticate-approval` and `v3-verify-timestamp`). Additive, backward-compatible
 changes (new optional Input/expected fields, new stages) bump the minor;
 anything an existing adapter would break on bumps the major. `Input.schema_version`
 stays `"1"` for all 1.x.
@@ -51,8 +52,79 @@ RECOMMENDED (they localize failures but add no reach):
 | `v3-authenticate-provenance` | sigstore-code bundle: identity, digest, predicate → code measurement |
 | `v3-assemble-policy` | sigstore-platform bundle → endorsements artifact (fail-closed parse) |
 | `v3-authenticate-quote` | CPU quote signature chain to the vendor root (no policy comparison) |
+| `v3-authenticate-approval` | key-signed approval bundle (DSSE under a pinned key, witnessed by Rekor v2 inclusion proofs) → the verifying key's hint (§2.1) |
+| `v3-verify-timestamp` | RFC 3161 timestamp response over given bytes, against the trusted root's timestamp authorities at the appraisal clock → genTime (§2.1) |
 
 Unimplemented stages MUST exit 20 (never 1 or a wrong verdict).
+
+### 2.1 Approval-bundle and timestamp stages (v1.2)
+
+Two RECOMMENDED block stages drive the verifiers underneath provenance that
+the document stages reach only indirectly. Both attribute every verification
+failure to `PROVENANCE_REJECTED`. Exit codes, the Output envelope,
+`schema_version` `"1"` and the `MALFORMED_INPUT` (exit 30) rules are
+unchanged; an absent/empty `sigstore_trusted_root_json_b64` selects the
+embedded production Sigstore root, as for every stage. The fixture schema
+requires each stage's own Input members (§3) and does not require
+`document_b64` for them.
+
+**`v3-authenticate-approval`** verifies a key-signed approval bundle — the
+form used for config endorsements and artifact-freshness approvals, signed
+under a pinned key rather than a certificate. Input: `bundle_json_b64`,
+`signing_keys_pem`, `artifact_digest_hex`, optional
+`sigstore_trusted_root_json_b64` (its transparency logs verify the
+checkpoints). The stage enforces, rejecting with `PROVENANCE_REJECTED`:
+
+- **Bundle layout.** Media type `application/vnd.dev.sigstore.bundle.v0.3+json`;
+  the verification material carries a public-key hint and no certificate (and
+  not the legacy certificate-chain layout); a DSSE envelope with exactly one
+  signature over an in-toto statement (payloadType
+  `application/vnd.in-toto+json`); 1..8 tlog entries, every one kind
+  `hashedrekord` version `0.0.2` with an inclusion proof, no inclusion
+  promise and no `integratedTime`; no RFC 3161 timestamps in the bundle.
+- **Key selection.** The hint names one of the pinned keys (hint = standard
+  base64 of SHA-256 over the DER SubjectPublicKeyInfo). A non-empty DSSE
+  `keyid` rejects — only an empty `keyid` verifies, even when the `keyid`
+  equals the hint.
+- **Log entries.** Each entry body is consistent with the envelope and the
+  pinned key (`data.digest` = SHA-256 of the DSSE pre-authentication encoding;
+  `signature.content` = the DSSE signature; verifier public key = the pinned
+  SPKI); its inclusion proof verifies to the checkpoint root, and the
+  checkpoint is signed by a transparency log in the trusted root (ECDSA P-256
+  and Ed25519 logs).
+- **Signature.** The DSSE signature verifies under the pinned key (ECDSA
+  P-256 / SHA-256).
+- **Subject.** Some subject of the statement carries `artifact_digest_hex` as
+  its sha256 digest.
+
+Malformed input (exit 30): undecodable base64/hex, empty `signing_keys_pem`,
+a PEM block that is not a parseable public key. Accept output:
+`signing_key_hint`, the hint of the key that verified.
+
+**`v3-verify-timestamp`** verifies an RFC 3161 timestamp response over given
+bytes against the trusted root's timestamp authorities, at the appraisal
+clock. Input: `timestamp_response_b64`, `timestamp_input_b64`,
+`verification_time_unix` (REQUIRED for this stage), optional
+`sigstore_trusted_root_json_b64` (its timestamp authorities). The stage
+enforces, rejecting with `PROVENANCE_REJECTED`:
+
+- **Status.** `granted` (0); any other status, including `grantedWithMods`
+  (1), rejects.
+- **Token.** A CMS SignedData with eContentType id-ct-TSTInfo; TSTInfo
+  version 1; the messageImprint is SHA-256 over the input bytes with the
+  SHA-256 algorithm identifier; the policy OID equals `1.3.6.1.4.1.57264.2`.
+- **Authority.** The signer chains to a timestamp authority of the trusted
+  root (leaf → root, the root byte-identical to the authority's); the leaf
+  carries a critical extended-key-usage of timestamping only; the chain is
+  valid at genTime; the authority's validity window contains genTime.
+- **Appraisal window.** genTime lies in
+  [`verification_time` − 7 days, `verification_time` + 5 minutes].
+- **Size and encoding.** Input larger than 128 KiB or a response larger than
+  64 KiB rejects; trailing bytes after the DER response reject.
+
+Malformed input (exit 30): undecodable base64; `verification_time_unix`
+absent or 0. Accept output: `timestamp`, the genTime as RFC 3339 in UTC at
+second precision (e.g. `2026-11-03T21:32:16Z`).
 
 ## 3. Input semantics
 
@@ -73,6 +145,17 @@ Shape: [`input.schema.json`](../schemas/v3/input.schema.json). Beyond the shape:
 - `nonce_hex` is the *verifier's* nonce. The adapter MUST use it — never the
   document's echoed nonce — as the expected value.
 - `schema_version` MUST equal `"1"`; anything else is malformed (exit 30).
+- `document_b64` is the Input of the document stages (§2 table, first five
+  rows); the fixture schema requires it there and not for the §2.1 stages.
+- **`v3-authenticate-approval`** reads `bundle_json_b64` (base64 of the
+  Sigstore bundle JSON), `signing_keys_pem` (array of ≥1 PEM `PUBLIC KEY`
+  blocks, PKIX ECDSA P-256, the keys the adapter pins) and
+  `artifact_digest_hex` (64 lowercase hex, the SHA-256 the statement's
+  subject must carry).
+- **`v3-verify-timestamp`** reads `timestamp_response_b64` (base64 DER
+  TimeStampResp), `timestamp_input_b64` (base64 of the bytes the message
+  imprint covers) and `verification_time_unix`, which for this stage is the
+  appraisal clock and REQUIRED (absent/0 is malformed, exit 30).
 - When a document carries more than one reference-values entry of the same
   format (distinct ids — duplicate ids already reject at parse), the **first**
   entry in collateral order is used.
@@ -93,6 +176,12 @@ fixture's `expected` declares any of these, the suite asserts byte-exact
 equality — an adapter that accepts but yields a different digest, a
 mis-ordered/mis-typed register set, or the wrong channel key is
 **non-conformant**.
+
+The §2.1 stages yield their own facts: `v3-authenticate-approval` MUST carry
+`signing_key_hint` (the hint of the pinned key that verified) and
+`v3-verify-timestamp` MUST carry `timestamp` (genTime, RFC 3339 UTC, second
+precision). A fixture's `expected` may declare either; the suite asserts it on
+accept exactly as it asserts the facts above.
 
 Measurements are laid out per platform, each register lowercase hex:
 
@@ -117,7 +206,7 @@ strings):
 | code | layer |
 |---|---|
 | `ENVELOPE_REJECTED` | document parse/shape, nonce equality, endorsed-section hashes, report_data ladder |
-| `PROVENANCE_REJECTED` | a Sigstore artifact (code, platform, or **freshness witness**) failed authentication: chain, SCT, tlog, observer timestamp, identity, subject digest, predicate parse, tag/commit extraction, freshness window |
+| `PROVENANCE_REJECTED` | a Sigstore artifact (code, platform, or **freshness witness**) failed authentication: chain, SCT, tlog, observer timestamp, identity, subject digest, predicate parse, tag/commit extraction, freshness window; every verification failure of the §2.1 stages |
 | `QUOTE_REJECTED` | the hardware quote is not authentic: signature/chain/collateral/vendor structure |
 | `POLICY_REJECTED` | the quote is authentic but fails the endorsed policy/identity/shape comparison |
 | `MALFORMED_INPUT` | the adapter input itself did not parse (exit 30) |
@@ -140,8 +229,9 @@ transparency-log timestamp is within **MaxFreshnessAge = 7 days** (future skew
 ## 6. Capabilities
 
 Shape: [`capabilities.schema.json`](../schemas/v3/capabilities.schema.json).
-Declares `stages_supported`, `synthetic_roots` (which vendor roots the adapter
-can inject), `freshness_enforced` (true for any SDK on the current v3
+Declares `stages_supported` (listing the §2.1 stage names when implemented —
+they add no capability flags), `synthetic_roots` (which vendor roots the
+adapter can inject), `freshness_enforced` (true for any SDK on the current v3
 verifier). The suite uses capabilities to gate fixtures; behavioral divergence
 is expressed as a capability, never as a tolerated failing fixture.
 

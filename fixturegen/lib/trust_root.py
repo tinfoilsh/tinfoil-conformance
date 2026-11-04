@@ -95,7 +95,7 @@ def _rfc3339(dt: datetime) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Piecewise trusted-root assembly for the layer vectors (vectors/v3-layers/),
+# Piecewise trusted-root assembly for the approval-bundle and rfc3161 fixtures,
 # which need roots with only transparency logs (key-signed approval bundles)
 # or only timestamp authorities (RFC 3161 responses).
 

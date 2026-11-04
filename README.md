@@ -26,17 +26,12 @@ vectors/                Test fixtures, grouped by stage
   …                     attestation-sev, attestation-tdx, measurement,
                         tls-pinning, cert-binding, ehbp (planned)
   v3/                   v3 adapter fixtures (docs/CONFORMANCE_ADAPTER_SPEC.md)
-  v3-layers/            Layer vectors for SDK unit tests: key-signed approval
-                        bundles and RFC 3161 timestamps (docs/LAYER_VECTORS.md)
+    approval-bundle/    v3-authenticate-approval: key-signed approval bundles
+    rfc3161/            v3-verify-timestamp: RFC 3161 timestamp responses
 harness/                Python test runner: spawns SDK binaries, diffs JSON
 fixturegen/             Synthetic-bundle generators for crafted fixtures
 .github/workflows/      Reusable workflows each SDK repo can call
 ```
-
-Two verification layers the adapter stages cannot reach — key-signed
-approval bundles and RFC 3161 timestamps — are covered by
-[layer vectors](docs/LAYER_VECTORS.md) under `vectors/v3-layers/`, which
-SDK unit tests consume directly.
 
 ## The CLI contract (v0.1)
 
