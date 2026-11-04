@@ -98,8 +98,10 @@ checkpoints). The stage enforces, rejecting with `PROVENANCE_REJECTED`:
   its sha256 digest.
 
 Malformed input (exit 30): undecodable base64/hex, empty `signing_keys_pem`,
-a PEM block that is not a parseable public key. Accept output:
-`signing_key_hint`, the hint of the key that verified.
+a PEM block that is not a parseable public key, a key that repeats within
+the set, a `sigstore_trusted_root_json_b64` that is not a trusted-root
+document. Accept output: `signing_key_hint`, the hint of the key that
+verified.
 
 **`v3-verify-timestamp`** verifies an RFC 3161 timestamp response over given
 bytes against the trusted root's timestamp authorities, at the appraisal
