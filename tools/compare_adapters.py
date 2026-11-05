@@ -1,23 +1,24 @@
 #!/usr/bin/env python3
-"""Deep-compare two adapter reports (run_adapter.py --report) fixture by fixture.
+"""Deep-compare adapter reports (run_adapter.py --report) fixture by fixture.
 
 Stricter than the fixtures themselves: beyond the asserted expectations, the
 FULL wire output (exit code, accepted, rejection code, every accept fact) must
-be identical between the two SDKs. Any divergence — even in a field no fixture
+be identical between the SDKs. Any divergence — even in a field no fixture
 declares — is reported. Exit nonzero on any difference.
 
-Usage: compare_adapters.py go-report.json js-report.json
+Usage: compare_adapters.py reference.json other.json [other2.json ...]
+
+The first report is the reference; every other report is compared against it.
 """
 
 import json
 import sys
 
 
-def main():
-    a_path, b_path = sys.argv[1], sys.argv[2]
-    a, b = json.load(open(a_path)), json.load(open(b_path))
+def compare(a, b):
+    """Compare two loaded reports. Returns (agree, diffs, only_a, only_b) where
+    diffs is a list of (fixture key, [differing field descriptions])."""
     ra, rb = a["results"], b["results"]
-
     only_a = sorted(set(ra) - set(rb))
     only_b = sorted(set(rb) - set(ra))
     diffs = []
@@ -41,19 +42,31 @@ def main():
             diffs.append((key, fields))
         else:
             agree += 1
+    return agree, diffs, only_a, only_b
 
-    print(f"A: {a['adapter']}\nB: {b['adapter']}\n")
-    print(f"compared {agree + len(diffs)} fixtures: {agree} identical, {len(diffs)} divergent"
-          + (f", {len(only_a)}+{len(only_b)} unmatched" if only_a or only_b else ""))
-    for key, fields in diffs:
-        print(f"  DIVERGE {key}")
-        for f in fields:
-            print(f"    {f}")
-    for key in only_a:
-        print(f"  ONLY-A {key}")
-    for key in only_b:
-        print(f"  ONLY-B {key}")
-    sys.exit(1 if diffs or only_a or only_b else 0)
+
+def main():
+    if len(sys.argv) < 3:
+        sys.exit(__doc__.strip())
+    a = json.load(open(sys.argv[1]))
+    ok = True
+    for b_path in sys.argv[2:]:
+        b = json.load(open(b_path))
+        agree, diffs, only_a, only_b = compare(a, b)
+        print(f"A: {a['adapter']}\nB: {b['adapter']}\n")
+        print(f"compared {agree + len(diffs)} fixtures: {agree} identical, {len(diffs)} divergent"
+              + (f", {len(only_a)}+{len(only_b)} unmatched" if only_a or only_b else ""))
+        for key, fields in diffs:
+            print(f"  DIVERGE {key}")
+            for f in fields:
+                print(f"    {f}")
+        for key in only_a:
+            print(f"  ONLY-A {key}")
+        for key in only_b:
+            print(f"  ONLY-B {key}")
+        print()
+        ok = ok and not (diffs or only_a or only_b)
+    sys.exit(0 if ok else 1)
 
 
 if __name__ == "__main__":
