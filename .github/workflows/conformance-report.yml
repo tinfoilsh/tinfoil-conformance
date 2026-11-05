@@ -13,8 +13,8 @@ on:
   workflow_dispatch:
     inputs:
       sdks:
-        description: "SDKs to include (comma-separated: go,py,rs,js,js-tdx)"
-        default: "go,py,rs,js,js-tdx"
+        description: "SDKs to include (comma-separated: go,py,rs,js)"
+        default: "go,py,rs,js"
         type: string
       go_ref:
         description: "tinfoil-go ref"
@@ -29,12 +29,9 @@ on:
         default: "feat/tinfoil-conformance"
         type: string
       js_ref:
-        description: "tinfoil-js ref (no-TDX variant)"
-        default: "feat/tinfoil-conformance"
-        type: string
-      js_tdx_ref:
-        description: "tinfoil-js ref (TDX variant)"
-        default: "feat/tdx-support"
+        description: "tinfoil-js ref"
+        # The v3 port lives on this branch until it merges; then this moves to main.
+        default: "milesdai/feat/v3-generation"
         type: string
 
 permissions:
@@ -44,7 +41,7 @@ jobs:
   report:
     runs-on: ubuntu-latest
     env:
-      # Comma-wrapped so we can match whole tokens (',js,' won't match 'js-tdx').
+      # Comma-wrapped so we can match whole tokens.
       SELECTED: ",${{ inputs.sdks }},"
     steps:
       - name: Check out conformance suite
@@ -93,7 +90,7 @@ jobs:
           path: sdks/tinfoil-rs
           token: ${{ secrets.SDK_TOKEN || github.token }}
 
-      - name: Check out tinfoil-js (no-TDX)
+      - name: Check out tinfoil-js
         if: contains(env.SELECTED, ',js,')
         continue-on-error: true
         uses: actions/checkout@v4
@@ -101,16 +98,6 @@ jobs:
           repository: tinfoilsh/tinfoil-js
           ref: ${{ inputs.js_ref }}
           path: sdks/tinfoil-js
-          token: ${{ secrets.SDK_TOKEN || github.token }}
-
-      - name: Check out tinfoil-js (TDX)
-        if: contains(env.SELECTED, ',js-tdx,')
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          repository: tinfoilsh/tinfoil-js
-          ref: ${{ inputs.js_tdx_ref }}
-          path: sdks/tinfoil-js-tdx
           token: ${{ secrets.SDK_TOKEN || github.token }}
 
       # --- Build each SDK's conformance binary (best-effort) ---
@@ -133,23 +120,14 @@ jobs:
         working-directory: sdks/tinfoil-rs
         run: cargo build --release --bin tinfoil-conformance
 
-      - name: Build tinfoil-js (no-TDX)
+      - name: Build tinfoil-js
         if: contains(env.SELECTED, ',js,') && hashFiles('sdks/tinfoil-js/package.json') != ''
         continue-on-error: true
         working-directory: sdks/tinfoil-js
         run: |
           npm ci
           npm run build -w @tinfoilsh/verifier
-          npm run build -w @tinfoilsh/conformance
-
-      - name: Build tinfoil-js (TDX)
-        if: contains(env.SELECTED, ',js-tdx,') && hashFiles('sdks/tinfoil-js-tdx/package.json') != ''
-        continue-on-error: true
-        working-directory: sdks/tinfoil-js-tdx
-        run: |
-          npm ci
-          npm run build -w @tinfoilsh/verifier
-          npm run build -w @tinfoilsh/conformance
+          npm run build:conformance -w @tinfoilsh/verifier
 
       # --- Install the harness + report deps in their own venv ---
       - name: Install harness
@@ -165,13 +143,11 @@ jobs:
           go_bin="$PWD/sdks/tinfoil-go/bin/tinfoil-conformance"
           py_bin="$PWD/sdks/tinfoil-python/.venv/bin/tinfoil-conformance"
           rs_bin="$PWD/sdks/tinfoil-rs/target/release/tinfoil-conformance"
-          js_cli="$PWD/sdks/tinfoil-js/packages/conformance/dist/cli.js"
-          js_tdx_cli="$PWD/sdks/tinfoil-js-tdx/packages/conformance/dist/cli.js"
-          [ -x "$go_bin" ]     && args+=(--sdk "tinfoil-go=$go_bin")
-          [ -x "$py_bin" ]     && args+=(--sdk "tinfoil-py=$py_bin")
-          [ -x "$rs_bin" ]     && args+=(--sdk "tinfoil-rs=$rs_bin")
-          [ -f "$js_cli" ]     && args+=(--sdk "tinfoil-js=node $js_cli")
-          [ -f "$js_tdx_cli" ] && args+=(--sdk "tinfoil-js-tdx=node $js_tdx_cli")
+          js_cli="$PWD/sdks/tinfoil-js/packages/verifier/dist-conformance/conformance/cli.js"
+          [ -x "$go_bin" ] && args+=(--sdk "tinfoil-go=$go_bin")
+          [ -x "$py_bin" ] && args+=(--sdk "tinfoil-py=$py_bin")
+          [ -x "$rs_bin" ] && args+=(--sdk "tinfoil-rs=$rs_bin")
+          [ -f "$js_cli" ] && args+=(--sdk "tinfoil-js=node $js_cli")
           if [ ${#args[@]} -eq 0 ]; then
             echo "::error::No SDK conformance binaries were built — check the SDK checkout/build steps (private repos need the SDK_TOKEN secret)."
             exit 1

@@ -69,8 +69,8 @@ cargo build --release --bin tinfoil-conformance
 
 # JavaScript (tinfoil-js)
 cd /path/to/tinfoil-js
-npm ci && npm run build -w @tinfoilsh/verifier && npm run build -w @tinfoilsh/conformance
-# → packages/conformance/dist/cli.js  (invoke via `node …`)
+npm ci && npm run build -w @tinfoilsh/verifier && npm run build:conformance -w @tinfoilsh/verifier
+# → packages/verifier/dist-conformance/conformance/cli.js  (invoke via `node …`)
 
 # Python (tinfoil-python)
 cd /path/to/tinfoil-python
@@ -79,7 +79,7 @@ uv sync          # or: python -m venv .venv && pip install -e .
 
 # Go (tinfoil-go)
 cd /path/to/tinfoil-go
-go build -o bin/tinfoil-conformance ./cmd/tinfoil-conformance/
+go build -tags tinfoil_conformance -o bin/tinfoil-conformance ./cmd/tinfoil-conformance/
 # → bin/tinfoil-conformance
 ```
 
@@ -90,7 +90,7 @@ pip install ./harness
 
 tinfoil-conformance run \
   --sdk tinfoil-rs=/path/to/tinfoil-rs/target/release/tinfoil-conformance \
-  --sdk "tinfoil-js=node /path/to/tinfoil-js/packages/conformance/dist/cli.js" \
+  --sdk "tinfoil-js=node /path/to/tinfoil-js/packages/verifier/dist-conformance/conformance/cli.js" \
   --sdk tinfoil-py=/path/to/tinfoil-python/.venv/bin/tinfoil-conformance \
   --sdk tinfoil-go=/path/to/tinfoil-go/bin/tinfoil-conformance \
   --vectors vectors/sigstore/
@@ -169,7 +169,10 @@ and don't require artifact passing between jobs.
 See the canonical implementations:
 
 * [`tinfoil-rs/.github/workflows/tinfoil-conformance.yml`](https://github.com/tinfoilsh/tinfoil-rs/blob/main/.github/workflows/tinfoil-conformance.yml)
-* [`tinfoil-js/.github/workflows/tinfoil-conformance.yml`](https://github.com/tinfoilsh/tinfoil-js/blob/main/.github/workflows/tinfoil-conformance.yml)
+* tinfoil-js has no separate workflow: its regular
+  [`test.yml`](https://github.com/tinfoilsh/tinfoil-js/blob/main/.github/workflows/test.yml)
+  checks out this repo at a pinned commit and runs the v3 fixtures through
+  its own test suite via `TINFOIL_CONFORMANCE_FIXTURES`.
 
 The pattern, in steps:
 
