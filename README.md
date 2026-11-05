@@ -30,7 +30,8 @@ vectors/                Test fixtures, grouped by stage
     rfc3161/            v3-verify-timestamp: RFC 3161 timestamp responses
 harness/                Python test runner: spawns SDK binaries, diffs JSON
 fixturegen/             Synthetic-bundle generators for crafted fixtures
-.github/workflows/      Reusable workflows each SDK repo can call
+tools/                  v3 adapter runner, cross-SDK comparison and summary
+.github/workflows/      v3 fixture gate + the manual cross-SDK conformance report
 ```
 
 ## The CLI contract (v0.1)
@@ -136,6 +137,43 @@ expose:
 
 Pure transform on `results/latest/results.json` — no SDK invocation, no
 fixture re-running.
+
+## Running the v3 fixtures locally
+
+The `vectors/v3` fixtures are driven by `tools/run_adapter.py`, not the
+harness above. Run each adapter, then compare the reports against the
+reference (tinfoil-go) and render the summary:
+
+```bash
+python3 tools/run_adapter.py --adapter /path/to/tinfoil-go/bin/tinfoil-conformance --report results/v3/tinfoil-go.json
+python3 tools/run_adapter.py --adapter "node /path/to/tinfoil-js/packages/verifier/dist-conformance/conformance/cli.js" --report results/v3/tinfoil-js.json
+python3 tools/compare_adapters.py results/v3/tinfoil-go.json results/v3/tinfoil-js.json   # 0 divergent
+python3 tools/v3_report.py --out results/v3/report.md results/v3/tinfoil-go.json results/v3/tinfoil-js.json
+```
+
+`run_adapter.py` exits nonzero on any failing fixture and
+`compare_adapters.py` on any divergence in the full wire output (exit code,
+verdict, rejection code, every accept fact). See
+`docs/CONFORMANCE_ADAPTER_SPEC.md` for the stage contract.
+
+## Cross-SDK conformance report (CI)
+
+`.github/workflows/conformance-report.yml` is a manually-triggered workflow
+that checks out and builds every selected SDK's adapter, then runs each SDK
+through one of two lanes:
+
+* **v3 lane** (`v3_sdks`, default `go,js`): `tools/run_adapter.py` over
+  `vectors/v3`, `tools/compare_adapters.py` against the first SDK listed (the
+  reference), and `tools/v3_report.py` for the job summary. A failing fixture
+  or a divergence fails the job. Reports are uploaded as
+  `conformance-report-v3`.
+* **legacy lane** (`legacy_sdks`, default `py,rs`): the harness run and
+  `gen_report.py` homogenization report described above, uploaded as
+  `conformance-report`.
+
+An adapter that only speaks the v3 stages skips every legacy fixture, so put
+each SDK in the lane its adapter implements. The per-SDK `*_ref` inputs pick
+the SDK commit; `go_ref` defaults to `main`, the v3 reference.
 
 ## Adding a new fixture
 

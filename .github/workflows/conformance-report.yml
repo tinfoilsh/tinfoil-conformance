@@ -1,9 +1,21 @@
 name: Conformance report
 
-# Manually-triggered pipeline that builds each SDK's tinfoil-conformance binary,
-# runs the full cross-SDK suite, and generates the homogenization report
-# (HTML heatmap + markdown + CSV) via gen_report.py. The markdown report is
-# also rendered into the run summary, and all artifacts are uploaded.
+# Manually-triggered pipeline that builds each SDK's conformance adapter and
+# runs it through one of two lanes, chosen per SDK by the inputs below:
+#
+#   v3 lane      tools/run_adapter.py over vectors/v3 for every SDK, then
+#                tools/compare_adapters.py against the first SDK listed (the
+#                reference) and tools/v3_report.py for the job summary. Any
+#                failing fixture or cross-SDK divergence fails the job.
+#   legacy lane  the ./harness runner over the manifest.yaml fixtures (the v2
+#                stages: sigstore, attestation-*, verify-full, ...) plus
+#                gen_report.py's homogenization report (HTML heatmap +
+#                markdown + CSV).
+#
+# An adapter that only speaks the v3-* stages (capabilities nested under
+# `v3`) skips every legacy fixture, so put each SDK in the lane its adapter
+# implements. Summaries from both lanes land in the run summary and all
+# reports are uploaded as artifacts.
 #
 # Cross-repo checkout: if the SDK repos are private, add a repo secret
 # SDK_TOKEN (a PAT / fine-grained token with read access to the tinfoil-* SDK
@@ -12,20 +24,28 @@ name: Conformance report
 on:
   workflow_dispatch:
     inputs:
-      sdks:
-        description: "SDKs to include (comma-separated: go,py,rs,js)"
-        default: "go,py,rs,js"
+      v3_sdks:
+        description: "SDKs on the v3 lane (comma-separated: go,py,rs,js; first = reference)"
+        default: "go,js"
+        type: string
+      legacy_sdks:
+        description: "SDKs on the legacy harness lane (comma-separated: go,py,rs,js)"
+        default: "py,rs"
         type: string
       go_ref:
         description: "tinfoil-go ref"
-        default: "feat/tinfoil-conformance"
+        # main is the v3 reference adapter.
+        default: "main"
         type: string
       python_ref:
         description: "tinfoil-python ref"
+        # Legacy adapter. The v3 adapter (conformance/tinfoil_conformance.py)
+        # is picked up automatically from any ref that carries it.
         default: "feat/tinfoil-conformance"
         type: string
       rust_ref:
         description: "tinfoil-rs ref"
+        # Legacy adapter.
         default: "feat/tinfoil-conformance"
         type: string
       js_ref:
@@ -41,8 +61,10 @@ jobs:
   report:
     runs-on: ubuntu-latest
     env:
-      # Comma-wrapped so we can match whole tokens.
-      SELECTED: ",${{ inputs.sdks }},"
+      V3_LANE: ${{ inputs.v3_sdks }}
+      LEGACY_LANE: ${{ inputs.legacy_sdks }}
+      # Comma-wrapped union of both lanes so we can match whole tokens.
+      SELECTED: ",${{ inputs.v3_sdks }},${{ inputs.legacy_sdks }},"
     steps:
       - name: Check out conformance suite
         uses: actions/checkout@v4
@@ -100,7 +122,7 @@ jobs:
           path: sdks/tinfoil-js
           token: ${{ secrets.SDK_TOKEN || github.token }}
 
-      # --- Build each SDK's conformance binary (best-effort) ---
+      # --- Build each SDK's conformance adapter (best-effort) ---
       - name: Build tinfoil-go
         if: contains(env.SELECTED, ',go,') && hashFiles('sdks/tinfoil-go/go.mod') != ''
         continue-on-error: true
@@ -129,27 +151,109 @@ jobs:
           npm run build -w @tinfoilsh/verifier
           npm run build:conformance -w @tinfoilsh/verifier
 
-      # --- Install the harness + report deps in their own venv ---
-      - name: Install harness
+      # --- Resolve one adapter command per SDK from whatever built. Both lanes
+      #     read these; an SDK whose build failed resolves to nothing. ---
+      - name: Resolve adapter commands
+        run: |
+          set -euo pipefail
+          go_bin="$PWD/sdks/tinfoil-go/bin/tinfoil-conformance"
+          py_bin="$PWD/sdks/tinfoil-python/.venv/bin/tinfoil-conformance"
+          py_v3="$PWD/sdks/tinfoil-python/conformance/tinfoil_conformance.py"
+          rs_bin="$PWD/sdks/tinfoil-rs/target/release/tinfoil-conformance"
+          js_cli="$PWD/sdks/tinfoil-js/packages/verifier/dist-conformance/conformance/cli.js"
+          [ -x "$go_bin" ] && echo "ADAPTER_go=$go_bin" >> "$GITHUB_ENV"
+          if [ -x "$py_bin" ]; then
+            echo "ADAPTER_py=$py_bin" >> "$GITHUB_ENV"
+          elif [ -f "$py_v3" ]; then
+            echo "ADAPTER_py=$PWD/sdks/tinfoil-python/.venv/bin/python $py_v3" >> "$GITHUB_ENV"
+          fi
+          [ -x "$rs_bin" ] && echo "ADAPTER_rs=$rs_bin" >> "$GITHUB_ENV"
+          [ -f "$js_cli" ] && echo "ADAPTER_js=node $js_cli" >> "$GITHUB_ENV"
+          true
+
+      # ===================== v3 lane =====================
+      - name: "v3 lane: run adapters over vectors/v3"
+        if: env.V3_LANE != ''
+        run: |
+          set -uo pipefail
+          mkdir -p results/v3
+          ran=(); failed=()
+          IFS=, read -ra lane <<< "$V3_LANE"
+          for sdk in "${lane[@]}"; do
+            var="ADAPTER_$sdk"; cmd="${!var:-}"
+            if [ -z "$cmd" ]; then
+              echo "::warning::tinfoil-$sdk: no adapter built; skipping the v3 lane for it"
+              continue
+            fi
+            echo "::group::tinfoil-$sdk ($cmd)"
+            ran+=("$sdk")
+            python3 tools/run_adapter.py --adapter "$cmd" --report "results/v3/tinfoil-$sdk.json" \
+              || failed+=("$sdk")
+            echo "::endgroup::"
+          done
+          if [ ${#ran[@]} -eq 0 ]; then
+            echo "::error::No v3 adapters were built for [$V3_LANE] — check the SDK checkout/build steps (private repos need the SDK_TOKEN secret)."
+            exit 1
+          fi
+          echo "V3_RAN=${ran[*]}" >> "$GITHUB_ENV"
+          if [ ${#failed[@]} -gt 0 ]; then
+            echo "::error::v3 fixtures failed for: ${failed[*]}"
+            exit 1
+          fi
+
+      # The reference is the first SDK in v3_sdks that produced a report.
+      - name: "v3 lane: compare adapters against the reference"
+        if: always() && env.V3_RAN != ''
+        run: |
+          set -euo pipefail
+          reports=()
+          for sdk in $V3_RAN; do reports+=("results/v3/tinfoil-$sdk.json"); done
+          if [ ${#reports[@]} -lt 2 ]; then
+            echo "Only ${reports[*]} ran the v3 lane; nothing to compare."
+            exit 0
+          fi
+          python3 tools/compare_adapters.py "${reports[@]}"
+
+      - name: "v3 lane: render summary"
+        if: always() && env.V3_RAN != ''
+        run: |
+          set -euo pipefail
+          reports=()
+          for sdk in $V3_RAN; do reports+=("results/v3/tinfoil-$sdk.json"); done
+          python3 tools/v3_report.py --out results/v3/report.md "${reports[@]}"
+          cat results/v3/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "v3 lane: upload reports"
+        if: always() && env.V3_RAN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-report-v3
+          path: results/v3/
+          if-no-files-found: warn
+
+      # ===================== legacy lane =====================
+      - name: "legacy lane: install harness"
+        if: always() && env.LEGACY_LANE != ''
         run: |
           python -m venv .harness-venv
           .harness-venv/bin/pip install --quiet ./harness pyyaml
 
-      # --- Run the suite against whatever binaries built, then the report ---
-      - name: Run suite + generate report
+      - name: "legacy lane: run suite + generate report"
+        if: always() && env.LEGACY_LANE != ''
         run: |
           set -euo pipefail
           args=()
-          go_bin="$PWD/sdks/tinfoil-go/bin/tinfoil-conformance"
-          py_bin="$PWD/sdks/tinfoil-python/.venv/bin/tinfoil-conformance"
-          rs_bin="$PWD/sdks/tinfoil-rs/target/release/tinfoil-conformance"
-          js_cli="$PWD/sdks/tinfoil-js/packages/verifier/dist-conformance/conformance/cli.js"
-          [ -x "$go_bin" ] && args+=(--sdk "tinfoil-go=$go_bin")
-          [ -x "$py_bin" ] && args+=(--sdk "tinfoil-py=$py_bin")
-          [ -x "$rs_bin" ] && args+=(--sdk "tinfoil-rs=$rs_bin")
-          [ -f "$js_cli" ] && args+=(--sdk "tinfoil-js=node $js_cli")
+          IFS=, read -ra lane <<< "$LEGACY_LANE"
+          for sdk in "${lane[@]}"; do
+            var="ADAPTER_$sdk"; cmd="${!var:-}"
+            if [ -z "$cmd" ]; then
+              echo "::warning::tinfoil-$sdk: no adapter built; skipping the legacy lane for it"
+              continue
+            fi
+            args+=(--sdk "tinfoil-$sdk=$cmd")
+          done
           if [ ${#args[@]} -eq 0 ]; then
-            echo "::error::No SDK conformance binaries were built — check the SDK checkout/build steps (private repos need the SDK_TOKEN secret)."
+            echo "::error::No legacy adapters were built for [$LEGACY_LANE] — check the SDK checkout/build steps (private repos need the SDK_TOKEN secret)."
             exit 1
           fi
           echo "Registered SDKs: ${args[*]}"
@@ -160,11 +264,11 @@ jobs:
             --vectors vectors/ \
             --out results/latest/report
 
-      - name: Render report into job summary
+      - name: "legacy lane: render report into job summary"
         if: always() && hashFiles('results/latest/report/report.md') != ''
         run: cat results/latest/report/report.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload report artifacts
+      - name: "legacy lane: upload report artifacts"
         if: always() && hashFiles('results/latest/report/*') != ''
         uses: actions/upload-artifact@v4
         with:
