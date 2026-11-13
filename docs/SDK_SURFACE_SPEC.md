@@ -1,4 +1,4 @@
-# SDK Surface Specification — v0.2.0
+# SDK Surface Specification — v0.3.0
 
 The normative **public API surface** a v3 SDK exposes. The adapter spec
 ([CONFORMANCE_ADAPTER_SPEC.md](CONFORMANCE_ADAPTER_SPEC.md)) pins *behavior*;
@@ -104,11 +104,11 @@ may carry a port.
 | `VerificationError{Layer}` | document must not be trusted; `Layer` ∈ `envelope`/`provenance`/`quote`/`policy` (open set — tolerate unknown values), mapping to `ENVELOPE/PROVENANCE/QUOTE/POLICY_REJECTED` without string matching |
 | `Error` | common supertype of both |
 
-### 2.7 TLS helpers (MUST where the platform can inspect the transport)
+### 2.7 TLS helper (MUST where the platform can inspect the transport)
 
-`CertPubkeyFP(cert)` (SPKI SHA-256, the `TLSPublicKeyFP` form),
-`ConnectionCertFP(conn)`, `PinTLSKey(fp)` (a connection-verification callback
-that adds to, never replaces, normal certificate checks).
+`CertPubkeyFP(cert)` (SPKI SHA-256 of a certificate, the `TLSPublicKeyFP`
+form). Pure: the verifier takes no socket or connection objects. Building the
+connection check from its facts is the transport's job (§3.4).
 
 ## 3. Tier 2 — product client surface (SHOULD; MUST before an SDK release claims v3)
 
@@ -169,6 +169,14 @@ transport (browsers) supports only `ehbp` and MUST reject `tls` with a
 `ConfigurationError`. `capabilities.channel_binding` declares the **product
 client's** default mechanism, not the adapter's test-time check.
 
+Connection helpers (MUST where the platform can inspect the transport), from
+the client package (Go: root `tinfoil`) so that a caller who brings their own
+transport can pin it: `ConnectionCertFP(conn)` (`CertPubkeyFP` of the
+connection's peer certificate; no peer certificate is a `UsageError`),
+`PinTLSKey(fp)` (a connection-verification callback that adds to, never
+replaces, normal certificate checks; a mismatch is a `VerificationError` of
+layer `policy`).
+
 ### 3.5 Errors and version
 
 `Error` supertype with `ConfigurationError` (invalid arguments or
@@ -193,6 +201,12 @@ including renames and removals — bumps the minor version. From 1.0.0,
 surface additions bump the minor version; renames/removals bump the major
 and require a coordinated release across SDKs. An SDK's conformance claim
 states the surface-spec version it implements.
+
+v0.3.0: `ConnectionCertFP` and `PinTLSKey` moved from Tier 1 (§2.7) to the
+client package under §3.4 (Go `tinfoil.ConnectionCertFP`/`tinfoil.PinTLSKey`,
+Python `tinfoil.connection_cert_fp`/`tinfoil.pin_tls_key`), so that the
+verifier takes no connection objects. Semantics and errors unchanged;
+`CertPubkeyFP` and `TLSPublicKeyFP` stay in Tier 1.
 
 v0.2.0 (from 1.0.0, renumbered as pre-stable): reference moved to `tinfoil-go` `main`.
 `VerifyDocumentV3` → `Verifier.VerifyV3`/`VerifyV3At`; `VerifiedDocumentV3`
