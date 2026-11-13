@@ -141,16 +141,15 @@ client and base URL so they cannot be replaced; it exposes its HTTP client via
 | `EnsureVerified() → Verification` | a verification valid now, verifying only if needed; success means requests can be sent |
 | `Reverify() → Verification` | verify again unconditionally |
 
-`EnclaveOptions` / `RouterOptions`: `TransportMode` (default `tls`),
-`BaseURL` (a proxy; requires `ehbp`; HTTPS, or `http://` only to loopback;
-no userinfo, query or fragment, even an empty one, else a
-`ConfigurationError`; requests carry `X-Tinfoil-Enclave-Url`), `Verifier`
-(nil = defaults; for the router, a config-authorizing verifier is a `ConfigurationError`),
-`VerificationCheck(v)` (caller veto after policy; rejection is a
-non-retried `AttestationError`, or for the router, moves discovery on),
-`UserCacheSecret` (router: empty resolves from `TINFOIL_USER_CACHE_SECRET`
-then `~/.tinfoil/user_cache_secret`; a non-empty body `user_cache_secret`
-overrides it).
+`EnclaveOptions` / `RouterOptions`: `TransportMode` (default `tls`), `BaseURL`
+(a proxy; requires `ehbp`; HTTPS, or `http://` only to loopback; no userinfo,
+query or fragment, even an empty one, else a `ConfigurationError`; requests
+carry `X-Tinfoil-Enclave-Url`), `Verifier` (nil = defaults; for the router, a
+config-authorizing verifier is a `ConfigurationError`), `VerificationCheck(v)`
+(caller veto after policy; rejection is a non-retried `AttestationError`, or
+for the router, moves discovery on), `UserCacheSecret` (router: empty resolves
+from `TINFOIL_USER_CACHE_SECRET` then `~/.tinfoil/user_cache_secret`; a
+non-empty body `user_cache_secret` overrides it).
 
 ### 3.3 Gateway client (MAY)
 
@@ -160,10 +159,10 @@ Methods `BaseURL()`, `Current() → [ReplicaVerification]`,
 `VerificationCheck`, `UserCacheSecret`, `URL`, `Catalog`. Also
 `FetchCatalog(host) → Catalog` (model → `CatalogEntry{Repo, Hosts}`,
 untrusted). Every request is sealed as with `ehbp`. `URL`, like `BaseURL`
-(§3.2), carries no userinfo, query or fragment. A request whose JSON object body repeats a top-level
-`model`, `user_cache_secret` or `cache_salt` member is a `ConfigurationError`,
-before any network I/O, so that the client and the server can't read
-different values.
+(§3.2), carries no userinfo, query or fragment. A request whose JSON object
+body repeats a top-level `model`, `user_cache_secret` or `cache_salt` member
+is a `ConfigurationError`, before any network I/O, so that the client and the
+server can't read different values.
 
 ### 3.4 Transport and channel binding
 
