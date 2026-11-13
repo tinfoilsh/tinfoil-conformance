@@ -1,4 +1,4 @@
-# SDK Surface Specification — v0.3.0
+# SDK Surface Specification — v0.4.0
 
 The normative **public API surface** a v3 SDK exposes. The adapter spec
 ([CONFORMANCE_ADAPTER_SPEC.md](CONFORMANCE_ADAPTER_SPEC.md)) pins *behavior*;
@@ -141,15 +141,15 @@ client and base URL so they cannot be replaced; it exposes its HTTP client via
 | `EnsureVerified() → Verification` | a verification valid now, verifying only if needed; success means requests can be sent |
 | `Reverify() → Verification` | verify again unconditionally |
 
-`EnclaveOptions` / `RouterOptions`: `TransportMode` (default `tls`),
-`BaseURL` (a proxy; requires `ehbp`; HTTPS, or `http://` only to loopback;
-requests carry `X-Tinfoil-Enclave-Url`), `Verifier` (nil = defaults; for the
-router, a config-authorizing verifier is a `ConfigurationError`),
-`VerificationCheck(v)` (caller veto after policy; rejection is a
-non-retried `AttestationError`, or for the router, moves discovery on),
-`UserCacheSecret` (router: empty resolves from `TINFOIL_USER_CACHE_SECRET`
-then `~/.tinfoil/user_cache_secret`; a non-empty body `user_cache_secret`
-overrides it).
+`EnclaveOptions` / `RouterOptions`: `TransportMode` (default `tls`), `BaseURL`
+(a proxy; requires `ehbp`; HTTPS, or `http://` only to loopback; no userinfo,
+query or fragment, even an empty one, else a `ConfigurationError`; requests
+carry `X-Tinfoil-Enclave-Url`), `Verifier` (nil = defaults; for the router, a
+config-authorizing verifier is a `ConfigurationError`), `VerificationCheck(v)`
+(caller veto after policy; rejection is a non-retried `AttestationError`, or
+for the router, moves discovery on), `UserCacheSecret` (router: empty resolves
+from `TINFOIL_USER_CACHE_SECRET` then `~/.tinfoil/user_cache_secret`; a
+non-empty body `user_cache_secret` overrides it).
 
 ### 3.3 Gateway client (MAY)
 
@@ -158,7 +158,12 @@ Methods `BaseURL()`, `Current() → [ReplicaVerification]`,
 `ModelPin{Repo, Verifier}`), `PinnedModelsOnly`, `Verifier`,
 `VerificationCheck`, `UserCacheSecret`, `URL`, `Catalog`. Also
 `FetchCatalog(host) → Catalog` (model → `CatalogEntry{Repo, Hosts}`,
-untrusted). Every request is sealed as with `ehbp`.
+untrusted). Every request is sealed as with `ehbp`. `URL`, like `BaseURL`
+(§3.2), carries no userinfo, query or fragment. A request whose JSON object
+body, held in memory, repeats a top-level `model`, `user_cache_secret` or
+`cache_salt` member is a `ConfigurationError`, before any network I/O, so that
+the client and the server can't read different values; a streamed body that
+the client doesn't read is exempt.
 
 ### 3.4 Transport and channel binding
 
@@ -199,6 +204,10 @@ including renames and removals — bumps the minor version. From 1.0.0,
 surface additions bump the minor version; renames/removals bump the major
 and require a coordinated release across SDKs. An SDK's conformance claim
 states the surface-spec version it implements.
+
+v0.4.0: a `BaseURL` (§3.2) or gateway `URL` (§3.3) that carries userinfo, a
+query or a fragment is a `ConfigurationError`, and so is a gateway request
+whose JSON body repeats `model`, `user_cache_secret` or `cache_salt` (§3.3).
 
 v0.3.0: `ConnectionCertFP` and `PinTLSKey` removed from the surface (§2.7),
 so that the verifier takes no connection objects; nothing outside the SDKs
