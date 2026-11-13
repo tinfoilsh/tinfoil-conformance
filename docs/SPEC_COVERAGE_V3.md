@@ -65,6 +65,13 @@
   The only unfixtured branches are defensive nil-pointer checks unreachable via
   JSON (a present key always yields a non-nil `structpb.Value`).
 
+  P5 also covers extended key usage along the Fulcio chain: every certificate
+  on the path (leaf, intermediate, root) that carries an extended key usage
+  extension must allow code signing or any purpose; one without the extension
+  is unconstrained (`p-eku-leaf`, `p-eku-intermediate`, `p-eku-root`; accept:
+  `provenance-pos-eku-intermediate`, an intermediate restricted to code
+  signing as Sigstore's production intermediate is).
+
 **QUOTE-SEV** (B3) — 26 rules
 
   `[x]S1` `[x]S2` `[x]S3` `[x]S4` `[x]S5` `[x]S6` `[x]S7` `[x]S8` `[x]S9` `[x]S10` `[x]S11` `[x]S12` `[x]S13` `[x]S14` `[x]S15` `[x]S16` `[x]S17` `[x]S18` `[x]S19` `[x]S20` `[x]S21` `[x]S22` `[x]S23` `[x]S24` `[x]S25` `[x]S26`

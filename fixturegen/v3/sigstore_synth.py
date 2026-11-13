@@ -134,7 +134,9 @@ def _build_ca_with_secrets(root_secret, int_secret):
     )
 
 
-def _build_ca(root_key=None, int_key=None):
+def _build_ca(root_key=None, int_key=None, root_eku=None, int_eku=None):
+    """root_eku / int_eku add an extended key usage extension naming those
+    purposes to the root / intermediate (default: none, as Fulcio's root)."""
     root_key = root_key or _key("fulcio_root")
     int_key = int_key or _key("fulcio_int")
 
@@ -142,7 +144,7 @@ def _build_ca(root_key=None, int_key=None):
     not_after = BASE_TIME + datetime.timedelta(days=3650)
 
     root_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "synthetic-sigstore-root")])
-    root_cert = (
+    root_builder = (
         x509.CertificateBuilder()
         .subject_name(root_name)
         .issuer_name(root_name)
@@ -156,11 +158,13 @@ def _build_ca(root_key=None, int_key=None):
             data_encipherment=False, key_agreement=False, key_cert_sign=True,
             crl_sign=True, encipher_only=False, decipher_only=False), critical=True)
         .add_extension(x509.SubjectKeyIdentifier.from_public_key(root_key.public_key()), critical=False)
-        .sign(root_key, hashes.SHA256())
     )
+    if root_eku is not None:
+        root_builder = root_builder.add_extension(x509.ExtendedKeyUsage(root_eku), critical=False)
+    root_cert = root_builder.sign(root_key, hashes.SHA256())
 
     int_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "synthetic-sigstore-intermediate")])
-    int_cert = (
+    int_builder = (
         x509.CertificateBuilder()
         .subject_name(int_name)
         .issuer_name(root_name)
@@ -175,8 +179,10 @@ def _build_ca(root_key=None, int_key=None):
             crl_sign=True, encipher_only=False, decipher_only=False), critical=True)
         .add_extension(x509.SubjectKeyIdentifier.from_public_key(int_key.public_key()), critical=False)
         .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(root_key.public_key()), critical=False)
-        .sign(root_key, hashes.SHA256())
     )
+    if int_eku is not None:
+        int_builder = int_builder.add_extension(x509.ExtendedKeyUsage(int_eku), critical=False)
+    int_cert = int_builder.sign(root_key, hashes.SHA256())
     return root_cert, int_cert, int_key
 
 
@@ -216,14 +222,14 @@ def _sct_list_extension_value(serialized_scts):
 
 # --- Leaf certificate with embedded SCT -------------------------------------
 def _leaf_extensions(identity_uri, int_key, issuer, runner_environment, source_ref=None, source_digest=None,
-                     source_repo_id=None, source_owner_id=None):
+                     source_repo_id=None, source_owner_id=None, leaf_eku=None):
     exts = [
         (x509.BasicConstraints(ca=False, path_length=None), True),
         (x509.KeyUsage(
             digital_signature=True, content_commitment=False, key_encipherment=False,
             data_encipherment=False, key_agreement=False, key_cert_sign=False,
             crl_sign=False, encipher_only=False, decipher_only=False), True),
-        (x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), False),
+        (x509.ExtendedKeyUsage(leaf_eku or [x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]), False),
         (x509.SubjectKeyIdentifier.from_public_key(_key("leaf").public_key()), False),
         (x509.AuthorityKeyIdentifier.from_issuer_public_key(int_key.public_key()), False),
         (x509.UnrecognizedExtension(OID_ISSUER_V1, issuer.encode()), False),
@@ -246,7 +252,8 @@ def _leaf_extensions(identity_uri, int_key, issuer, runner_environment, source_r
 
 def _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=False,
                 issuer=GITHUB_ACTIONS_ISSUER, runner_environment="github-hosted",
-                source_ref=None, source_digest=None, source_repo_id=None, source_owner_id=None):
+                source_ref=None, source_digest=None, source_repo_id=None, source_owner_id=None,
+                leaf_eku=None):
     leaf_key = _key("leaf")
     int_name = int_cert.subject
     not_before = BASE_TIME - datetime.timedelta(minutes=5)
@@ -264,7 +271,8 @@ def _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=False,
         )
         for ext, critical in _leaf_extensions(identity_uri, int_key, issuer, runner_environment,
                                                source_ref=source_ref, source_digest=source_digest,
-                                               source_repo_id=source_repo_id, source_owner_id=source_owner_id):
+                                               source_repo_id=source_repo_id, source_owner_id=source_owner_id,
+                                               leaf_eku=leaf_eku):
             b = b.add_extension(ext, critical)
         return b
 
@@ -405,19 +413,23 @@ def _trusted_root(root_cert, int_cert):
 # --- Bundle assembly --------------------------------------------------------
 def build_bundle(identity_uri, statement_bytes, integrated_time=None, dup_sct=False, bad_dsse=False,
                  issuer=GITHUB_ACTIONS_ISSUER, runner_environment="github-hosted",
-                 source_ref=None, source_digest=None, source_repo_id=None, source_owner_id=None):
+                 source_ref=None, source_digest=None, source_repo_id=None, source_owner_id=None,
+                 leaf_eku=None, int_eku=None, root_eku=None):
     """Return (bundle_dict, trusted_root_dict) for a DSSE-signed in-toto
     statement whose signing certificate carries identity_uri as its SAN.
     integrated_time overrides the log timestamp (used to place it outside the
     certificate validity window); dup_sct embeds a duplicate-log SCT; bad_dsse
     signs the envelope with a non-leaf key (the log entry stays self-consistent,
-    but the DSSE signature fails to verify under the certificate)."""
+    but the DSSE signature fails to verify under the certificate). leaf_eku
+    replaces the leaf's extended key usage purposes (default: code signing);
+    int_eku / root_eku give the intermediate / root an extended key usage."""
     it = INTEGRATED_TIME if integrated_time is None else integrated_time
-    root_cert, int_cert, int_key = _build_ca()
+    root_cert, int_cert, int_key = _build_ca(root_eku=root_eku, int_eku=int_eku)
     leaf, leaf_key = _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=dup_sct,
                                  issuer=issuer, runner_environment=runner_environment,
                                  source_ref=source_ref, source_digest=source_digest,
-                                 source_repo_id=source_repo_id, source_owner_id=source_owner_id)
+                                 source_repo_id=source_repo_id, source_owner_id=source_owner_id,
+                                 leaf_eku=leaf_eku)
     leaf_pem = leaf.public_bytes(serialization.Encoding.PEM)
 
     dsse_sig = _dsse_sign(statement_bytes, _key("ctlog") if bad_dsse else leaf_key)
