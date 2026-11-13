@@ -201,12 +201,15 @@ OID_DATA = "1.2.840.113549.1.7.1"
 
 
 def certificate_binding(*, legacy=False, algorithm=None, digest=None, issuer=None, serial=None,
-                        include_issuer=True):
+                        include_issuer=True, extra_issuer=None):
     leaf = TSA_P256.leaf_cert
     hash_name = "sha1" if legacy else "sha384" if algorithm == OID_SHA384 else "sha256"
     cert_hash = digest if digest is not None else hashlib.new(hash_name, TSA_P256.leaf_der).digest()
+    names = [der.implicit_constructed(4, leaf.issuer.public_bytes() if issuer is None else issuer)]
+    if extra_issuer is not None:
+        names.append(der.implicit_constructed(4, extra_issuer))
     issuer_serial = der.sequence(
-        der.sequence(der.implicit_constructed(4, leaf.issuer.public_bytes() if issuer is None else issuer)),
+        der.sequence(*names),
         der.integer(leaf.serial_number if serial is None else serial),
     ) if include_issuer else b""
     algorithm_id = der.algorithm_identifier(algorithm, null_params=True) if algorithm else b""
@@ -255,6 +258,9 @@ VECTORS = {
     "signing-certificate-sha384": lambda: binding_vector(certificate_binding(algorithm=OID_SHA384), accepted=True),
     "signing-certificate-unsupported-hash": lambda: binding_vector(certificate_binding(algorithm=OID_DATA)),
     "signing-certificate-no-issuer-serial": lambda: binding_vector(certificate_binding(include_issuer=False), accepted=True),
+    "signing-certificate-extra-issuer": lambda: binding_vector(certificate_binding(extra_issuer=TSA_OTHER.leaf_cert.issuer.public_bytes())),
+    "signing-certificate-legacy-extra-issuer": lambda: binding_vector(certificate_binding(legacy=True, extra_issuer=TSA_OTHER.leaf_cert.issuer.public_bytes())),
+    "signing-certificate-v2-sha1": lambda: binding_vector(certificate_binding(algorithm=OID_SHA1, digest=hashlib.sha1(TSA_P256.leaf_der).digest())),
     "signer-certificate-omitted": lambda: binding_vector(certificate_binding(), embed_certificate=False, accepted=True),
     "wrong-encapsulated-content-type": lambda: binding_vector(certificate_binding(), content_type=OID_DATA),
     "wrong-signed-content-type": lambda: binding_vector(certificate_binding(), signed_content_type=OID_DATA),
