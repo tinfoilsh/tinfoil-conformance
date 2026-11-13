@@ -3,8 +3,10 @@
 
 Mints an ARK -> ASK -> VCEK chain and a signed SEV-SNP attestation report + CRL
 that pass tinfoil-go's quote/sev.AuthenticateWithRoot -> google go-sev-guest
-verify.SnpAttestation. Everything is deterministic enough to regenerate on demand
-(EC keys from fixed scalars; RSA keys generated once per process).
+verify.SnpAttestation. Everything is deterministic, so regenerated fixtures are
+byte-stable: the VCEK key comes from a fixed scalar and signs with RFC 6979
+nonces, the RSA keys are derived from fixed labels (_derived_rsa), and RSA-PSS
+signatures use a salt derived from the signed bytes (_pss_sign).
 
 Gotchas baked in (see the synthetic-sev-generator memory):
   * go-sev-guest ENFORCES SHA384-with-RSASSA-PSS on ARK/ASK/VCEK certs, so every
@@ -18,6 +20,7 @@ Gotchas baked in (see the synthetic-sev-generator memory):
 """
 
 import datetime
+import hashlib
 import struct
 
 from cryptography import x509
@@ -94,15 +97,112 @@ def compose_tcb(parts):
     )
 
 
-def _rsa4096():
-    return rsa.generate_private_key(public_exponent=65537, key_size=4096)
+# --- Reproducible RSA keys and RSA-PSS signatures ---------------------------
+# cryptography offers neither seeded RSA key generation nor a caller-chosen PSS
+# salt, so both are done here. These are test keys for synthetic fixtures only.
+_SMALL_PRIMES = [p for p in range(3, 2000) if all(p % q for q in range(2, int(p ** 0.5) + 1))]
+
+
+def _is_probable_prime(n):
+    if any(n % p == 0 for p in _SMALL_PRIMES):
+        return n in _SMALL_PRIMES
+    d, r = n - 1, 0
+    while d % 2 == 0:
+        d //= 2
+        r += 1
+    for a in _SMALL_PRIMES[:20]:  # Miller-Rabin
+        x = pow(a, d, n)
+        if x in (1, n - 1):
+            continue
+        for _ in range(r - 1):
+            x = pow(x, 2, n)
+            if x == n - 1:
+                break
+        else:
+            return False
+    return True
+
+
+def _derived_prime(label, bits):
+    """The first prime >= a SHAKE-256(label) start with its top two bits set,
+    so the product of two such primes has exactly 2*bits bits."""
+    c = int.from_bytes(hashlib.shake_256(label).digest(bits // 8), "big") | (3 << (bits - 2)) | 1
+    while not (_is_probable_prime(c) and (c - 1) % 65537):
+        c += 2
+    return c
+
+
+def _derived_rsa(label, bits=4096):
+    e = 65537
+    p = _derived_prime(label + b"/p", bits // 2)
+    q = _derived_prime(label + b"/q", bits // 2)
+    d = pow(e, -1, (p - 1) * (q - 1))
+    return rsa.RSAPrivateNumbers(
+        p, q, d, rsa.rsa_crt_dmp1(d, p), rsa.rsa_crt_dmq1(d, q), rsa.rsa_crt_iqmp(p, q),
+        rsa.RSAPublicNumbers(e, p * q),
+    ).private_key()
+
+
+def _mgf1_sha384(seed, length):
+    out = b"".join(hashlib.sha384(seed + i.to_bytes(4, "big")).digest()
+                   for i in range((length + 47) // 48))
+    return out[:length]
+
+
+_pss_cache = {}
+
+
+def _pss_sign(key, message):
+    """RSASSA-PSS (RFC 8017 §8.1.1) with SHA-384, MGF1-SHA-384 and a 48-byte salt
+    derived from the message instead of drawn at random. Verifiers cannot tell
+    the difference; it just makes the signature reproducible. Memoized, since
+    the ARK/ASK certificates and the CRL repeat across fixtures."""
+    priv = key.private_numbers()
+    cache_key = (priv.public_numbers.n, message)
+    if cache_key in _pss_cache:
+        return _pss_cache[cache_key]
+    n = priv.public_numbers.n
+    em_bits = n.bit_length() - 1
+    em_len = (em_bits + 7) // 8
+    m_hash = hashlib.sha384(message).digest()
+    salt = hashlib.sha384(b"pss-salt" + m_hash).digest()
+    h = hashlib.sha384(b"\x00" * 8 + m_hash + salt).digest()
+    db = b"\x00" * (em_len - 2 * 48 - 2) + b"\x01" + salt
+    masked = bytearray(x ^ y for x, y in zip(db, _mgf1_sha384(h, len(db))))
+    masked[0] &= 0xFF >> (8 * em_len - em_bits)
+    em = int.from_bytes(bytes(masked) + h + b"\xbc", "big")
+    sp, sq = pow(em, priv.dmp1, priv.p), pow(em, priv.dmq1, priv.q)  # CRT
+    s = sq + priv.q * ((priv.iqmp * (sp - sq)) % priv.p)
+    sig = s.to_bytes((n.bit_length() + 7) // 8, "big")
+    key.public_key().verify(sig, message, PSS, hashes.SHA384())
+    _pss_cache[cache_key] = sig
+    return sig
+
+
+def _resign(signed, tbs, key, load):
+    """Swap the random-salt PSS signature cryptography produced for _pss_sign's.
+    The signature is the DER's trailing BIT STRING payload and has the same
+    length, so only those bytes change."""
+    der = signed.public_bytes(serialization.Encoding.DER)
+    assert der.endswith(signed.signature)
+    return load(der[:-len(signed.signature)] + _pss_sign(key, tbs))
+
+
+def _sign_cert(builder, key):
+    cert = builder.sign(key, hashes.SHA384(), rsa_padding=PSS)
+    return _resign(cert, cert.tbs_certificate_bytes, key, x509.load_der_x509_certificate)
+
+
+def _sign_crl(builder, key):
+    crl = builder.sign(key, hashes.SHA384(), rsa_padding=PSS)
+    return _resign(crl, crl.tbs_certlist_bytes, key, x509.load_der_x509_crl)
 
 
 def _keys():
     global _ark_key, _ask_key
     if _ark_key is None:
-        _ark_key = _rsa4096()
-        _ask_key = _rsa4096()
+        _ark_key = _derived_rsa(b"v3-sev/ark")
+        _ask_key = _derived_rsa(b"v3-sev/ask")
     return _ark_key, _ask_key
 
 
@@ -130,23 +230,23 @@ def _crl_dp():
 # --- AMD certificate chain (all RSA-PSS) -----------------------------------
 def _ca_certs(ark_key, ask_key):
     ark_name, ask_name = _name("ARK-Genoa"), _name("SEV-Genoa")
-    ark = (
+    ark = _sign_cert(
         x509.CertificateBuilder()
         .subject_name(ark_name).issuer_name(ark_name)
         .public_key(ark_key.public_key()).serial_number(1)
         .not_valid_before(NOT_BEFORE).not_valid_after(NOT_AFTER)
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
-        .add_extension(_crl_dp(), critical=False)
-        .sign(ark_key, hashes.SHA384(), rsa_padding=PSS)
+        .add_extension(_crl_dp(), critical=False),
+        ark_key,
     )
-    ask = (
+    ask = _sign_cert(
         x509.CertificateBuilder()
         .subject_name(ask_name).issuer_name(ark_name)
         .public_key(ask_key.public_key()).serial_number(2)
         .not_valid_before(NOT_BEFORE).not_valid_after(NOT_AFTER)
         .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
-        .add_extension(_crl_dp(), critical=False)
-        .sign(ark_key, hashes.SHA384(), rsa_padding=PSS)
+        .add_extension(_crl_dp(), critical=False),
+        ark_key,
     )
     return ark, ask
 
@@ -154,7 +254,7 @@ def _ca_certs(ark_key, ask_key):
 def rogue_anchor():
     """An unrelated ARK+ASK chain, for the wrong-root case (S26): pinning it as
     the anchor while the report chains to the real ARK breaks chain building."""
-    ark, ask = _ca_certs(_rsa4096(), _rsa4096())
+    ark, ask = _ca_certs(_derived_rsa(b"v3-sev/rogue-ark"), _derived_rsa(b"v3-sev/rogue-ask"))
     return _pem(ark), _pem(ask)
 
 
@@ -179,7 +279,7 @@ def _build_chain(vcek_key, tcb_parts, hwid):
     )
     for e in exts:
         vcek_builder = vcek_builder.add_extension(e, critical=False)
-    vcek = vcek_builder.sign(ask_key, hashes.SHA384(), rsa_padding=PSS)
+    vcek = _sign_cert(vcek_builder, ask_key)
     return ark, ask, vcek
 
 
@@ -195,7 +295,7 @@ def _build_crl(revoke_serial=None, expired=False, this_update=NOT_BEFORE):
         builder = builder.add_revoked_certificate(
             x509.RevokedCertificateBuilder()
             .serial_number(revoke_serial).revocation_date(NOT_BEFORE).build())
-    return builder.sign(ark_key, hashes.SHA384(), rsa_padding=PSS)
+    return _sign_crl(builder, ark_key)
 
 
 # --- SEV-SNP report --------------------------------------------------------
@@ -231,7 +331,8 @@ def _build_report(report_data, measurement, chip_id, tcb_parts, policy, host_dat
 
 
 def _sign_report(r, vcek_key):
-    sig = vcek_key.sign(bytes(r[:SIGNATURE_OFFSET]), ec.ECDSA(hashes.SHA384()))
+    sig = vcek_key.sign(bytes(r[:SIGNATURE_OFFSET]),
+                        ec.ECDSA(hashes.SHA384(), deterministic_signing=True))
     r_int, s_int = decode_dss_signature(sig)
     r[SIGNATURE_OFFSET:SIGNATURE_OFFSET + 48] = r_int.to_bytes(48, "little")
     r[SIGNATURE_OFFSET + 0x48:SIGNATURE_OFFSET + 0x48 + 48] = s_int.to_bytes(48, "little")

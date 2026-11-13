@@ -4,8 +4,8 @@
 Builds a complete, self-consistent Sigstore signing chain from fixed keys so a
 DSSE-signed in-toto statement verifies under sigstore-go's SignedEntityVerifier
 with SCT + transparency-log + observer-timestamp requirements — exactly what the
-tinfoil verifier configures. Everything is deterministic (fixed EC keys, fixed
-base time) so regenerated fixtures are byte-stable.
+tinfoil verifier configures. Everything is deterministic (fixed EC keys, RFC 6979
+ECDSA nonces, fixed base time) so regenerated fixtures are byte-stable.
 
 The one delicate piece is the embedded SCT. sigstore-go verifies it through
 google/certificate-transparency-go, which reconstructs the pre-certificate TBS
@@ -70,6 +70,10 @@ _SECRETS = {
     "ctlog": 0x4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D4D,
     "rekor": 0x5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E5E,
 }
+
+
+# RFC 6979 deterministic ECDSA, so regenerated fixtures are byte-identical.
+_ECDSA = ec.ECDSA(hashes.SHA256(), deterministic_signing=True)
 
 
 def _key(name):
@@ -161,7 +165,7 @@ def _build_ca(root_key=None, int_key=None, root_eku=None, int_eku=None):
     )
     if root_eku is not None:
         root_builder = root_builder.add_extension(x509.ExtendedKeyUsage(root_eku), critical=False)
-    root_cert = root_builder.sign(root_key, hashes.SHA256())
+    root_cert = root_builder.sign(root_key, hashes.SHA256(), ecdsa_deterministic=True)
 
     int_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "synthetic-sigstore-intermediate")])
     int_builder = (
@@ -182,7 +186,7 @@ def _build_ca(root_key=None, int_key=None, root_eku=None, int_eku=None):
     )
     if int_eku is not None:
         int_builder = int_builder.add_extension(x509.ExtendedKeyUsage(int_eku), critical=False)
-    int_cert = int_builder.sign(root_key, hashes.SHA256())
+    int_cert = int_builder.sign(root_key, hashes.SHA256(), ecdsa_deterministic=True)
     return root_cert, int_cert, int_key
 
 
@@ -278,13 +282,13 @@ def _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=False,
 
     # Pre-SCT leaf: its TBS is what the CT log signs over (after Go's
     # RemoveSCTList round-trip, which this DER is a fixed-point of).
-    pre_cert = base_builder().sign(int_key, hashes.SHA256())
+    pre_cert = base_builder().sign(int_key, hashes.SHA256(), ecdsa_deterministic=True)
     tbs_no_sct = pre_cert.tbs_certificate_bytes
 
     ctlog_key = _key("ctlog")
     log_key_id = sha256(spki_der(ctlog_key.public_key()))
     sig_input = _sct_signature_input(tbs_no_sct, int_cert.public_key())
-    sct_sig_der = ctlog_key.sign(sig_input, ec.ECDSA(hashes.SHA256()))
+    sct_sig_der = ctlog_key.sign(sig_input, _ECDSA)
     sct = _serialized_sct(log_key_id, sct_sig_der)
     # dup_sct embeds the same SCT twice (same CT log id) to exercise the
     # duplicate-log-SCT rejection (P12).
@@ -295,7 +299,7 @@ def _build_leaf(identity_uri, root_cert, int_cert, int_key, dup_sct=False,
     leaf = (
         base_builder()
         .add_extension(x509.UnrecognizedExtension(OID_SCT_LIST, sct_ext_value), False)
-        .sign(int_key, hashes.SHA256())
+        .sign(int_key, hashes.SHA256(), ecdsa_deterministic=True)
     )
     return leaf, leaf_key
 
@@ -306,7 +310,7 @@ def _pae(payload_type, payload):
 
 
 def _dsse_sign(statement_bytes, leaf_key):
-    sig = leaf_key.sign(_pae(DSSE_PAYLOAD_TYPE, statement_bytes), ec.ECDSA(hashes.SHA256()))
+    sig = leaf_key.sign(_pae(DSSE_PAYLOAD_TYPE, statement_bytes), _ECDSA)
     return sig
 
 
@@ -341,7 +345,7 @@ def _signed_entry_timestamp(body_bytes, log_key_id, integrated_time):
     })
     # ECDSA(SHA256) over the raw payload yields a signature over sha256(payload),
     # which is what VerifySET checks (ecdsa.VerifyASN1 against sha256(canonical)).
-    return _key("rekor").sign(payload, ec.ECDSA(hashes.SHA256()))
+    return _key("rekor").sign(payload, _ECDSA)
 
 
 # v0.3 bundles also require an inclusion proof. For a single-entry log the
@@ -360,7 +364,7 @@ def _rfc6962_leaf_hash(body_bytes):
 def _checkpoint_envelope(root_hash):
     rekor_key = _key("rekor")
     note = "%s\n%d\n%s\n" % (REKOR_ORIGIN, 1, b64(root_hash))
-    sig_der = rekor_key.sign(note.encode(), ec.ECDSA(hashes.SHA256()))
+    sig_der = rekor_key.sign(note.encode(), _ECDSA)
     key_hint = sha256(spki_der(rekor_key.public_key()))[:4]
     sig_line = "— %s %s" % (REKOR_SIG_NAME, b64(key_hint + sig_der))
     return note + "\n" + sig_line + "\n"

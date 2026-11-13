@@ -126,8 +126,8 @@ def _build_self_signed_root(
     common_name: str,
     not_before: datetime,
     not_after: datetime,
+    key: P256KeyPair,
 ) -> SynthCert:
-    key = P256KeyPair.generate()
     subject = issuer = x509.Name([
         x509.NameAttribute(NameOID.COMMON_NAME, common_name),
         x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Intel Corporation"),
@@ -175,7 +175,7 @@ def _build_self_signed_root(
             key_cert_sign=True, crl_sign=True, encipher_only=False, decipher_only=False,
         ), critical=True)
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
-        .sign(key.private, hashes.SHA256())
+        .sign(key.private, hashes.SHA256(), ecdsa_deterministic=key.deterministic)
     )
     return SynthCert(cert=cert, key=key)
 
@@ -185,11 +185,11 @@ def _build_intermediate(
     common_name: str,
     not_before: datetime,
     not_after: datetime,
+    key: P256KeyPair,
     *,
     is_ca: bool = True,
     extra_extensions: list[tuple[x509.ObjectIdentifier, bytes, bool]] | None = None,
 ) -> SynthCert:
-    key = P256KeyPair.generate()
     # Compute Subject Key Identifier per RFC 5280 (SHA-1 of SPKI).
     spki_der = key.public.public_bytes(
         encoding=serialization.Encoding.DER,
@@ -248,7 +248,8 @@ def _build_intermediate(
         builder = builder.add_extension(
             x509.UnrecognizedExtension(oid, value), critical=critical
         )
-    cert = builder.sign(issuer.key.private, hashes.SHA256())
+    cert = builder.sign(issuer.key.private, hashes.SHA256(),
+                        ecdsa_deterministic=issuer.key.deterministic)
     return SynthCert(cert=cert, key=key)
 
 
@@ -301,6 +302,15 @@ def _build_pck_sgx_extension_value(
     return _der_seq(ppid_entry + tcb_entry + pceid_entry + fmspc_entry)
 
 
+_P256_ORDER = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
+
+
+def _derive_secret(seed: bytes, role: str) -> int:
+    """A reproducible P-256 private scalar in [1, n-1] for one chain role."""
+    h = hashlib.sha256(seed + b"/" + role.encode()).digest()
+    return int.from_bytes(h, "big") % (_P256_ORDER - 1) + 1
+
+
 def build_synth_chain(
     *,
     cpu_svn: bytes = b"\x05\x05\x02\x02\x03\x01\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00",
@@ -311,8 +321,13 @@ def build_synth_chain(
     ppid: bytes = b"\x55" * 16,
     not_before: datetime | None = None,
     not_after: datetime | None = None,
+    seed: bytes | None = None,
 ) -> SynthChain:
-    """Build a complete synthetic Intel-mimicking chain in one call."""
+    """Build a complete synthetic Intel-mimicking chain in one call.
+
+    With a seed, every key is derived from it and every signature uses RFC 6979
+    nonces, so the chain is byte-identical across runs; distinct seeds give
+    unrelated chains. Without one, keys are random."""
     if tcb_components is None:
         tcb_components = list(cpu_svn)
     if not_before is None:
@@ -323,24 +338,29 @@ def build_synth_chain(
     nb = not_before.replace(tzinfo=None)
     na = not_after.replace(tzinfo=None)
 
-    root = _build_self_signed_root("Intel SGX Root CA", nb, na)
+    def key(role: str) -> P256KeyPair:
+        if seed is None:
+            return P256KeyPair.generate()
+        return P256KeyPair.from_secret(_derive_secret(seed, role))
+
+    root = _build_self_signed_root("Intel SGX Root CA", nb, na, key("root"))
     platform_ca = _build_intermediate(
-        root, "Intel SGX PCK Platform CA", nb, na, is_ca=True
+        root, "Intel SGX PCK Platform CA", nb, na, key("platform"), is_ca=True
     )
     tcb_signer = _build_intermediate(
-        root, "Intel SGX TCB Signing", nb, na, is_ca=False
+        root, "Intel SGX TCB Signing", nb, na, key("tcb-signer"), is_ca=False
     )
     pck_ext = _build_pck_sgx_extension_value(
         ppid=ppid, cpu_svn=cpu_svn, pce_svn=pce_svn,
         tcb_components=tcb_components, pceid=pceid, fmspc=fmspc,
     )
     pck_leaf = _build_intermediate(
-        platform_ca, "Intel SGX PCK Certificate", nb, na, is_ca=False,
+        platform_ca, "Intel SGX PCK Certificate", nb, na, key("pck"), is_ca=False,
         extra_extensions=[
             (x509.ObjectIdentifier(OID_SGX_EXT), pck_ext, False),
         ],
     )
-    ak = P256KeyPair.generate()
+    ak = key("ak")
     return SynthChain(
         root_ca=root, platform_ca=platform_ca,
         tcb_signer=tcb_signer, pck_leaf=pck_leaf, ak_key=ak,
@@ -363,7 +383,7 @@ def _raw_pubkey_xy(key: P256KeyPair) -> bytes:
 
 def _ecdsa_sign_raw(key: P256KeyPair, message: bytes) -> bytes:
     """Sign message with ECDSA-SHA256 and return raw R||S (64 bytes)."""
-    der = key.private.sign(message, ec.ECDSA(hashes.SHA256()))
+    der = key.private.sign(message, ec.ECDSA(hashes.SHA256(), deterministic_signing=key.deterministic))
     r, s = decode_dss_signature(der)
     return r.to_bytes(32, "big") + s.to_bytes(32, "big")
 
@@ -669,7 +689,8 @@ def build_empty_crl(issuer: SynthCert,
             .build()
         )
         builder = builder.add_revoked_certificate(revoked)
-    crl = builder.sign(issuer.key.private, hashes.SHA256())
+    crl = builder.sign(issuer.key.private, hashes.SHA256(),
+                       ecdsa_deterministic=issuer.key.deterministic)
     return crl.public_bytes(serialization.Encoding.DER)
 
 
