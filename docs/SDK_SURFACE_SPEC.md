@@ -104,7 +104,7 @@ may carry a port.
 | `VerificationError{Layer}` | document must not be trusted; `Layer` ∈ `envelope`/`provenance`/`quote`/`policy` (open set — tolerate unknown values), mapping to `ENVELOPE/PROVENANCE/QUOTE/POLICY_REJECTED` without string matching |
 | `Error` | common supertype of both |
 
-### 2.7 TLS helper (MUST where the platform can inspect the transport)
+### 2.7 TLS helper (MUST)
 
 `CertPubkeyFP(cert)` (SPKI SHA-256 of a certificate, the `TLSPublicKeyFP`
 form). Pure: the verifier takes no socket or connection objects. Building the
