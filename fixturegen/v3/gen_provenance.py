@@ -266,6 +266,30 @@ def p_no_subject():  # statement carries no subject to bind the artifact digest 
     return doc_with(b), t, False
 
 
+# Extended key usage along the Fulcio chain: every certificate on the path
+# that carries an extended key usage extension must allow code signing
+# (1.3.6.1.5.5.7.3.3) or any purpose; a certificate without one is
+# unconstrained. This is Go crypto/x509 chain verification with code signing
+# as the requested usage, which sigstore-go applies to the Fulcio chain.
+SERVER_AUTH = ss.x509.oid.ExtendedKeyUsageOID.SERVER_AUTH
+CODE_SIGNING = ss.x509.oid.ExtendedKeyUsageOID.CODE_SIGNING
+
+
+def p_eku_leaf():  # signing certificate's extended key usage names server auth, not code signing
+    b, t = code_bundle(leaf_eku=[SERVER_AUTH])
+    return doc_with(b), t, False
+
+
+def p_eku_intermediate():  # Fulcio intermediate's extended key usage does not allow code signing
+    b, t = code_bundle(int_eku=[SERVER_AUTH])
+    return doc_with(b), t, False
+
+
+def p_eku_root():  # Fulcio root's extended key usage does not allow code signing
+    b, t = code_bundle(root_eku=[SERVER_AUTH])
+    return doc_with(b), t, False
+
+
 # Positive variations: valid alternatives that MUST accept, so a port that is
 # wrongly too strict (hard-codes the one happy identity/statement) is caught.
 def pos_wildcard_workflow():  # SAN allows any workflow filename under .github/workflows
@@ -291,11 +315,17 @@ def pos_multi_subject():  # extra subjects are fine as long as subject[0] matche
     return doc_with(b), t, True
 
 
+def pos_eku_intermediate():  # intermediate restricted to code signing, as Sigstore's production intermediate is
+    b, t = code_bundle(int_eku=[CODE_SIGNING])
+    return doc_with(b), t, True
+
+
 MUTATIONS = {
     "provenance-happy": happy,
     "provenance-pos-wildcard-workflow": pos_wildcard_workflow,
     "provenance-pos-other-tag": pos_other_tag,
     "provenance-pos-multi-subject": pos_multi_subject,
+    "provenance-pos-eku-intermediate": pos_eku_intermediate,
     "p1": p1, "p3": p3, "p4-zero-sigs": p4_zero, "p4-two-sigs": p4_two,
     "p5": p5, "p6": p6, "p7": p7, "p8": p8, "p9": p9, "p10": p10,
     "p11-san": p11_san, "p11-issuer": p11_issuer, "p11-runner": p11_runner,
@@ -309,6 +339,7 @@ MUTATIONS = {
     "p14-ref": p14_ref, "p14-path": p14_path,
     "p-code-ref-not-tag": p_ref_not_tag, "p-code-tag-mismatch": p_tag_mismatch,
     "p-code-bad-commit": p_bad_commit, "p-no-subject": p_no_subject,
+    "p-eku-leaf": p_eku_leaf, "p-eku-intermediate": p_eku_intermediate, "p-eku-root": p_eku_root,
 }
 
 
