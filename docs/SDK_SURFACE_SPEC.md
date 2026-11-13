@@ -206,7 +206,8 @@ v0.3.0: `ConnectionCertFP` and `PinTLSKey` moved from Tier 1 (§2.7) to the
 client package under §3.4 (Go `tinfoil.ConnectionCertFP`/`tinfoil.PinTLSKey`,
 Python `tinfoil.connection_cert_fp`/`tinfoil.pin_tls_key`), so that the
 verifier takes no connection objects. Semantics and errors unchanged;
-`CertPubkeyFP` and `TLSPublicKeyFP` stay in Tier 1.
+`CertPubkeyFP` and `TLSPublicKeyFP` stay in Tier 1, and `CertPubkeyFP`, which
+needs no transport access, is now a plain MUST.
 
 v0.2.0 (from 1.0.0, renumbered as pre-stable): reference moved to `tinfoil-go` `main`.
 `VerifyDocumentV3` → `Verifier.VerifyV3`/`VerifyV3At`; `VerifiedDocumentV3`
