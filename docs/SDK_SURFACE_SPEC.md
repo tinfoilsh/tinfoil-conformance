@@ -1,4 +1,4 @@
-# SDK Surface Specification — v0.4.0
+# SDK Surface Specification — v0.5.0
 
 The normative **public API surface** a v3 SDK exposes. The adapter spec
 ([CONFORMANCE_ADAPTER_SPEC.md](CONFORMANCE_ADAPTER_SPEC.md)) pins *behavior*;
@@ -147,9 +147,10 @@ query or fragment, even an empty one, else a `ConfigurationError`; requests
 carry `X-Tinfoil-Enclave-Url`), `Verifier` (nil = defaults; for the router, a
 config-authorizing verifier is a `ConfigurationError`), `VerificationCheck(v)`
 (caller veto after policy; rejection is a non-retried `AttestationError`, or
-for the router, moves discovery on), `UserCacheSecret` (router: empty resolves
-from `TINFOIL_USER_CACHE_SECRET` then `~/.tinfoil/user_cache_secret`; a
-non-empty body `user_cache_secret` overrides it).
+for the router, moves discovery on), `UserCacheSecret` (router: empty selects
+a random secret generated in memory once per process; the SDK reads no
+environment variable or file for it; a non-empty body `user_cache_secret`
+overrides it).
 
 ### 3.3 Gateway client (MAY)
 
@@ -204,6 +205,11 @@ including renames and removals — bumps the minor version. From 1.0.0,
 surface additions bump the minor version; renames/removals bump the major
 and require a coordinated release across SDKs. An SDK's conformance claim
 states the surface-spec version it implements.
+
+v0.5.0: an empty `UserCacheSecret` selects a random secret generated in memory
+once per process; the SDKs no longer read `TINFOIL_USER_CACHE_SECRET` or
+`~/.tinfoil/user_cache_secret`, so that the client reads no environment
+variable or file.
 
 v0.4.0: a `BaseURL` (§3.2) or gateway `URL` (§3.3) that carries userinfo, a
 query or a fragment is a `ConfigurationError`, and so is a gateway request
