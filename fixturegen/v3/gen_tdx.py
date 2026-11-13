@@ -52,7 +52,7 @@ def _tcb_levels(status="UpToDate"):
 
 def build_tdx(body=None, tcb_levels=None, tcb_eval=18, qe_mrsigner=None, crl_expired=False,
               tcb_issue_date=None, qe_issue_date=None, crl_this_update=None):
-    chain = tsx.build_synth_chain(pce_svn=PCE_SVN)
+    chain = tsx.build_synth_chain(pce_svn=PCE_SVN, seed=b"v3-intel")
     body = body or tsx.TdBodyFields(tee_tcb_svn=b"\x00\x03\x05\x00" + b"\x00" * 12)
     qkw = {"qe_mrsigner": qe_mrsigner} if qe_mrsigner is not None else {}
     quote, _ = tsx.build_tdx_quote_v4(chain, body=body, **qkw)
@@ -191,7 +191,7 @@ def t24_crl_at_this_update():  # T24: PCK CRL first valid exactly at the verific
 
 def t25_wrong_root():  # T25: quote does not chain to the pinned Intel root
     chain, quote, responses = build_tdx()
-    rogue = tsx.build_synth_chain(pce_svn=PCE_SVN)
+    rogue = tsx.build_synth_chain(pce_svn=PCE_SVN, seed=b"v3-intel-rogue")
     return fx("t25-wrong-root", tdx_document(quote, responses), rogue.root_ca.pem, False)
 
 

@@ -1,16 +1,17 @@
 name: v3 conformance gate
 
 # Fast gate for the v3 suite: (1) validate every fixture against the published
-# JSON Schemas and assert the coverage matrix is fully accounted-for (pure
-# Python, no SDK needed); (2) run the shared v3 fixtures through the tinfoil-go
+# JSON Schemas, assert the coverage matrix is fully accounted-for, and check
+# that the generators reproduce every fixture byte for byte (pure Python, no SDK
+# needed); (2) run the shared v3 fixtures through the tinfoil-go
 # reference harness (the tinfoil_conformance-tagged adapter).
 
 on:
   push:
     branches: [main, feat/v3-conformance]
-    paths: ["vectors/v3/**", "schemas/v3/**", "fixturegen/v3/**", "docs/SPEC_COVERAGE_V3.md", "tools/validate_suite.py"]
+    paths: ["vectors/v3/**", "schemas/v3/**", "fixturegen/v3/**", "fixturegen/lib/**", "docs/SPEC_COVERAGE_V3.md", "tools/validate_suite.py"]
   pull_request:
-    paths: ["vectors/v3/**", "schemas/v3/**", "fixturegen/v3/**", "docs/SPEC_COVERAGE_V3.md", "tools/validate_suite.py"]
+    paths: ["vectors/v3/**", "schemas/v3/**", "fixturegen/v3/**", "fixturegen/lib/**", "docs/SPEC_COVERAGE_V3.md", "tools/validate_suite.py"]
   workflow_dispatch:
 
 permissions:
@@ -27,6 +28,13 @@ jobs:
           python-version: "3.12"
       - name: Validate fixtures against schemas + assert coverage matrix
         run: python3 tools/validate_suite.py
+      - name: Regenerate the v3 fixtures and require no diff
+        run: |
+          set -euo pipefail
+          pip install --quiet cryptography==50.0.2
+          for g in fixturegen/v3/gen_*.py; do python3 "$g"; done
+          git status --porcelain -- vectors/v3
+          test -z "$(git status --porcelain -- vectors/v3)"
 
   harness:
     name: go reference harness
