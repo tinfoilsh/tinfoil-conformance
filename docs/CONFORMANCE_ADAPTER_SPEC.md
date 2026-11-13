@@ -248,8 +248,10 @@ roots, current time, no injection seams.
   fresh random nonce, verifies it through the SDK's **public API** (never the
   adapter's composed flow or injected seams), and emits the standard Output
   (all accept facts) plus, when the platform can inspect the transport,
-  `outputs.channel_binding: "tls-spki"` after asserting the live connection's
-  SPKI SHA-256 fingerprint equals the endorsed `tls_public_key_fp`.
+  `outputs.channel_binding: "tls-spki"` after asserting that the SPKI SHA-256
+  fingerprint of the live connection's leaf certificate (`CertPubkeyFP`,
+  [SDK_SURFACE_SPEC.md](SDK_SURFACE_SPEC.md) §2.7) equals the endorsed
+  `tls_public_key_fp`.
   `outputs.channel_binding` names the check the *adapter* performed; the
   adapter is test tooling and MAY dial TLS even when the shipped product
   cannot (e.g. a browser SDK whose Node adapter checks tls-spki). Exit codes
