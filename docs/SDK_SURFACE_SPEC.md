@@ -160,9 +160,10 @@ Methods `BaseURL()`, `Current() → [ReplicaVerification]`,
 `FetchCatalog(host) → Catalog` (model → `CatalogEntry{Repo, Hosts}`,
 untrusted). Every request is sealed as with `ehbp`. `URL`, like `BaseURL`
 (§3.2), carries no userinfo, query or fragment. A request whose JSON object
-body repeats a top-level `model`, `user_cache_secret` or `cache_salt` member
-is a `ConfigurationError`, before any network I/O, so that the client and the
-server can't read different values.
+body, held in memory, repeats a top-level `model`, `user_cache_secret` or
+`cache_salt` member is a `ConfigurationError`, before any network I/O, so that
+the client and the server can't read different values; a streamed body that
+the client doesn't read is exempt.
 
 ### 3.4 Transport and channel binding
 
