@@ -10,7 +10,8 @@ person or agent team starting `tinfoil-python`, `tinfoil-rs`, etc.
 2. A **conformance adapter** speaking [CONFORMANCE_ADAPTER_SPEC.md](CONFORMANCE_ADAPTER_SPEC.md)
    (stages, exit codes, wire shapes) and exposing the public API pinned by
    [SDK_SURFACE_SPEC.md](SDK_SURFACE_SPEC.md) (Tier 1 now, Tier 2 before release;
-   `live-verify`'s tls-spki check needs the Tier 2 `ConnectionCertFP`, §3.4).
+   `live-verify`'s tls-spki check uses the Tier 1 `CertPubkeyFP` on the live
+   connection's leaf certificate, §2.7).
 
 References, in order of authority: the two specs → `tinfoil-go` `main`
 (primary source — port its check order and error conditions exactly; the

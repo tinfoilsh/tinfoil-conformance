@@ -169,13 +169,11 @@ transport (browsers) supports only `ehbp` and MUST reject `tls` with a
 `ConfigurationError`. `capabilities.channel_binding` declares the **product
 client's** default mechanism, not the adapter's test-time check.
 
-Connection helpers (MUST where the platform can inspect the transport), from
-the client package (Go: root `tinfoil`) so that a caller who brings their own
-transport can pin it: `ConnectionCertFP(conn)` (`CertPubkeyFP` of the
-connection's peer certificate; no peer certificate is a `UsageError`),
-`PinTLSKey(fp)` (a connection-verification callback that adds to, never
-replaces, normal certificate checks; a mismatch is a `VerificationError` of
-layer `policy`).
+The pin is internal to the client; the SDK exposes no public connection
+helper. A caller who brings their own transport pins it by comparing
+`CertPubkeyFP` (§2.7) of the peer's leaf certificate with `TLSPublicKeyFP`
+after the handshake and before sending anything, in addition to, never
+instead of, the normal certificate checks.
 
 ### 3.5 Errors and version
 
@@ -202,12 +200,12 @@ surface additions bump the minor version; renames/removals bump the major
 and require a coordinated release across SDKs. An SDK's conformance claim
 states the surface-spec version it implements.
 
-v0.3.0: `ConnectionCertFP` and `PinTLSKey` moved from Tier 1 (§2.7) to the
-client package under §3.4 (Go `tinfoil.ConnectionCertFP`/`tinfoil.PinTLSKey`,
-Python `tinfoil.connection_cert_fp`/`tinfoil.pin_tls_key`), so that the
-verifier takes no connection objects. Semantics and errors unchanged;
-`CertPubkeyFP` and `TLSPublicKeyFP` stay in Tier 1, and `CertPubkeyFP`, which
-needs no transport access, is now a plain MUST.
+v0.3.0: `ConnectionCertFP` and `PinTLSKey` removed from the surface (§2.7),
+so that the verifier takes no connection objects; nothing outside the SDKs
+used them. The clients keep the pin internal, and §3.4 says how a caller who
+brings their own transport pins it with `CertPubkeyFP`. `CertPubkeyFP` and
+`TLSPublicKeyFP` stay in Tier 1, and `CertPubkeyFP`, which needs no transport
+access, is now a plain MUST.
 
 v0.2.0 (from 1.0.0, renumbered as pre-stable): reference moved to `tinfoil-go` `main`.
 `VerifyDocumentV3` → `Verifier.VerifyV3`/`VerifyV3At`; `VerifiedDocumentV3`
