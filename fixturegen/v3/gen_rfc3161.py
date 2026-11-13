@@ -34,7 +34,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "fixturegen"))
 
-from lib import trust_root, tsa  # noqa: E402
+from lib import der, trust_root, tsa  # noqa: E402
 from lib.keys import P256KeyPair, P384KeyPair  # noqa: E402
 
 STAGE = "v3-verify-timestamp"
@@ -104,10 +104,10 @@ TRUSTED_ROOT = root_with(TSA_P256, TSA_P384)
 
 
 def response(tsa_=TSA_P256, *, imprint_of=INPUT, policy=tsa.SIGSTORE_TIMESTAMP_POLICY,
-             status=tsa.STATUS_GRANTED, gen_time=GEN_TIME) -> bytes:
+             status=tsa.STATUS_GRANTED, gen_time=GEN_TIME, **token_options) -> bytes:
     info = tsa.build_tst_info(imprint=hashlib.sha256(imprint_of).digest(), gen_time=gen_time,
                               serial=TST_SERIAL, policy=policy)
-    return tsa.build_timestamp_response(tsa=tsa_, tst_info=info, status=status)
+    return tsa.build_timestamp_response(tsa=tsa_, tst_info=info, status=status, **token_options)
 
 
 # Each vector returns (response_bytes, trusted_root, expected); its docstring is the rule it exercises.
@@ -194,6 +194,30 @@ def tampered_gentime():
     return tampered, TRUSTED_ROOT, reject()
 
 
+OID_SIGNING_CERTIFICATE = "1.2.840.113549.1.9.16.2.12"
+OID_SHA1 = "1.3.14.3.2.26"
+OID_SHA384 = "2.16.840.1.101.3.4.2.2"
+OID_DATA = "1.2.840.113549.1.7.1"
+
+
+def certificate_binding(*, legacy=False, algorithm=None, digest=None, issuer=None, serial=None,
+                        include_issuer=True):
+    leaf = TSA_P256.leaf_cert
+    hash_name = "sha1" if legacy else "sha384" if algorithm == OID_SHA384 else "sha256"
+    cert_hash = digest if digest is not None else hashlib.new(hash_name, TSA_P256.leaf_der).digest()
+    issuer_serial = der.sequence(
+        der.sequence(der.implicit_constructed(4, leaf.issuer.public_bytes() if issuer is None else issuer)),
+        der.integer(leaf.serial_number if serial is None else serial),
+    ) if include_issuer else b""
+    algorithm_id = der.algorithm_identifier(algorithm, null_params=True) if algorithm else b""
+    value = der.sequence(der.sequence(der.sequence(algorithm_id, der.octet_string(cert_hash), issuer_serial)))
+    return (OID_SIGNING_CERTIFICATE if legacy else tsa.OID_SIGNING_CERTIFICATE_V2, [value])
+
+
+def binding_vector(*attributes, accepted=False, **token_options):
+    return response(certificate_attributes=list(attributes), **token_options), TRUSTED_ROOT, accept() if accepted else reject()
+
+
 def accept() -> dict:
     return {"accepted": True, "timestamp": GEN_TIME_RFC3339}
 
@@ -217,6 +241,23 @@ VECTORS = {
     "no-eku": no_eku,
     "trailing-bytes": trailing_bytes,
     "tampered-gentime": tampered_gentime,
+    "signing-certificate-missing": lambda: binding_vector(),
+    "signing-certificate-wrong-hash": lambda: binding_vector(certificate_binding(digest=bytes(32))),
+    "signing-certificate-wrong-serial": lambda: binding_vector(certificate_binding(serial=3)),
+    "signing-certificate-wrong-issuer": lambda: binding_vector(certificate_binding(issuer=TSA_OTHER.leaf_cert.issuer.public_bytes())),
+    "signing-certificate-duplicate": lambda: binding_vector(certificate_binding(), certificate_binding(digest=bytes(32))),
+    "signing-certificate-multiple-values": lambda: binding_vector((tsa.OID_SIGNING_CERTIFICATE_V2, certificate_binding()[1] * 2)),
+    "signing-certificate-empty": lambda: binding_vector((tsa.OID_SIGNING_CERTIFICATE_V2, [der.sequence(der.sequence())])),
+    "signing-certificate-legacy": lambda: binding_vector(certificate_binding(legacy=True), accepted=True),
+    "signing-certificate-legacy-wrong-hash": lambda: binding_vector(certificate_binding(legacy=True, digest=bytes(20))),
+    "signing-certificate-both": lambda: binding_vector(certificate_binding(legacy=True), certificate_binding(), accepted=True),
+    "signing-certificate-both-one-wrong": lambda: binding_vector(certificate_binding(legacy=True, digest=bytes(20)), certificate_binding()),
+    "signing-certificate-sha384": lambda: binding_vector(certificate_binding(algorithm=OID_SHA384), accepted=True),
+    "signing-certificate-unsupported-hash": lambda: binding_vector(certificate_binding(algorithm=OID_DATA)),
+    "signing-certificate-no-issuer-serial": lambda: binding_vector(certificate_binding(include_issuer=False), accepted=True),
+    "signer-certificate-omitted": lambda: binding_vector(certificate_binding(), embed_certificate=False, accepted=True),
+    "wrong-encapsulated-content-type": lambda: binding_vector(certificate_binding(), content_type=OID_DATA),
+    "wrong-signed-content-type": lambda: binding_vector(certificate_binding(), signed_content_type=OID_DATA),
 }
 
 

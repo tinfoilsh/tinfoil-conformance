@@ -162,22 +162,25 @@ def build_timestamp_response(
     tst_info: bytes,
     status: int = STATUS_GRANTED,
     embed_certificate: bool = True,
+    certificate_attributes: list[tuple[str, list[bytes]]] | None = None,
+    content_type: str = OID_TST_INFO,
+    signed_content_type: str = OID_TST_INFO,
 ) -> bytes:
     """A granted (or granted-with-mods) TimeStampResp whose token is signed by
     the authority's leaf over SHA-256 with ecdsa-with-SHA256, whatever the
     leaf's curve (the production TSA key is P-384 and signs SHA-256 digests)."""
     leaf = tsa.leaf_cert
     signed_attrs = [
-        der.sequence(der.oid(OID_CONTENT_TYPE), der.set_of(der.oid(OID_TST_INFO))),
+        der.sequence(der.oid(OID_CONTENT_TYPE), der.set_of(der.oid(signed_content_type))),
         der.sequence(
             der.oid(OID_MESSAGE_DIGEST),
             der.set_of(der.octet_string(hashlib.sha256(tst_info).digest())),
         ),
-        der.sequence(
-            der.oid(OID_SIGNING_CERTIFICATE_V2),
-            der.set_of(_signing_certificate_v2(leaf)),
-        ),
     ]
+    if certificate_attributes is None:
+        certificate_attributes = [(OID_SIGNING_CERTIFICATE_V2, [_signing_certificate_v2(leaf)])]
+    signed_attrs.extend(der.sequence(der.oid(oid), der.set_of(*values))
+                        for oid, values in certificate_attributes)
     # The signature is computed over the attributes encoded as a SET OF, while
     # the SignerInfo carries them under the [0] IMPLICIT tag.
     attrs_set = der.set_of(*signed_attrs)
@@ -195,7 +198,7 @@ def build_timestamp_response(
     signed_data = der.sequence(
         der.integer(3),
         der.set_of(der.algorithm_identifier(OID_SHA256, null_params=True)),
-        der.sequence(der.oid(OID_TST_INFO), der.explicit(0, der.octet_string(tst_info))),
+        der.sequence(der.oid(content_type), der.explicit(0, der.octet_string(tst_info))),
         der.implicit_constructed(0, tsa.leaf_der) if embed_certificate else b"",
         der.set_of(signer_info),
     )
