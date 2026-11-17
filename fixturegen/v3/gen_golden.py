@@ -228,11 +228,11 @@ def BUILDERS():
     yield ("u1-report-id", golden(sev_kwargs={"report_id": bytes([0x77] * 32)})[1], True)
     # U2: REPORT_ID_MA is unchecked when migrate_ma is disallowed.
     yield ("u2-report-id-ma", golden(sev_kwargs={"report_id_ma": bytes([0x77] * 32)})[1], True)
-    # Positive variation: debug launches accept when the endorsed policy permits.
-    yield ("pos-debug", golden(
+    # S4: a debug launch is refused even when the endorsed policy permits it.
+    yield ("s4-debug-endorsed", golden(
         sev_kwargs={"policy": 0x30000 | (1 << 19)},
         artifact=_mutate_policy(guest_policy={"debug": True, "smt": True,
-                                              "migrate_ma": False, "single_socket": False}))[1], True)
+                                              "migrate_ma": False, "single_socket": False}))[1], False)
     # Positive variation: REPORTED_TCB well above the policy floor accepts.
     hi = {"bl": 7, "tee": 0, "snp": 25, "spl4": 0, "spl5": 0, "spl6": 0, "spl7": 0, "ucode": 90}
     yield ("pos-tcb-above-floor", golden(
