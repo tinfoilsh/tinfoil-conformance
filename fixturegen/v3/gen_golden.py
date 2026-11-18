@@ -249,6 +249,14 @@ def BUILDERS():
         artifact=_mutate_policy(minimum_tcb={"bl_spl": 7, "tee_spl": 0, "snp_spl": 20, "ucode_spl": 72}))[1], True)
     yield ("pos-guest-svn-at-floor", golden(
         sev_kwargs={"guest_svn": 7}, artifact=_mutate_policy(minimum_guest_svn=7))[1], True)
+    # S22: the firmware floor is one version, ordered by API major, minor,
+    # then build. The golden report is firmware 1.55 build 21.
+    yield ("pos-fw-earlier-api-later-build", golden(
+        artifact=_mutate_policy(minimum_api_version="1.54", minimum_build=255))[1], True)
+    yield ("s22-fw-same-api-later-build", golden(
+        artifact=_mutate_policy(minimum_api_version="1.55", minimum_build=22))[1], False)
+    yield ("s22-fw-later-api-build-zero", golden(
+        artifact=_mutate_policy(minimum_api_version="1.56", minimum_build=0))[1], False)
     yield ("pos-collateral-reordered", _variant(_reorder_collateral), True)
     yield ("pos-extra-collateral", _variant(_add_unknown_collateral), True)
     # The full stage requires both endorsed channel keys: a document that
