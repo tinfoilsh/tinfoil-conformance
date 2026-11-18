@@ -162,10 +162,17 @@ def build_timestamp_response(
     tst_info: bytes,
     status: int = STATUS_GRANTED,
     embed_certificate: bool = True,
+    signing_key: P256KeyPair | None = None,
+    signing_certificate: x509.Certificate | None = None,
+    certificates: list[bytes] | None = None,
 ) -> bytes:
     """A granted (or granted-with-mods) TimeStampResp whose token is signed by
     the authority's leaf over SHA-256 with ecdsa-with-SHA256, whatever the
-    leaf's curve (the production TSA key is P-384 and signs SHA-256 digests)."""
+    leaf's curve (the production TSA key is P-384 and signs SHA-256 digests).
+    `signing_key` signs in place of the leaf's key, `signing_certificate` is
+    the certificate that the signing-certificate-v2 attribute names in place
+    of the leaf, and `certificates` replaces the embedded leaf, for a token
+    that names the authority's signer but is not signed by it."""
     leaf = tsa.leaf_cert
     signed_attrs = [
         der.sequence(der.oid(OID_CONTENT_TYPE), der.set_of(der.oid(OID_TST_INFO))),
@@ -175,13 +182,13 @@ def build_timestamp_response(
         ),
         der.sequence(
             der.oid(OID_SIGNING_CERTIFICATE_V2),
-            der.set_of(_signing_certificate_v2(leaf)),
+            der.set_of(_signing_certificate_v2(signing_certificate or leaf)),
         ),
     ]
     # The signature is computed over the attributes encoded as a SET OF, while
     # the SignerInfo carries them under the [0] IMPLICIT tag.
     attrs_set = der.set_of(*signed_attrs)
-    signature = tsa.leaf_key.sign_prehashed_sha256(attrs_set)
+    signature = (signing_key or tsa.leaf_key).sign_prehashed_sha256(attrs_set)
     signed_attrs_tagged = b"\xa0" + attrs_set[1:]
 
     signer_info = der.sequence(
@@ -196,7 +203,7 @@ def build_timestamp_response(
         der.integer(3),
         der.set_of(der.algorithm_identifier(OID_SHA256, null_params=True)),
         der.sequence(der.oid(OID_TST_INFO), der.explicit(0, der.octet_string(tst_info))),
-        der.implicit_constructed(0, tsa.leaf_der) if embed_certificate else b"",
+        der.implicit_constructed(0, b"".join(certificates or [tsa.leaf_der])) if embed_certificate else b"",
         der.set_of(signer_info),
     )
     token = der.sequence(der.oid(OID_SIGNED_DATA), der.explicit(0, signed_data))

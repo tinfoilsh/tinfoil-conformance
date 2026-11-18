@@ -12,6 +12,7 @@ document authenticates through `v3-authenticate-quote`; mutations reject there.
 import json
 import os
 import sys
+import base64
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -189,6 +190,25 @@ def t24_crl_at_this_update():  # T24: PCK CRL first valid exactly at the verific
               verification_time_unix=ISSUED_AT_UNIX)
 
 
+def _extra_member(response):
+    """The response with an unsigned member beside the signed one and its signature."""
+    body = base64.b64decode(response["body_base64"]).rstrip()
+    assert body.endswith(b"}")
+    return {**response, "body_base64": b64(body[:-1] + b',"extra":true}')}
+
+
+def t24_tcb_info_extra_member():  # T24: a TCB Info response holds exactly tcbInfo and signature
+    chain, quote, responses = build_tdx()
+    responses[0] = _extra_member(responses[0])
+    return fx("t24-tcb-info-extra-member", tdx_document(quote, responses), chain.root_ca.pem, False)
+
+
+def t24_qe_identity_extra_member():  # T24: a QE Identity response holds exactly enclaveIdentity and signature
+    chain, quote, responses = build_tdx()
+    responses[1] = _extra_member(responses[1])
+    return fx("t24-qe-identity-extra-member", tdx_document(quote, responses), chain.root_ca.pem, False)
+
+
 def t25_wrong_root():  # T25: quote does not chain to the pinned Intel root
     chain, quote, responses = build_tdx()
     rogue = tsx.build_synth_chain(pce_svn=PCE_SVN)
@@ -219,7 +239,7 @@ def t22_pcesvn():  # T22: PCK leaf PCESVN below the matched TCB level's pcesvn
 BUILDERS = [happy, t1_version, t3_reserved, t3_extra_bytes, t_signature,
             t21_qe_mismatch, t24_missing_pcs, t24_crl_expired, t24_tcb_info_issued_later,
             t24_qe_identity_issued_later, t24_issued_at_verification_time, t24_crl_not_yet_valid,
-            t24_crl_at_this_update, t25_wrong_root,
+            t24_crl_at_this_update, t24_tcb_info_extra_member, t24_qe_identity_extra_member, t25_wrong_root,
             t8_mrsignerseam, t9_seamattributes, t22_pcesvn]
 
 

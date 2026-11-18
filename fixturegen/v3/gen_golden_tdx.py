@@ -150,6 +150,10 @@ def BUILDERS():
     yield ("t16-mr-owner-config", golden_tdx(body_kwargs={"mr_owner_config": b"\x99" * 48}), False)
     # T11: TDATTRIBUTES exact-equality per-bit — DEBUG (bit 0) must be 0.
     yield ("t11-td-debug", golden_tdx(body_kwargs={"td_attributes": b"\x01\x00\x00\x40\x00\x00\x00\x00"}), False)
+    # T11: a debuggable TD is refused even when the endorsed policy permits it.
+    yield ("t11-td-debug-endorsed", golden_tdx(
+        body_kwargs={"td_attributes": b"\x01\x00\x00\x40\x00\x00\x00\x00"},
+        artifact=_mut_tdx(td_attributes="0100004000000000")), False)
 
     # --- Positive tests that MUST accept. ---
     # T5/U3: QE user data (QE_ID) is unchecked; happy accepts regardless (the

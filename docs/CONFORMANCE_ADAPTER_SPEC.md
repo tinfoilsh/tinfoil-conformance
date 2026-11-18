@@ -211,7 +211,7 @@ strings):
 | `PROVENANCE_REJECTED` | a Sigstore artifact (code, platform, or **freshness witness**) failed authentication: chain, SCT, tlog, observer timestamp, identity, subject digest, predicate parse, tag/commit extraction, freshness window; every verification failure of the §2.1 stages |
 | `QUOTE_REJECTED` | the hardware quote is not authentic: signature/chain/collateral/vendor structure |
 | `POLICY_REJECTED` | the quote is authentic but fails the endorsed policy/identity/shape comparison |
-| `MALFORMED_INPUT` | the adapter input itself did not parse (exit 30) |
+| `MALFORMED_INPUT` | the adapter input itself did not parse, or its pin names nothing while the verifier uses default config trust (exit 30) |
 
 The QUOTE/POLICY boundary is normative: not-authentic vs
 authentic-but-noncompliant. Fixture `expected.code` values are assigned from
