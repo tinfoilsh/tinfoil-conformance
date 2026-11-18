@@ -34,6 +34,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "fixturegen"))
 
+from cryptography import x509  # noqa: E402
+from cryptography.hazmat.primitives import hashes, serialization  # noqa: E402
+from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID  # noqa: E402
+
 from lib import trust_root, tsa  # noqa: E402
 from lib.keys import P256KeyPair, P384KeyPair  # noqa: E402
 
@@ -48,6 +52,8 @@ _SECRETS = {
     "p384_leaf": 0x9494949494949494949494949494949494949494949494949494949494949494,
     "other_root": 0x9595959595959595959595959595959595959595959595959595959595959595,
     "other_leaf": 0x9696969696969696969696969696969696969696969696969696969696969696,
+    "lookalike_root": 0x979797979797979797979797979797979797979797979797979797979797979A,
+    "lookalike_leaf": 0x989898989898989898989898989898989898989898989898989898989898989B,
 }
 
 GEN_TIME = datetime(2025, 3, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -194,6 +200,36 @@ def tampered_gentime():
     return tampered, TRUSTED_ROOT, reject()
 
 
+def embedded_lookalike_signer():
+    """The token names the authority's signer (issuer and serial) but is signed by another key, and carries a
+    look-alike of the signer for that key beside the real one: the signer's serial, under a self-signed issuer
+    whose name is the authority root's in upper case. A verifier takes the signer from the trusted root, never
+    from the token. The keys are ones for which a verifier that searches the token's certificates for the signer
+    finds the look-alike."""
+    real = TSA_P256.leaf_cert
+    name = x509.Name([x509.NameAttribute(a.oid, str(a.value).upper()) for a in real.issuer])
+    ca_key = P256KeyPair.from_secret(_SECRETS["lookalike_root"])
+    key = P256KeyPair.from_secret(_SECRETS["lookalike_leaf"])
+    ca_id = x509.SubjectKeyIdentifier.from_public_key(ca_key.public)
+    builder = x509.CertificateBuilder().not_valid_before(LEAF_NOT_BEFORE.replace(tzinfo=None)).not_valid_after(
+        LEAF_NOT_AFTER.replace(tzinfo=None))
+    ca = (builder.subject_name(name).issuer_name(name).public_key(ca_key.public).serial_number(5)
+          .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+          .add_extension(ca_id, critical=False)
+          .sign(ca_key.private, hashes.SHA256(), ecdsa_deterministic=True))
+    lookalike = (builder.subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "a")])).issuer_name(name)
+                 .public_key(key.public).serial_number(real.serial_number)
+                 .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.TIME_STAMPING]), critical=True)
+                 .add_extension(x509.AuthorityKeyIdentifier(ca_id.digest, None, None), critical=False)
+                 .sign(ca_key.private, hashes.SHA256(), ecdsa_deterministic=True))
+    der = serialization.Encoding.DER
+    info = tsa.build_tst_info(imprint=hashlib.sha256(INPUT).digest(), gen_time=GEN_TIME, serial=TST_SERIAL)
+    forged = tsa.build_timestamp_response(
+        tsa=TSA_P256, tst_info=info, signing_key=key, signing_certificate=lookalike,
+        certificates=sorted([TSA_P256.leaf_der, lookalike.public_bytes(der), ca.public_bytes(der)]))
+    return forged, TRUSTED_ROOT, reject()
+
+
 def accept() -> dict:
     return {"accepted": True, "timestamp": GEN_TIME_RFC3339}
 
@@ -217,6 +253,7 @@ VECTORS = {
     "no-eku": no_eku,
     "trailing-bytes": trailing_bytes,
     "tampered-gentime": tampered_gentime,
+    "embedded-lookalike-signer": embedded_lookalike_signer,
 }
 
 

@@ -164,6 +164,12 @@ def _add_unknown_collateral(d):
 
 # Each builder returns (id, input, accepted). Single-field mutations of the
 # golden document, verified end-to-end through verify-attestation-v3.
+def _unpinned(**changes):
+    inp = golden()[1]
+    inp.update(repo="", **changes)
+    return inp
+
+
 def BUILDERS():
     yield ("golden-happy", golden()[1], True)
     # S14: report launch measurement != code-provenance measurement.
@@ -255,6 +261,11 @@ def BUILDERS():
     # requiring it cannot be enforced and must fail closed at assembly.
     yield ("pos-iommu-false-present", golden(artifact=_pi(iommu_write_safe=False))[1], True)
     yield ("pl-iommu-required", golden(artifact=_pi(iommu_write_safe=True))[1], False)
+    # A pin that names nothing is refused under default config trust, and
+    # before the document is read: a nonce the document does not carry is
+    # still the caller's mistake, not an envelope rejection.
+    yield ("pin-none", _unpinned(), False, "MALFORMED_INPUT")
+    yield ("pin-none-wrong-nonce", _unpinned(nonce_hex="ee" * 32), False, "MALFORMED_INPUT")
     yield ("e-hpke-wrong-format", golden(cm_items=[
         {"id": "tls", "format": env.KEY_SPKI_FP, "data": env.TLS_FP},
         {"id": "hpke", "format": env.KEY_SPKI_FP, "data": env.HPKE_KEY}])[1],

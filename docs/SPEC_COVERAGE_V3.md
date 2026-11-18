@@ -98,6 +98,14 @@
   debug, `s4-smt`, `s4-migrate-ma`, `s4-single-socket`) and PLATFORM_INFO S10/S11
   (`s10-platform-info` smt, `s11-tsme`, `s11-ecc`, `s11-rapl`, `s11-ciphertext`);
   TDX TDATTRIBUTES DEBUG bit (`t11-td-debug`) and MROWNERCONFIG (`t16-mr-owner-config`).
+  A debuggable guest is refused even when the endorsed policy permits it
+  (`s4-debug-endorsed`, `t11-td-debug-endorsed`). A machines map that holds an
+  all-zero identifier is rejected (`i-zero-chip-id`, `i-zero-ppid`), and so is an
+  Intel TCB Info or QE Identity response with a member beside the signed one and
+  its signature (`t24-tcb-info-extra-member`, `t24-qe-identity-extra-member`). A
+  pin that names nothing is the caller's mistake under default config trust,
+  reported before the document is read (`pin-none`, `pin-none-wrong-nonce`). A
+  timestamp token cannot supply its own signer (`embedded-lookalike-signer`).
   Boundary positives assert exactly-at-floor accepts (`pos-tcb-at-floor`,
   `pos-guest-svn-at-floor`) so a `>` vs `>=` off-by-one is caught. The
   required-member presence checks (SEV/TDX policy) are a uniform

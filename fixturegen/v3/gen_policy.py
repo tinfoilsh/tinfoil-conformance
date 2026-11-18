@@ -175,6 +175,16 @@ def i_not_hex():
     return doc_with(b), t, False
 
 
+def i_zero_chip_id():  # an all-zero CHIP_ID is what a masked report carries, not a machine
+    b, t = _bundle(_artifact(lambda a: a["machines"].update({"00" * 64: "sev-policy"})))
+    return doc_with(b), t, False
+
+
+def i_zero_ppid():  # an all-zero PPID identifies no machine either
+    b, t = _bundle(_artifact(lambda a: a["machines"].update({"00" * 16: "tdx-policy"})))
+    return doc_with(b), t, False
+
+
 # Policy rules (PL): named policies, fail-closed.
 def pl_block_mismatch():  # platform sev-snp but the sev_snp block is absent
     def m(a):
@@ -324,6 +334,7 @@ MUTATIONS = {
     "p2": p2, "p15-workflow": p15, "p15-tag": p15_tag, "p16": p16,
     "i-unknown-policy": i_unknown_policy, "i-sev-len": i_sev_len,
     "i-tdx-len": i_tdx_len, "i-not-hex": i_not_hex,
+    "i-zero-chip-id": i_zero_chip_id, "i-zero-ppid": i_zero_ppid,
     "pl-block-mismatch": pl_block_mismatch, "pl-unsupported-platform": pl_unsupported_platform,
     "pl-missing-required": pl_missing_required, "pl-bad-tcb": pl_bad_tcb,
     "pl-dangling-measurement": pl_dangling_measurement, "pl-measurement-no-shape": pl_measurement_no_shape,
