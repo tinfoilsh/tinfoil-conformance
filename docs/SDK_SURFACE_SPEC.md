@@ -156,8 +156,9 @@ overrides it).
 
 Methods `BaseURL()`, `Current() → [ReplicaVerification]`,
 `EnsureVerified(model)`, `Models()`. `GatewayOptions`: `ModelPins` (model →
-`ModelPin{Repo, Verifier}`), `PinnedModelsOnly`, `Verifier`,
-`VerificationCheck`, `UserCacheSecret`, `URL`, `Catalog`. Also
+`ModelPin{Repo, Verifier}`), `Verifier`, `VerificationCheck`,
+`UserCacheSecret`, `URL`, `Catalog`. Only pinned models are served, and a
+client without pins is a `ConfigurationError`. Also
 `FetchCatalog(host) → Catalog` (model → `CatalogEntry{Repo, Hosts}`,
 untrusted). Every request is sealed as with `ehbp`. `URL`, like `BaseURL`
 (§3.2), carries no userinfo, query or fragment. A request whose JSON object
