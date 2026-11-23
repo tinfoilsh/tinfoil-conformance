@@ -166,19 +166,25 @@ them as skipped. It enforces, rejecting with `PROVENANCE_REJECTED`:
 
 - **Config.** The document carries a config entry, and its bytes are exactly
   one YAML document, read with aliases and merge keys resolved.
-- **Requirement.** A container whose `provenance` is absent or null requires
-  nothing. Any other `provenance` is a mapping with exactly the member
-  `github`, itself a mapping with exactly the members `repository`,
+- **Requirement.** A container whose `provenance` is absent or a null scalar
+  requires nothing. Any other `provenance` is a mapping with exactly the
+  member `github`, itself a mapping with exactly the members `repository`,
   `repository_id`, `workflow` and `ref`. A missing, unknown or repeated member
-  rejects: a requirement the verifier cannot read in full is never treated as
-  met.
+  rejects, and so does either mapping under an explicit tag other than the
+  mapping tag, such as `!!null {…}`: a requirement the verifier cannot read
+  in full is never treated as met, nor as absent.
 - **Requirement values.** `repository` is `owner/name` over
-  `[A-Za-z0-9_.-]`, at most 140 characters; `repository_id` is a positive
-  integer; `workflow` is a file name `[A-Za-z0-9_.-]+\.ya?ml` with no path, at
-  most 255 characters; `ref` begins with `refs/tags/` or `refs/heads/`,
-  continues with non-empty `/`-separated segments over `[A-Za-z0-9_.*-]`, and
-  is at most 255 characters; the container's `image` is
+  `[A-Za-z0-9_.-]`, at most 140 characters; `repository_id` is an integer
+  scalar written in plain decimal, its text fully matching
+  `[1-9][0-9]{0,17}`; `workflow` is a file name `[A-Za-z0-9_.-]+\.ya?ml` with
+  no path, at most 255 characters; `ref` begins with `refs/tags/` or
+  `refs/heads/`, continues with non-empty `/`-separated segments over
+  `[A-Za-z0-9_.*-]`, and is at most 255 characters; the container's `image` is
   `<name>@sha256:<64 lowercase hex>` with no whitespace and no other `@`.
+  YAML libraries disagree on every other spelling of an integer, so a
+  `repository_id` with a sign, a leading zero, grouped digits, another base,
+  a fraction or an exponent rejects, as does a quoted string and anything
+  that is not a scalar.
 - **Proof.** For each requirement, in config order, the proof is the first
   container-provenance entry whose `digest` is the image's. A document
   without one rejects, whatever other proofs it carries, and a later entry
@@ -198,9 +204,9 @@ them as skipped. It enforces, rejecting with `PROVENANCE_REJECTED`:
 - **Source.** The signing identity names the workflow file, which a run in
   another repository can call, so the certificate's source fields are checked
   too: the source repository URI equals `https://github.com/<repository>`,
-  the source repository identifier equals `repository_id`, the source
-  repository ref fully matches `ref` as above, and the source repository
-  digest is a 40-character lowercase hex commit.
+  the source repository identifier equals the text of `repository_id`, the
+  source repository ref fully matches `ref` as above, and the source
+  repository digest is a 40-character lowercase hex commit.
 
 Malformed input (exit 30) is as for the other block stages that take a
 document. Accept output: `containers`, one entry per requirement (§4).
