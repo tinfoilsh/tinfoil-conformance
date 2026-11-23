@@ -198,6 +198,10 @@ them as skipped. It enforces, rejecting with `PROVENANCE_REJECTED`:
   `https://github.com/<repository>/.github/workflows/<workflow>@<ref>`.
   Every character of the requirement is literal except `*` in `ref`, which
   matches any run of characters, possibly empty, other than `/` and `@`.
+  Matching a ref against `ref`, here and for the source ref below, takes
+  time polynomial in the lengths of the pattern and of the ref: a
+  requirement can hold over a hundred wildcards, and a matcher that
+  backtracks over them does not finish on a ref that almost matches.
 - **Statement.** An in-toto v1 statement with predicate type
   `https://slsa.dev/provenance/v1` whose **first** subject carries the image
   digest as its sha256 digest.
