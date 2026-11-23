@@ -21,7 +21,8 @@
         "v3-authenticate-quote",
         "verify-attestation-v3",
         "v3-authenticate-approval",
-        "v3-verify-timestamp"
+        "v3-verify-timestamp",
+        "v3-authenticate-containers"
       ]
     },
     "input": { "$ref": "input.schema.json" },
@@ -79,6 +80,23 @@
           "type": "string",
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
           "description": "v3-verify-timestamp: the TSTInfo genTime the accept must report, RFC 3339 in UTC at second precision (accept fixtures only)."
+        },
+        "containers": {
+          "type": "array",
+          "description": "v3-authenticate-containers: the authenticated container builds the accept must report, one per requirement in config order; empty when the config requires none (accept fixtures only).",
+          "items": {
+            "type": "object",
+            "required": ["container", "digest", "repository", "workflow", "ref", "commit"],
+            "additionalProperties": false,
+            "properties": {
+              "container": { "type": "string", "description": "The container's name in the config." },
+              "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the image, lowercase hex." },
+              "repository": { "type": "string", "description": "The required repository (owner/name)." },
+              "workflow": { "type": "string", "description": "The required workflow file name." },
+              "ref": { "type": "string", "description": "The ref of the run, from the signing certificate." },
+              "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$", "description": "The commit of the run, from the signing certificate." }
+            }
+          }
         }
       },
       "allOf": [
@@ -100,7 +118,8 @@
               "v3-authenticate-provenance",
               "v3-assemble-policy",
               "v3-authenticate-quote",
-              "verify-attestation-v3"
+              "verify-attestation-v3",
+              "v3-authenticate-containers"
             ]
           }
         }

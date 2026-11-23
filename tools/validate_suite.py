@@ -91,8 +91,15 @@ def _check_value(name, value, spec, errs):
     elif t == "object":
         if not isinstance(value, dict):
             errs.append(f"{name} is not an object")
-        elif not spec.get("additionalProperties", True) and not set(value) <= set(spec.get("properties", {})):
+            return
+        if not spec.get("additionalProperties", True) and not set(value) <= set(spec.get("properties", {})):
             errs.append(f"{name} has unknown keys {sorted(set(value) - set(spec['properties']))}")
+        for key in spec.get("required", []):
+            if key not in value:
+                errs.append(f"{name}.{key} missing")
+        for key, member in value.items():
+            if key in spec.get("properties", {}):
+                _check_value(f"{name}.{key}", member, spec["properties"][key], errs)
 
 
 def validate_fixture(path):
