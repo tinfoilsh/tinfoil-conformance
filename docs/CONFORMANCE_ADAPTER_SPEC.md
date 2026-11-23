@@ -369,6 +369,7 @@ python3 tools/run_adapter.py --adapter "<cmd>" [--dirs a,b,...]  # drive any ada
 ```
 
 `run_adapter.py` asserts, per fixture: the verdict (exit code + `accepted`),
-the declared `expected.code`, and every declared accept fact. An adapter is
+the declared `expected.code`, and every declared accept fact. An adapter that
+has not answered a fixture after 30 seconds fails it. An adapter is
 conforming at a given suite revision when it passes all fixtures its
 capabilities cover.
