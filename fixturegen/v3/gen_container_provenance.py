@@ -277,6 +277,31 @@ def pos_ref_at_limit():
     return config(container(requirement=provenance(github(ref=ref)))), [proof()], accept(result())
 
 
+# A tag ref pattern with as many wildcards as fit under the length bound while
+# each is followed by a literal: refs/tags/*a*a…*a, padded to the bound with
+# the literal. Matching a run of that literal against it is cheap in time
+# polynomial in the two lengths, while a matcher that backtracks tries every
+# way to share the run out among the wildcards.
+TAG_PREFIX = "refs/tags/"
+WILDCARD_LITERAL = "a"
+OTHER_LITERAL = "b"
+
+
+def many_wildcards():
+    """The pattern, and the longest ref under the bound that it matches."""
+    unit = "*" + WILDCARD_LITERAL
+    pattern = TAG_PREFIX + unit * ((MAX_REF_LENGTH - len(TAG_PREFIX)) // len(unit))
+    pattern += WILDCARD_LITERAL * (MAX_REF_LENGTH - len(pattern))
+    return pattern, TAG_PREFIX + WILDCARD_LITERAL * (MAX_REF_LENGTH - len(TAG_PREFIX))
+
+
+def pos_many_wildcards():
+    """The ref pattern is as many wildcards as fit, each followed by the same character; the run is on a tag made of that character alone."""
+    pattern, ref = many_wildcards()
+    return (config(container(requirement=provenance(github(ref=pattern)))),
+            [proof(bundle(ref=ref))], accept(result(ref=ref)))
+
+
 def long_repository_id(digits):
     """A repository ID of `digits` decimal digits."""
     cycle = "1234567890"
@@ -615,6 +640,16 @@ def c9_commit():
     return config(), [proof(bundle(source_commit=COMMIT[:-1]))], reject()
 
 
+# C11: matching a ref takes time polynomial in the lengths of the pattern
+# and the ref.
+def c11_wildcards_near_miss():
+    """The many-wildcard pattern against a tag that differs from a matching one in its last character alone: it does not match, and a matcher that backtracks over the wildcards does not finish."""
+    pattern, ref = many_wildcards()
+    near_miss = ref[:-1] + OTHER_LITERAL
+    return (config(container(requirement=provenance(github(ref=pattern)))),
+            [proof(bundle(ref=near_miss))], reject())
+
+
 VECTORS = {
     "containers-happy": happy,
     "containers-pos-exact-ref": pos_exact_ref,
@@ -628,6 +663,7 @@ VECTORS = {
     "containers-pos-workflow-at-limit": pos_workflow_at_limit,
     "containers-pos-ref-at-limit": pos_ref_at_limit,
     "containers-pos-repository-id-at-limit": pos_repository_id_at_limit,
+    "containers-pos-many-wildcards": pos_many_wildcards,
     "containers-pos-no-requirement": pos_no_requirement,
     "containers-pos-null-requirement": pos_null_requirement,
     "c1-unknown-kind": c1_unknown_kind,
@@ -683,6 +719,7 @@ VECTORS = {
     "c8-no-repository-id": c8_no_repository_id,
     "c9-source-ref": c9_source_ref,
     "c9-commit": c9_commit,
+    "c11-wildcards-near-miss": c11_wildcards_near_miss,
 }
 
 
