@@ -5,9 +5,9 @@
 > `main`** (if `pr/assembled-policy` ever lands, the SEV rows will correctly flag the
 > exact-equality regression). Coexists with the v2 stages — v2 is retired per-SDK as it ports.
 
-**Scope:** 121 normative rules — 116 across 9 layers (mapped to block-aligned stages below) + 5 ambiguous/underspecified (tracked as spec-questions, Phase 3). Each mappable rule needs ≥1 fixture (accept **and** reject where both are meaningful). Done = every rule has a fixture and a go-status (or, for ambiguous rules, a resolved spec-question).
+**Scope:** 131 normative rules — 126 across 10 layers (mapped to block-aligned stages below) + 5 ambiguous/underspecified (tracked as spec-questions, Phase 3). Each mappable rule needs ≥1 fixture (accept **and** reject where both are meaningful). Done = every rule has a fixture and a go-status (or, for ambiguous rules, a resolved spec-question).
 
-**Coverage verdict (self-audit vs `POLICY_VALIDATION.md` field tables):** every field/bit of AMD Table 23 (+POLICY §2.1, PLATFORM_INFO §2.2) and Intel §3.1/§3.2/§3.2a (+TDATTRIBUTES §3.3, XFAM §3.4), all 8 enforcement classes, the 7 strict-parse rules, and every required SEV/TDX policy member has ≥1 catalog rule. 121/121 tracked (E14–E17 envelope-binding rules added after the slice-1 audit).
+**Coverage verdict (self-audit vs `POLICY_VALIDATION.md` field tables):** every field/bit of AMD Table 23 (+POLICY §2.1, PLATFORM_INFO §2.2) and Intel §3.1/§3.2/§3.2a (+TDATTRIBUTES §3.3, XFAM §3.4), all 8 enforcement classes, the 7 strict-parse rules, and every required SEV/TDX policy member has ≥1 catalog rule. 131/131 tracked (E14–E17 envelope-binding rules added after the slice-1 audit; C1–C10 container-provenance rules added with adapter contract 1.3).
 
 ## How to use this file
 - The **rule catalog** (bottom) is authoritative: `RULE_ID · doc-ref · layer · rule · accept-idea · reject-idea`. The accept/reject ideas ARE the fixture specs.
@@ -25,6 +25,7 @@
 | POLICY | 12 | `v3-assemble-policy / v3-validate-quote` | B4a/B4b |
 | STRUCTURAL | 4 | `v3-assemble-policy` | B4a |
 | FRESHNESS | 3 | `v3-authenticate-provenance (capability-gated)` | B2 |
+| CONTAINERS | 10 | `v3-authenticate-containers` | B2 |
 | UNCHECKED | 6 | `(negative assertions, cross-stage)` | — |
 
 ## Burn-down (check when fixture lands + go graded)
@@ -34,7 +35,7 @@
 > deferred/not-yet-specified proposal, an explicitly-unenforced field, a
 > sequencing property verified by end-to-end ordering, a defensive check
 > unreachable via a well-formed input, or an open spec-question. `[ ]` = open.
-> **Status: 108 `[x]` + 13 `[~]` = 121/121 accounted-for, 0 open.**
+> **Status: 118 `[x]` + 13 `[~]` = 131/131 accounted-for, 0 open.**
 
 **ENVELOPE** (B1) — 17 rules
 
@@ -174,6 +175,53 @@
   bytes but now tests rejection of the retired platform publisher. A new
   accepting production capture is required after the cvmimage publisher rollout.
 
+**CONTAINERS** (B2) — 10 rules
+
+  `[x]C1` `[x]C2` `[x]C3` `[x]C4` `[x]C5` `[x]C6` `[x]C7` `[x]C8` `[x]C9` `[x]C10`
+
+  `gen_container_provenance.py` fixtures the container builds a config requires
+  at the `v3-authenticate-containers` stage (52 fixtures, all green): a document
+  carries the config and one SLSA v1 build attestation per image under a
+  synthetic Sigstore root. Rejects are named for their rule:
+
+  - C1, reading the requirement: `c1-unknown-kind`, `c1-unknown-detail`,
+    `c1-repeated-member`, `c1-empty`, `c1-two-documents`, `c1-no-config`;
+    accepts `containers-happy`, `containers-pos-no-requirement`,
+    `containers-pos-null-requirement`, `containers-pos-yaml-alias`,
+    `containers-pos-yaml-merge-key`.
+  - C2, its values, each length bound from both sides:
+    `c2-repository-oversized`, `c2-workflow-oversized`, `c2-ref-oversized`,
+    `c2-no-repository-id`, `c2-workflow-path`, `c2-ref-kind`,
+    `c2-image-not-pinned`; accepts `containers-pos-repository-at-limit`,
+    `containers-pos-workflow-at-limit`, `containers-pos-ref-at-limit`.
+  - C3, proof lookup: `c3-missing-proof`, `c3-proof-for-another-image`,
+    `c3-first-proof-wins`; accepts `containers-pos-two-containers`,
+    `containers-pos-first-proof-wins`.
+  - C4, the bundle: `c4-untrusted-ca`, `c4-issuer`, `c4-runner`.
+  - C5, the signing identity: `c5-repository`, `c5-workflow`,
+    `c5-workflow-dot`, `c5-tag-series`, `c5-branch`, `c5-pull-request`,
+    `c5-wildcard-slash`, `c5-ref-dot`, `c5-ref-longer`, `c5-workflow-ref`;
+    accepts `containers-pos-exact-ref`, `containers-pos-branch-pattern`.
+  - C6 and C7, the statement: `c6-another-image`, `c6-second-subject`,
+    `c7-statement-type`, `c7-predicate-type`.
+  - C8 and C9, the run the certificate names: `c8-called-from-another-repository`,
+    `c8-repository-uri`, `c8-repository-id`, `c8-no-repository-id`,
+    `c9-source-ref`, `c9-commit`; accept `containers-pos-workflow-ref-differs`.
+  - C10, the reported results, is asserted on every accept.
+
+  Every over-bound or unreadable requirement comes with a proof that would
+  match it, and every source-field reject keeps a matching signing identity,
+  so an SDK that skips the check accepts and fails the fixture.
+
+  **Reason audit (2026-11-23):** every reject was confirmed to fail at its
+  intended check in tinfoil-go, and each check was then removed from the
+  reference verifier in turn to confirm that the fixtures named for it fail.
+  The one check this cannot isolate there is the repeated member
+  (`c1-repeated-member`), which the YAML decoder underneath rejects too.
+
+  These rules are reached by the block stage only: the suite has no
+  config-based document for `verify-attestation-v3`.
+
 **UNCHECKED** (—) — 6 rules (negative-assertion fixtures: prove these are *not* enforced / are ignored)
 
   `[x]U1` `[x]U2` `[~]U3` `[~]U4` `[~]U5` `[~]U6`
@@ -182,7 +230,7 @@
 
   `[~]AM1` `[~]AM2` `[~]AM3` `[~]AM4` `[~]AM5`
 
-> Burn-down total: **108 fixtured (`[x]`) + 13 accounted-for by design (`[~]`) = 121 / 121**, 0 open. Complete layers (fixtured, both-sided, reason-audited): ENVELOPE, PROVENANCE, QUOTE-SEV, POLICY, STRUCTURAL, FRESHNESS; QUOTE-TDX 24/25 (T5 by design); IDENTITY, UNCHECKED have their enforced rules fixtured and the rest documented `[~]`.
+> Burn-down total: **118 fixtured (`[x]`) + 13 accounted-for by design (`[~]`) = 131 / 131**, 0 open. Complete layers (fixtured, both-sided, reason-audited): ENVELOPE, PROVENANCE, QUOTE-SEV, POLICY, STRUCTURAL, FRESHNESS, CONTAINERS; QUOTE-TDX 24/25 (T5 by design); IDENTITY, UNCHECKED have their enforced rules fixtured and the rest documented `[~]`.
 
 ---
 
@@ -362,6 +410,23 @@ This checklist captures every testable normative rule (MUST/MUST-NOT/REQUIRED/SH
 
 ---
 
+### CONTAINERS LAYER — Container Build Provenance
+
+| RULE_ID | Doc: Section/Line | Verification Layer | Normative Rule | Testable As | Accept Fixture Idea | Reject Fixture Idea |
+|---------|-------------------|-------------------|---|---|---|---|
+| **C1** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Config, Requirement | CONTAINERS | Requirement reading is fail-closed. The config is exactly one YAML document, read with aliases and merge keys resolved. A container whose `provenance` is absent or null requires nothing; any other `provenance` is a mapping with exactly the member `github`, itself a mapping with exactly `repository`, `repository_id`, `workflow` and `ref`. | Reject a requirement with a missing, unknown or repeated member, a config with a second YAML document, and a document without a config. | One readable requirement; no requirement (absent or null); a requirement shared through an alias or a merge key. | `gitlab` beside `github`; an unknown member under `github`; a repeated `ref`; `provenance: {}`; a second YAML document; no config entry. |
+| **C2** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Requirement values | CONTAINERS | `repository` is `owner/name`, at most 140 characters; `repository_id` is a positive integer; `workflow` is a workflow file name without a path, at most 255 characters; `ref` is a pattern under `refs/tags/` or `refs/heads/`, at most 255 characters; the container's `image` pins a SHA-256 digest. | Reject a requirement outside these values even when the document carries a proof that would match it. | Repository, workflow and ref each exactly at its length bound. | Each bound exceeded by one character; no `repository_id`; a workflow path; `refs/pull/*/merge`; an image named by tag. |
+| **C3** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Proof | CONTAINERS | Each requirement is proven by the document's first container-provenance entry whose `digest` is the image's. | Reject when no entry names the image; never use a later entry for the same image. | Two requirements whose proofs are in the other order; a valid first entry followed by an invalid one. | No proof; only a valid proof for another image; an invalid first entry followed by a valid one. |
+| **C4** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Bundle | CONTAINERS | The proof's bundle passes the Sigstore checks of P3–P12 under a certificate whose OIDC issuer is GitHub Actions and whose runner environment is `github-hosted`. | Reject a bundle that does not chain to the trusted root, another issuer, and a self-hosted runner. | Bundle under the trusted root, GitHub-hosted. | Certificate authority outside the trusted root; another OIDC issuer; `self-hosted` runner. |
+| **C5** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Signing identity | CONTAINERS | The certificate SAN fully matches `https://github.com/<repository>/.github/workflows/<workflow>@<ref>`: the requirement is literal except `*` in `ref`, which matches any run of characters other than `/` and `@`. | Reject another repository, workflow or ref; treat `.` as a literal; keep `*` within one ref segment; match the whole SAN. | A tag series; an exact tag; a branch series with the wildcard in a later segment. | Another repository; another workflow; `releasexyml` for `release.yml`; another tag series; a branch; a pull-request ref; `v1/4.2` for `v*`; `v1x4x2` and `v1.4.20` for exact `v1.4.2`; the workflow file taken from a branch. |
+| **C6** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Statement | CONTAINERS | The statement's **first** subject carries the image digest as its sha256 digest. | Reject when the first subject names another image, even if a later subject names the required one. | Statement whose first subject is the image. | Subject of another image; the image digest in the second subject only. |
+| **C7** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Statement | CONTAINERS | The statement is an in-toto v1 statement whose predicate type is `https://slsa.dev/provenance/v1`. | Reject any other statement type or predicate type. | SLSA v1 provenance statement. | An SPDX predicate from the required workflow; an in-toto v0.1 statement type. |
+| **C8** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Source | CONTAINERS | The certificate's source repository URI equals `https://github.com/<repository>` and its source repository identifier equals `repository_id`. | Reject a run of another repository that called the required workflow, a repository with the required name under another ID, and a certificate without the ID. | Source fields of the required repository. | Called from another repository; the URI of another repository; another ID; no ID. |
+| **C9** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Source | CONTAINERS | The certificate's source repository ref fully matches `ref`, and its source repository digest is a 40-character lowercase hex commit. | Reject a run on a ref outside the pattern even when the workflow file's ref matches; reject a malformed commit. | The workflow file and the run on two different matching tags. | A run on a branch with the workflow file at a matching tag; a 39-character commit. |
+| **C10** | CONFORMANCE_ADAPTER_SPEC.md §2.2, accept output (§4) | CONTAINERS | The accept reports one result per requirement, in config order: the container, the image digest, the required repository and workflow, and the ref and commit of the run. A config that requires nothing yields an empty list. | Assert `containers` by deep equality on every accept. | Every accepting fixture; two results in config order; the empty list. | — (an accept that reports other results fails its fixture). |
+
+---
+
 ### UNCHECKED LAYER — Fields Explicitly Not Verified
 
 | RULE_ID | Doc: Section/Line | Verification Layer | Normative Rule | Testable As | Accept Fixture Idea | Reject Fixture Idea |
@@ -417,9 +482,10 @@ This checklist captures every testable normative rule (MUST/MUST-NOT/REQUIRED/SH
 | **POLICY** | 12 | Normative, enforced |
 | **STRUCTURAL** | 4 | Normative, partially enforced (shape filtering deferred) |
 | **FRESHNESS** | 3 | Deferred / not enforced |
+| **CONTAINERS** | 10 | Normative, enforced |
 | **UNCHECKED** | 6 | Intentionally unchecked or deferred |
 | **AMBIGUOUS** | 5 | Underspecified; fixture design uncertain |
-| **Total Normative** | **112** | |
+| **Total Normative** | **126** | |
 | **Known Gaps** | **8** | Documented in CONFORMANCE.md |
 
 ---
