@@ -5,9 +5,9 @@
 > `main`** (if `pr/assembled-policy` ever lands, the SEV rows will correctly flag the
 > exact-equality regression). Coexists with the v2 stages — v2 is retired per-SDK as it ports.
 
-**Scope:** 131 normative rules — 126 across 10 layers (mapped to block-aligned stages below) + 5 ambiguous/underspecified (tracked as spec-questions, Phase 3). Each mappable rule needs ≥1 fixture (accept **and** reject where both are meaningful). Done = every rule has a fixture and a go-status (or, for ambiguous rules, a resolved spec-question).
+**Scope:** 132 normative rules — 127 across 10 layers (mapped to block-aligned stages below) + 5 ambiguous/underspecified (tracked as spec-questions, Phase 3). Each mappable rule needs ≥1 fixture (accept **and** reject where both are meaningful). Done = every rule has a fixture and a go-status (or, for ambiguous rules, a resolved spec-question).
 
-**Coverage verdict (self-audit vs `POLICY_VALIDATION.md` field tables):** every field/bit of AMD Table 23 (+POLICY §2.1, PLATFORM_INFO §2.2) and Intel §3.1/§3.2/§3.2a (+TDATTRIBUTES §3.3, XFAM §3.4), all 8 enforcement classes, the 7 strict-parse rules, and every required SEV/TDX policy member has ≥1 catalog rule. 131/131 tracked (E14–E17 envelope-binding rules added after the slice-1 audit; C1–C10 container-provenance rules added with adapter contract 1.3).
+**Coverage verdict (self-audit vs `POLICY_VALIDATION.md` field tables):** every field/bit of AMD Table 23 (+POLICY §2.1, PLATFORM_INFO §2.2) and Intel §3.1/§3.2/§3.2a (+TDATTRIBUTES §3.3, XFAM §3.4), all 8 enforcement classes, the 7 strict-parse rules, and every required SEV/TDX policy member has ≥1 catalog rule. 132/132 tracked (E14–E17 envelope-binding rules added after the slice-1 audit; C1–C11 container-provenance rules added with adapter contract 1.3).
 
 ## How to use this file
 - The **rule catalog** (bottom) is authoritative: `RULE_ID · doc-ref · layer · rule · accept-idea · reject-idea`. The accept/reject ideas ARE the fixture specs.
@@ -25,7 +25,7 @@
 | POLICY | 12 | `v3-assemble-policy / v3-validate-quote` | B4a/B4b |
 | STRUCTURAL | 4 | `v3-assemble-policy` | B4a |
 | FRESHNESS | 3 | `v3-authenticate-provenance (capability-gated)` | B2 |
-| CONTAINERS | 10 | `v3-authenticate-containers` | B2 |
+| CONTAINERS | 11 | `v3-authenticate-containers` | B2 |
 | UNCHECKED | 6 | `(negative assertions, cross-stage)` | — |
 
 ## Burn-down (check when fixture lands + go graded)
@@ -35,7 +35,7 @@
 > deferred/not-yet-specified proposal, an explicitly-unenforced field, a
 > sequencing property verified by end-to-end ordering, a defensive check
 > unreachable via a well-formed input, or an open spec-question. `[ ]` = open.
-> **Status: 118 `[x]` + 13 `[~]` = 131/131 accounted-for, 0 open.**
+> **Status: 119 `[x]` + 13 `[~]` = 132/132 accounted-for, 0 open.**
 
 **ENVELOPE** (B1) — 17 rules
 
@@ -175,12 +175,12 @@
   bytes but now tests rejection of the retired platform publisher. A new
   accepting production capture is required after the cvmimage publisher rollout.
 
-**CONTAINERS** (B2) — 10 rules
+**CONTAINERS** (B2) — 11 rules
 
-  `[x]C1` `[x]C2` `[x]C3` `[x]C4` `[x]C5` `[x]C6` `[x]C7` `[x]C8` `[x]C9` `[x]C10`
+  `[x]C1` `[x]C2` `[x]C3` `[x]C4` `[x]C5` `[x]C6` `[x]C7` `[x]C8` `[x]C9` `[x]C10` `[x]C11`
 
   `gen_container_provenance.py` fixtures the container builds a config requires
-  at the `v3-authenticate-containers` stage (67 fixtures, all green): a document
+  at the `v3-authenticate-containers` stage (69 fixtures, all green): a document
   carries the config and one SLSA v1 build attestation per image under a
   synthetic Sigstore root. Rejects are named for their rule:
 
@@ -218,6 +218,13 @@
     `c8-repository-uri`, `c8-repository-id`, `c8-no-repository-id`,
     `c9-source-ref`, `c9-commit`; accept `containers-pos-workflow-ref-differs`.
   - C10, the reported results, is asserted on every accept.
+  - C11, matching in polynomial time: `c11-wildcards-near-miss`; accept
+    `containers-pos-many-wildcards`. Both use the pattern with the most
+    wildcards the length bound allows, 122. Translated wildcard by wildcard
+    to `[^/@]*` and matched by Python's backtracking `re`, it answers neither
+    within the 30 seconds `run_adapter.py` allows a fixture, so such an SDK
+    fails both; the accept also fails an SDK that avoids the cost by refusing
+    the pattern.
 
   Every over-bound or unreadable requirement comes with a proof that would
   match it, and every source-field reject keeps a matching signing identity,
@@ -249,7 +256,7 @@
 
   `[~]AM1` `[~]AM2` `[~]AM3` `[~]AM4` `[~]AM5`
 
-> Burn-down total: **118 fixtured (`[x]`) + 13 accounted-for by design (`[~]`) = 131 / 131**, 0 open. Complete layers (fixtured, both-sided, reason-audited): ENVELOPE, PROVENANCE, QUOTE-SEV, POLICY, STRUCTURAL, FRESHNESS, CONTAINERS; QUOTE-TDX 24/25 (T5 by design); IDENTITY, UNCHECKED have their enforced rules fixtured and the rest documented `[~]`.
+> Burn-down total: **119 fixtured (`[x]`) + 13 accounted-for by design (`[~]`) = 132 / 132**, 0 open. Complete layers (fixtured, both-sided, reason-audited): ENVELOPE, PROVENANCE, QUOTE-SEV, POLICY, STRUCTURAL, FRESHNESS, CONTAINERS; QUOTE-TDX 24/25 (T5 by design); IDENTITY, UNCHECKED have their enforced rules fixtured and the rest documented `[~]`.
 
 ---
 
@@ -443,6 +450,7 @@ This checklist captures every testable normative rule (MUST/MUST-NOT/REQUIRED/SH
 | **C8** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Source | CONTAINERS | The certificate's source repository URI equals `https://github.com/<repository>` and its source repository identifier equals `repository_id`. | Reject a run of another repository that called the required workflow, a repository with the required name under another ID, and a certificate without the ID. | Source fields of the required repository. | Called from another repository; the URI of another repository; another ID; no ID. |
 | **C9** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Source | CONTAINERS | The certificate's source repository ref fully matches `ref`, and its source repository digest is a 40-character lowercase hex commit. | Reject a run on a ref outside the pattern even when the workflow file's ref matches; reject a malformed commit. | The workflow file and the run on two different matching tags. | A run on a branch with the workflow file at a matching tag; a 39-character commit. |
 | **C10** | CONFORMANCE_ADAPTER_SPEC.md §2.2, accept output (§4) | CONTAINERS | The accept reports one result per requirement, in config order: the container, the image digest, the required repository and workflow, and the ref and commit of the run. A config that requires nothing yields an empty list. | Assert `containers` by deep equality on every accept. | Every accepting fixture; two results in config order; the empty list. | — (an accept that reports other results fails its fixture). |
+| **C11** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Signing identity | CONTAINERS | Matching a ref against the `ref` pattern, for the signing identity and for the source ref, takes time polynomial in the lengths of the pattern and of the ref. | Answer within the runner's per-fixture timeout for a pattern of as many wildcards as its length bound allows, whether the ref matches or almost matches. | `refs/tags/*a*a…*aa`, 255 characters with 122 wildcards, against a tag of 245 `a`. | The same pattern against that tag with its last character changed. |
 
 ---
 
@@ -501,10 +509,10 @@ This checklist captures every testable normative rule (MUST/MUST-NOT/REQUIRED/SH
 | **POLICY** | 12 | Normative, enforced |
 | **STRUCTURAL** | 4 | Normative, partially enforced (shape filtering deferred) |
 | **FRESHNESS** | 3 | Deferred / not enforced |
-| **CONTAINERS** | 10 | Normative, enforced |
+| **CONTAINERS** | 11 | Normative, enforced |
 | **UNCHECKED** | 6 | Intentionally unchecked or deferred |
 | **AMBIGUOUS** | 5 | Underspecified; fixture design uncertain |
-| **Total Normative** | **126** | |
+| **Total Normative** | **127** | |
 | **Known Gaps** | **8** | Documented in CONFORMANCE.md |
 
 ---

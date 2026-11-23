@@ -198,7 +198,7 @@ one field changed to violate the rule under test).
 | PLATFORM_ENDORSEMENTS policies: every-member-required, unknown-field fail-closed, unmappable block, author/id-block-must-be-false | `PL1–PL12` | `v3-assemble-policy` · `v3-validate-quote` | reject + accept |
 | Shape filtering / exactly-one measurement resolution | `ST1–ST4` | `v3-assemble-policy` | reject (0 or >1) + accept |
 | Channel binding (crypto_material) | (B6) | `v3-bind-channel` | reject + accept |
-| Container provenance: requirement reading, proof lookup, signing identity, statement, source repository and ref ([CONFORMANCE_ADAPTER_SPEC §2.2](CONFORMANCE_ADAPTER_SPEC.md#22-container-provenance-stage-v13)) | `C1–C10` | `v3-authenticate-containers` (the only stage that reaches them: the suite has no config-based full-flow document) | reject + accept (synthetic Sigstore root) |
+| Container provenance: requirement reading, proof lookup, signing identity, statement, source repository and ref ([CONFORMANCE_ADAPTER_SPEC §2.2](CONFORMANCE_ADAPTER_SPEC.md#22-container-provenance-stage-v13)) | `C1–C11` | `v3-authenticate-containers` (the only stage that reaches them: the suite has no config-based full-flow document) | reject + accept (synthetic Sigstore root) |
 | Freshness: nonce binding + per-artifact witness (enforced since #109) | `FR1–FR3` | `verify-attestation-v3` (witness failures attribute to B2/PROVENANCE) | reject (missing/stale/future/wrong-identity/mismatched witness) + accept (valid witness, at-max-age boundary) |
 | Explicitly-unchecked fields | `U1–U6` | `verify-attestation-v3` | negative assertion (mutate → still accepts) |
 | Ambiguous / underspecified | `AM1–AM5` | — | no fixture until resolved as a spec-question |
