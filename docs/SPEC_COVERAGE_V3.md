@@ -180,12 +180,13 @@
   `[x]C1` `[x]C2` `[x]C3` `[x]C4` `[x]C5` `[x]C6` `[x]C7` `[x]C8` `[x]C9` `[x]C10`
 
   `gen_container_provenance.py` fixtures the container builds a config requires
-  at the `v3-authenticate-containers` stage (52 fixtures, all green): a document
+  at the `v3-authenticate-containers` stage (67 fixtures, all green): a document
   carries the config and one SLSA v1 build attestation per image under a
   synthetic Sigstore root. Rejects are named for their rule:
 
   - C1, reading the requirement: `c1-unknown-kind`, `c1-unknown-detail`,
-    `c1-repeated-member`, `c1-empty`, `c1-two-documents`, `c1-no-config`;
+    `c1-repeated-member`, `c1-empty`, `c1-null-tagged-requirement`,
+    `c1-null-tagged-detail`, `c1-two-documents`, `c1-no-config`;
     accepts `containers-happy`, `containers-pos-no-requirement`,
     `containers-pos-null-requirement`, `containers-pos-yaml-alias`,
     `containers-pos-yaml-merge-key`.
@@ -194,6 +195,15 @@
     `c2-no-repository-id`, `c2-workflow-path`, `c2-ref-kind`,
     `c2-image-not-pinned`; accepts `containers-pos-repository-at-limit`,
     `containers-pos-workflow-at-limit`, `containers-pos-ref-at-limit`.
+    The repository ID in plain decimal only: `c2-repository-id-hex`,
+    `c2-repository-id-octal`, `c2-repository-id-leading-zero-octal`,
+    `c2-repository-id-leading-zero-decimal`, `c2-repository-id-sign`,
+    `c2-repository-id-grouped`, `c2-repository-id-float`,
+    `c2-repository-id-string`, `c2-repository-id-list`,
+    `c2-repository-id-negative`, `c2-repository-id-zero`,
+    `c2-repository-id-oversized`; accept
+    `containers-pos-repository-id-at-limit`, whose 18 digits a
+    double-precision number does not hold exactly.
   - C3, proof lookup: `c3-missing-proof`, `c3-proof-for-another-image`,
     `c3-first-proof-wins`; accepts `containers-pos-two-containers`,
     `containers-pos-first-proof-wins`.
@@ -211,13 +221,22 @@
 
   Every over-bound or unreadable requirement comes with a proof that would
   match it, and every source-field reject keeps a matching signing identity,
-  so an SDK that skips the check accepts and fails the fixture.
+  so an SDK that skips the check accepts and fails the fixture. A
+  `repository_id` in another spelling comes with the proof of the repository
+  a lenient reader would take it for: the leading-zero ID reads as one
+  repository in octal and as another in decimal, and has a fixture for each.
+  The two null-tagged mappings carry no proof instead, so that only an SDK
+  that reads them as no requirement accepts.
 
   **Reason audit (2026-11-23):** every reject was confirmed to fail at its
   intended check in tinfoil-go, and each check was then removed from the
   reference verifier in turn to confirm that the fixtures named for it fail.
   The one check this cannot isolate there is the repeated member
   (`c1-repeated-member`), which the YAML decoder underneath rejects too.
+  The `repository_id` spellings and the null-tagged mappings were confirmed
+  against lenient readers: tinfoil-go as it read the ID before it required
+  plain decimal fails eight of them, and a reader changed to accept each
+  remaining one fails the fixture for it.
 
   These rules are reached by the block stage only: the suite has no
   config-based document for `verify-attestation-v3`.
@@ -414,8 +433,8 @@ This checklist captures every testable normative rule (MUST/MUST-NOT/REQUIRED/SH
 
 | RULE_ID | Doc: Section/Line | Verification Layer | Normative Rule | Testable As | Accept Fixture Idea | Reject Fixture Idea |
 |---------|-------------------|-------------------|---|---|---|---|
-| **C1** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Config, Requirement | CONTAINERS | Requirement reading is fail-closed. The config is exactly one YAML document, read with aliases and merge keys resolved. A container whose `provenance` is absent or null requires nothing; any other `provenance` is a mapping with exactly the member `github`, itself a mapping with exactly `repository`, `repository_id`, `workflow` and `ref`. | Reject a requirement with a missing, unknown or repeated member, a config with a second YAML document, and a document without a config. | One readable requirement; no requirement (absent or null); a requirement shared through an alias or a merge key. | `gitlab` beside `github`; an unknown member under `github`; a repeated `ref`; `provenance: {}`; a second YAML document; no config entry. |
-| **C2** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Requirement values | CONTAINERS | `repository` is `owner/name`, at most 140 characters; `repository_id` is a positive integer; `workflow` is a workflow file name without a path, at most 255 characters; `ref` is a pattern under `refs/tags/` or `refs/heads/`, at most 255 characters; the container's `image` pins a SHA-256 digest. | Reject a requirement outside these values even when the document carries a proof that would match it. | Repository, workflow and ref each exactly at its length bound. | Each bound exceeded by one character; no `repository_id`; a workflow path; `refs/pull/*/merge`; an image named by tag. |
+| **C1** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Config, Requirement | CONTAINERS | Requirement reading is fail-closed. The config is exactly one YAML document, read with aliases and merge keys resolved. A container whose `provenance` is absent or a null scalar requires nothing; any other `provenance` is a mapping with exactly the member `github`, itself a mapping with exactly `repository`, `repository_id`, `workflow` and `ref`. Neither mapping carries an explicit tag other than the mapping tag. | Reject a requirement with a missing, unknown or repeated member, a mapping under an explicit null tag, a config with a second YAML document, and a document without a config. | One readable requirement; no requirement (absent or null); a requirement shared through an alias or a merge key. | `gitlab` beside `github`; an unknown member under `github`; a repeated `ref`; `provenance: {}`; `provenance` or `github` as `!!null {…}`; a second YAML document; no config entry. |
+| **C2** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Requirement values | CONTAINERS | `repository` is `owner/name`, at most 140 characters; `repository_id` is an integer scalar in plain decimal whose text fully matches `[1-9][0-9]{0,17}`; `workflow` is a workflow file name without a path, at most 255 characters; `ref` is a pattern under `refs/tags/` or `refs/heads/`, at most 255 characters; the container's `image` pins a SHA-256 digest. | Reject a requirement outside these values even when the document carries a proof that would match it, and a `repository_id` in any other spelling even when the proof is from the repository a lenient reader would take it for. | Repository, workflow and ref each exactly at its length bound; an 18-digit `repository_id`. | Each bound exceeded by one character; no `repository_id`; a `repository_id` in hexadecimal, in octal, with a leading zero, with a sign, with grouped digits, as a float, as a quoted string, as a list, negative, zero, or of 19 digits; a workflow path; `refs/pull/*/merge`; an image named by tag. |
 | **C3** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Proof | CONTAINERS | Each requirement is proven by the document's first container-provenance entry whose `digest` is the image's. | Reject when no entry names the image; never use a later entry for the same image. | Two requirements whose proofs are in the other order; a valid first entry followed by an invalid one. | No proof; only a valid proof for another image; an invalid first entry followed by a valid one. |
 | **C4** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Bundle | CONTAINERS | The proof's bundle passes the Sigstore checks of P3–P12 under a certificate whose OIDC issuer is GitHub Actions and whose runner environment is `github-hosted`. | Reject a bundle that does not chain to the trusted root, another issuer, and a self-hosted runner. | Bundle under the trusted root, GitHub-hosted. | Certificate authority outside the trusted root; another OIDC issuer; `self-hosted` runner. |
 | **C5** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Signing identity | CONTAINERS | The certificate SAN fully matches `https://github.com/<repository>/.github/workflows/<workflow>@<ref>`: the requirement is literal except `*` in `ref`, which matches any run of characters other than `/` and `@`. | Reject another repository, workflow or ref; treat `.` as a literal; keep `*` within one ref segment; match the whole SAN. | A tag series; an exact tag; a branch series with the wildcard in a later segment. | Another repository; another workflow; `releasexyml` for `release.yml`; another tag series; a branch; a pull-request ref; `v1/4.2` for `v*`; `v1x4x2` and `v1.4.20` for exact `v1.4.2`; the workflow file taken from a branch. |
