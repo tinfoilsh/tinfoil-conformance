@@ -16,7 +16,11 @@ rejection is a single change to the config or to a proof and attributes to
 PROVENANCE_REJECTED. Emits the shared fixture format {id, stage, input,
 expected}; each vector function's docstring says what it exercises.
 
-Run from the repo root:  uv run --with cryptography fixturegen/v3/gen_container_provenance.py
+Run from the repo root:  uv run --with cryptography fixturegen/v3/gen_container_provenance.py [id ...]
+
+Bundles are signed with fresh ECDSA nonces, so a run rewrites every fixture it
+generates with new signatures. Name fixture ids to generate only those and
+leave the others as they are.
 """
 
 import copy
@@ -74,10 +78,11 @@ CALLER_REPOSITORY = "attacker/fork"
 CALLER_REPOSITORY_ID = "555555555"
 
 # The longest repository name, workflow file name and ref pattern a requirement
-# may carry.
+# may carry, and the most digits of its repository ID.
 MAX_REPOSITORY_LENGTH = 140
 MAX_WORKFLOW_LENGTH = 255
 MAX_REF_LENGTH = 255
+MAX_REPOSITORY_ID_DIGITS = 18
 
 CONFIG_HEAD = (
     "cvm-version: 0.15.5@sha256:" + hashlib.sha256(b"container-runtime-manifest").hexdigest() + "\n"
@@ -93,6 +98,12 @@ def github(repository=REPOSITORY, repository_id=REPOSITORY_ID, workflow=WORKFLOW
     members = [("repository", repository), ("repository_id", repository_id),
                ("workflow", workflow), ("ref", ref), *extra]
     return "".join(f"        {key}: {value}\n" for key, value in members if value is not None)
+
+
+def github_flow():
+    """The happy provenance.github mapping in YAML flow style."""
+    return ("{" + f"repository: {REPOSITORY}, repository_id: {REPOSITORY_ID}, "
+            f"workflow: {WORKFLOW}, ref: {REF_PATTERN}" + "}")
 
 
 def provenance(members=None, siblings=""):
@@ -266,6 +277,19 @@ def pos_ref_at_limit():
     return config(container(requirement=provenance(github(ref=ref)))), [proof()], accept(result())
 
 
+def long_repository_id(digits):
+    """A repository ID of `digits` decimal digits."""
+    cycle = "1234567890"
+    return (cycle * digits)[:digits]
+
+
+def pos_repository_id_at_limit():
+    """The repository ID has as many digits as a requirement allows, more than a double-precision number holds exactly."""
+    repository_id = long_repository_id(MAX_REPOSITORY_ID_DIGITS)
+    return (config(container(requirement=provenance(github(repository_id=repository_id)))),
+            [proof(bundle(source_repository_id=repository_id))], accept(result()))
+
+
 def pos_no_requirement():
     """No container declares provenance: the config requires no build and the result is empty."""
     return config(container(requirement="")), [], accept()
@@ -299,6 +323,21 @@ def c1_repeated_member():
 def c1_empty():
     """An empty provenance mapping is a requirement without a build, not the absence of one."""
     return config(container(requirement="    provenance: {}\n")), [proof()], reject()
+
+
+# A mapping under an explicit null tag is neither a requirement the verifier
+# reads nor the absence of one. These two carry no proof, so only reading the
+# mapping as "no requirement" accepts.
+def c1_null_tagged_requirement():
+    """The provenance member is a mapping under an explicit null tag."""
+    tagged = "    provenance: !!null {github: " + github_flow() + "}\n"
+    return config(container(requirement=tagged)), [], reject()
+
+
+def c1_null_tagged_detail():
+    """The GitHub requirement is a mapping under an explicit null tag."""
+    tagged = "    provenance:\n      github: !!null " + github_flow() + "\n"
+    return config(container(requirement=tagged)), [], reject()
 
 
 def c1_two_documents():
@@ -336,6 +375,82 @@ def c2_ref_oversized():
 def c2_no_repository_id():
     """The requirement names no repository ID."""
     return config(container(requirement=provenance(github(repository_id=None)))), [proof()], reject()
+
+
+# The repository ID is an integer written in plain decimal. YAML libraries
+# read the other spellings differently, so each comes with a proof from the
+# repository whose ID a reader that accepted the spelling would take it for.
+def repository_id_spelling(spelling, read_as=REPOSITORY_ID):
+    return (config(container(requirement=provenance(github(repository_id=spelling)))),
+            [proof(bundle(source_repository_id=read_as))], reject())
+
+
+# The happy repository ID with a leading zero: all its digits are octal, so
+# it reads as one number in octal and as another in decimal.
+LEADING_ZERO_ID = "0" + format(int(REPOSITORY_ID), "o")
+
+
+def c2_repository_id_hex():
+    """The repository ID is written in hexadecimal."""
+    return repository_id_spelling(hex(int(REPOSITORY_ID)))
+
+
+def c2_repository_id_octal():
+    """The repository ID is written in octal with the 0o prefix."""
+    return repository_id_spelling(oct(int(REPOSITORY_ID)))
+
+
+def c2_repository_id_leading_zero_octal():
+    """The repository ID has a leading zero; the proof is from the repository it names when read as octal."""
+    return repository_id_spelling(LEADING_ZERO_ID, read_as=str(int(LEADING_ZERO_ID, 8)))
+
+
+def c2_repository_id_leading_zero_decimal():
+    """The repository ID has a leading zero; the proof is from the repository it names when read as decimal."""
+    return repository_id_spelling(LEADING_ZERO_ID, read_as=str(int(LEADING_ZERO_ID)))
+
+
+def c2_repository_id_sign():
+    """The repository ID carries a plus sign."""
+    return repository_id_spelling("+" + REPOSITORY_ID)
+
+
+def c2_repository_id_grouped():
+    """The repository ID groups its digits with underscores."""
+    return repository_id_spelling(format(int(REPOSITORY_ID), "_"))
+
+
+def c2_repository_id_float():
+    """The repository ID is written as a floating-point number with an exponent."""
+    return repository_id_spelling(f"{REPOSITORY_ID[0]}.{REPOSITORY_ID[1:]}e{len(REPOSITORY_ID) - 1}")
+
+
+def c2_repository_id_string():
+    """The repository ID is a quoted string of digits."""
+    return repository_id_spelling(f'"{REPOSITORY_ID}"')
+
+
+def c2_repository_id_list():
+    """The repository ID is a one-item list."""
+    return repository_id_spelling(f"[{REPOSITORY_ID}]")
+
+
+def c2_repository_id_negative():
+    """The repository ID is negative; the certificate carries the same text."""
+    negative = "-" + REPOSITORY_ID
+    return repository_id_spelling(negative, read_as=negative)
+
+
+def c2_repository_id_zero():
+    """The repository ID is zero; the certificate carries the same text."""
+    zero = "0"
+    return repository_id_spelling(zero, read_as=zero)
+
+
+def c2_repository_id_oversized():
+    """The repository ID has one digit more than a requirement allows; the proof is from that repository."""
+    repository_id = long_repository_id(MAX_REPOSITORY_ID_DIGITS + 1)
+    return repository_id_spelling(repository_id, read_as=repository_id)
 
 
 def c2_workflow_path():
@@ -512,18 +627,33 @@ VECTORS = {
     "containers-pos-repository-at-limit": pos_repository_at_limit,
     "containers-pos-workflow-at-limit": pos_workflow_at_limit,
     "containers-pos-ref-at-limit": pos_ref_at_limit,
+    "containers-pos-repository-id-at-limit": pos_repository_id_at_limit,
     "containers-pos-no-requirement": pos_no_requirement,
     "containers-pos-null-requirement": pos_null_requirement,
     "c1-unknown-kind": c1_unknown_kind,
     "c1-unknown-detail": c1_unknown_detail,
     "c1-repeated-member": c1_repeated_member,
     "c1-empty": c1_empty,
+    "c1-null-tagged-requirement": c1_null_tagged_requirement,
+    "c1-null-tagged-detail": c1_null_tagged_detail,
     "c1-two-documents": c1_two_documents,
     "c1-no-config": c1_no_config,
     "c2-repository-oversized": c2_repository_oversized,
     "c2-workflow-oversized": c2_workflow_oversized,
     "c2-ref-oversized": c2_ref_oversized,
     "c2-no-repository-id": c2_no_repository_id,
+    "c2-repository-id-hex": c2_repository_id_hex,
+    "c2-repository-id-octal": c2_repository_id_octal,
+    "c2-repository-id-leading-zero-octal": c2_repository_id_leading_zero_octal,
+    "c2-repository-id-leading-zero-decimal": c2_repository_id_leading_zero_decimal,
+    "c2-repository-id-sign": c2_repository_id_sign,
+    "c2-repository-id-grouped": c2_repository_id_grouped,
+    "c2-repository-id-float": c2_repository_id_float,
+    "c2-repository-id-string": c2_repository_id_string,
+    "c2-repository-id-list": c2_repository_id_list,
+    "c2-repository-id-negative": c2_repository_id_negative,
+    "c2-repository-id-zero": c2_repository_id_zero,
+    "c2-repository-id-oversized": c2_repository_id_oversized,
     "c2-workflow-path": c2_workflow_path,
     "c2-ref-kind": c2_ref_kind,
     "c2-image-not-pinned": c2_image_not_pinned,
@@ -584,11 +714,15 @@ def fixture(fid, config_bytes, proofs, expected, root=TRUSTED_ROOT):
 
 
 def main():
+    selected = sys.argv[1:] or list(VECTORS)
+    unknown = [fid for fid in selected if fid not in VECTORS]
+    if unknown:
+        sys.exit(f"unknown fixture ids: {', '.join(unknown)}")
     os.makedirs(OUT_DIR, exist_ok=True)
-    for fid, fn in VECTORS.items():
+    for fid in selected:
         with open(OUT_DIR / (fid + ".json"), "w") as fh:
-            fh.write(json.dumps(fixture(fid, *fn()), indent=2) + "\n")
-    print(f"wrote {len(VECTORS)} container-provenance fixtures to {OUT_DIR.relative_to(REPO_ROOT)}/")
+            fh.write(json.dumps(fixture(fid, *VECTORS[fid]()), indent=2) + "\n")
+    print(f"wrote {len(selected)} of {len(VECTORS)} container-provenance fixtures to {OUT_DIR.relative_to(REPO_ROOT)}/")
 
 
 if __name__ == "__main__":
