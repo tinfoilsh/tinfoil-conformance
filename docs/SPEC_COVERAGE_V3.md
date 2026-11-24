@@ -180,21 +180,21 @@
   `[x]CR1` `[x]CR2` `[x]CR3` `[x]CR4` `[x]CR5` `[x]CR6` `[x]CR7` `[x]CR8` `[x]CR9`
 
   `gen_config_runtime.py` fixtures the runtime pin a config states at the
-  `v3-read-config-runtime` stage (43 fixtures, all green): a document carries
+  `v3-read-config-runtime` stage (46 fixtures, all green): a document carries
   the config bytes and nothing is authenticated, so the fixtures need no trust
   root and a run of the generator rewrites them byte for byte. Rejects are
   named for their rule:
 
   - CR1, the config entry: `cr1-no-config`.
-  - CR2, the format a version takes: `cr2-yaml-at-cutoff`, `cr2-yaml-later`,
-    `cr2-yaml-flow`; accepts `runtime-happy`, `runtime-pos-release`,
-    `runtime-pos-minor`, `runtime-pos-major` (JSON) and
-    `runtime-pos-yaml-release`, `runtime-pos-yaml-candidate` (YAML below the
-    cutoff).
-  - CR3, the order of versions: `cr3-yaml-v-prefix`,
-    `cr3-yaml-build-metadata`, `cr3-yaml-release`, `cr3-yaml-numeric-patch`;
-    accepts `runtime-pos-v-prefix`, `runtime-pos-build-metadata`,
-    `runtime-pos-yaml-candidate`.
+  - CR2, JSON only: `cr2-yaml-earlier-release`, `cr2-yaml-below-cutoff`
+    (YAML below the cutoff), `cr2-yaml-at-cutoff`, `cr2-yaml-later`,
+    `cr2-yaml-flow`, `cr2-yaml-v-prefix`, `cr2-yaml-build-metadata`,
+    `cr2-yaml-release`, `cr2-yaml-numeric-patch` (YAML at or above it);
+    every accept is JSON.
+  - CR3, the cutoff: `cr3-below-cutoff`, `cr3-earlier-release`; accepts
+    `runtime-happy` (the cutoff itself), `runtime-pos-v-prefix`,
+    `runtime-pos-build-metadata`, `runtime-pos-release`,
+    `runtime-pos-numeric-patch`, `runtime-pos-minor`, `runtime-pos-major`.
   - CR4, strict JSON: `cr4-repeated-member`, `cr4-second-value`,
     `cr4-top-level-array`, `cr4-not-utf8`, `cr4-byte-order-mark`,
     `cr4-unpaired-surrogate`.
@@ -210,38 +210,47 @@
   - CR9, the reported pin, is asserted on every accept.
 
   Every reject is one change to an accepting config, the minimal
-  `runtime-happy` or the full `runtime-pos-large`. The CR3 rejects are YAML on
-  purpose: a JSON config whose version a comparison takes for an earlier one
-  falls through to the YAML reader, which reads the same pin from it, so only
-  YAML shows the mistake. The CR6 and CR7 rejects are each in RFC 8785 form
-  (`1.5`, `1e+21`, 2^53, `null`), so the serialization comparison alone
-  accepts them. `runtime-pos-large` and `cr5-member-order-code-points` differ
-  in the place of one tmpfs path that begins with U+20BB7, beside one that
-  begins with U+FF77: UTF-16 code units order the first before the second,
-  code points and UTF-8 bytes the second before the first.
-
-  No fixture carries JSON that pins a version below the cutoff: the rule
-  leaves such bytes to the YAML readers, which do not read them alike.
+  `runtime-happy` or the full `runtime-pos-large`. The CR3 rejects are the
+  bytes of `runtime-happy` with an earlier version in the pin, so the cutoff
+  alone rejects them. The CR2 rejects are refused by the strict parse, before
+  any version is read, so the versions they pin decide nothing: a mistake in
+  the comparison shows in the JSON fixtures of CR3 only, as a reject it
+  accepts or an accept it rejects. The CR6 and CR7 rejects are each in
+  RFC 8785 form (`1.5`, `1e+21`, 2^53, `null`), so the serialization
+  comparison alone accepts them. `runtime-pos-large` and
+  `cr5-member-order-code-points` differ in the place of one tmpfs path that
+  begins with U+20BB7, beside one that begins with U+FF77: UTF-16 code units
+  order the first before the second, code points and UTF-8 bytes the second
+  before the first.
 
   **Reason audit (2026-11-24):** every reject was confirmed to fail at its
-  intended check in tinfoil-go, and each check was then removed from the
-  reference reader in turn to confirm that the fixtures named for it fail:
-  the serialization comparison (the eight `cr5-*`), the null check (both
-  `cr7-*`), the integer check (the four `cr6-*`), its bound alone
-  (`cr6-above-max`, `cr6-below-min`), the refusal of YAML (the `cr2-*` and
-  `cr3-*` rejects and `cr4-byte-order-mark`) and the digest check (both
-  `cr8-digest-*`). A comparison that does not understand a leading `v`, one
-  that does not understand build metadata, one that compares versions as
-  text and one that places a release before its candidates each fail the
-  `cr3-*` reject named for it; one that ignores pre-release identifiers fails
-  `runtime-pos-yaml-candidate`. The other CR4 rejects cannot be isolated
-  there, because the YAML decoder underneath refuses them too. Three of them
-  were confirmed against a reader with JavaScript's defaults (a decoder that
-  substitutes U+FFFD and drops the byte-order mark, `JSON.parse`, a
-  comparison of text): it accepts `cr4-not-utf8`, `cr4-byte-order-mark` and
-  `cr4-unpaired-surrogate`. A reader that orders members by code point, as
-  Python's `sort_keys` does, rejects `runtime-pos-large` and accepts
-  `cr5-member-order-code-points`.
+  intended check in tinfoil-go: the `cr2-*` and `cr4-*` rejects at the strict
+  parse (`cr4-top-level-array` is one JSON value, refused because it is not
+  an object), `cr8-version-number` and `cr8-version-missing` because bytes
+  that parse hold no string member `cvm-version`, and the others at the check
+  they are named for. Each check was then removed from the reference reader
+  in turn to confirm that the fixtures named for it fail: the cutoff (both
+  `cr3-*`), the serialization comparison (the eight `cr5-*`), the null check
+  (both `cr7-*`), the integer check (the four `cr6-*`), its bound alone
+  (`cr6-above-max`, `cr6-below-min`) and the digest check (both
+  `cr8-digest-*`). A reader that hands bytes the strict parse refuses to a
+  YAML parser fails `cr2-yaml-below-cutoff` and `cr2-yaml-earlier-release` if
+  it accepts YAML below the cutoff only, and all nine `cr2-*` rejects and
+  `cr4-byte-order-mark` if it accepts YAML at any version. A comparison that
+  does not understand a leading `v` fails `runtime-pos-v-prefix`, one that
+  does not understand build metadata fails `runtime-pos-build-metadata`, one
+  that compares numbers as text fails `runtime-pos-numeric-patch`, one that
+  places a release before its candidates fails `runtime-pos-release`, and one
+  that ignores pre-release identifiers fails `cr3-below-cutoff`. The strict
+  parse cannot be removed alone there, because the form check parses the
+  bytes strictly a second time: with the first parse replaced by a search of
+  the bytes for the member, `cr4-top-level-array` is the only CR4 reject
+  accepted. Three of the others were confirmed against a reader with
+  JavaScript's defaults (a decoder that substitutes U+FFFD and drops the
+  byte-order mark, `JSON.parse`, a comparison of text): it accepts
+  `cr4-not-utf8`, `cr4-byte-order-mark` and `cr4-unpaired-surrogate`. A
+  reader that orders members by code point, as Python's `sort_keys` does,
+  rejects `runtime-pos-large` and accepts `cr5-member-order-code-points`.
 
   These rules are reached by the block stage only: the suite has no
   config-based document for `verify-attestation-v3`.
@@ -439,12 +448,12 @@ This checklist captures every testable normative rule (MUST/MUST-NOT/REQUIRED/SH
 | RULE_ID | Doc: Section/Line | Verification Layer | Normative Rule | Testable As | Accept Fixture Idea | Reject Fixture Idea |
 |---------|-------------------|-------------------|---|---|---|---|
 | **CR1** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Config | CONFIG | The runtime pin is read from the config bytes a document carries in its `tinfoil-config` reference-values entry; a document without one yields no pin. | Reject a document that carries no config entry. | A document with a config entry. | The same document without the entry. |
-| **CR2** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Format | CONFIG | A config whose `cvm-version` is at or above `v0.15.5-rc.1` is a JSON config, and YAML that pins such a version is refused. A config that pins an earlier version is YAML, read as before. | Accept JSON at and above the cutoff and YAML below it; reject YAML at and above it, in block style and in flow style. | Canonical JSON that pins `0.15.5-rc.1`, `0.15.5`, `0.16.0` and `1.0.0`; block YAML that pins `0.15.4` and `0.15.5-rc.0`. | Block YAML that pins `0.15.5-rc.1` and `0.16.0`; flow YAML with unquoted names that pins `0.15.5-rc.1`. |
-| **CR3** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Cutoff | CONFIG | The version is the text of `cvm-version` before `@sha256:`, with a leading `v` added if missing, compared with the cutoff by semantic version precedence: numbers compare as numbers, a release follows its pre-releases, pre-release identifiers count, build metadata does not. | Reject YAML whose version a wrong comparison places below the cutoff; accept the versions just below it. | JSON with a leading `v`; JSON with build metadata; YAML that pins `0.15.5-rc.0`. | YAML that pins `v0.15.5-rc.1`, `0.15.5-rc.1+gpu`, `0.15.5` and `0.15.10`. |
-| **CR4** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Format | CONFIG | Only bytes the strict JSON parser reads as one object are a JSON config: exactly one value, well-formed UTF-8 without a byte-order mark, no repeated member, no escape of an unpaired surrogate. At or above the cutoff, bytes that fail this are refused. | Reject each violation in bytes that are otherwise the serialization of an accepting config. | Every JSON accept. | A repeated member; a second value; the config inside an array; a byte that is not UTF-8; a leading byte-order mark; the escape of a lone high surrogate. |
+| **CR2** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Format | CONFIG | Config bytes are read only as JSON. YAML is refused whatever version it pins, below the cutoff `v0.15.5-rc.1` as well as at or above it, and no other reader is tried. | Accept canonical JSON; reject YAML below, at and above the cutoff, in block style and in flow style. | Every accept. | Block YAML that pins `0.15.4`, `0.15.5-rc.0`, `0.15.5-rc.1` and `0.16.0`; flow YAML with unquoted names that pins `0.15.5-rc.1`; block YAML that pins `v0.15.5-rc.1`, `0.15.5-rc.1+gpu`, `0.15.5` and `0.15.10`. |
+| **CR3** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Cutoff | CONFIG | The version is the text of `cvm-version` before `@sha256:`, with a leading `v` added if missing, compared with the cutoff by semantic version precedence: numbers compare as numbers, a release follows its pre-releases, pre-release identifiers count, build metadata does not. It is at or above the cutoff: a JSON config that pins an earlier version is refused. | Reject canonical JSON that pins a version below the cutoff; accept the versions a wrong comparison places below it. | JSON that pins `0.15.5-rc.1`, `v0.15.5-rc.1`, `0.15.5-rc.1+gpu`, `0.15.5`, `0.15.10`, `0.16.0` and `1.0.0`. | Canonical JSON that pins `0.15.5-rc.0` and `0.15.4`. |
+| **CR4** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Format | CONFIG | Only bytes the strict JSON parser reads as one object are a JSON config: exactly one value, well-formed UTF-8 without a byte-order mark, no repeated member, no escape of an unpaired surrogate. Bytes that fail this are refused. | Reject each violation in bytes that are otherwise the serialization of an accepting config. | Every accept. | A repeated member; a second value; the config inside an array; a byte that is not UTF-8; a leading byte-order mark; the escape of a lone high surrogate. |
 | **CR5** | CONFORMANCE_ADAPTER_SPEC.md §2.2, One byte form | CONFIG | A JSON config is byte for byte its RFC 8785 serialization: no whitespace, members ordered by the UTF-16 code units of their names, minimal escapes with lowercase hex digits. | Reject every other spelling of the same value. | A full config with non-ASCII text, an escaped control character and member names that UTF-16 code units and code points order differently. | A space after a colon; a trailing newline; two members swapped; the full config ordered by code point; an escaped ASCII letter in a name; an escaped solidus; an uppercase hex escape; `-0`. |
 | **CR6** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Integers | CONFIG | Every number in a JSON config is an integer literal of at most 2^53-1 in absolute value. | Reject a fraction, an exponent and an integer beyond the bound, each written as RFC 8785 writes it, so that only this rule rejects. | 2^53-1 and -(2^53-1). | `1.5`; `1e+21`; 2^53; -2^53. |
-| **CR7** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Null | CONFIG | A JSON config holds no `null`, at any depth. | Reject `null` at the top level and inside nested members. | Every JSON accept. | `null` for a top-level member; `null` three levels down. |
+| **CR7** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Null | CONFIG | A JSON config holds no `null`, at any depth. | Reject `null` at the top level and inside nested members. | Every accept. | `null` for a top-level member; `null` three levels down. |
 | **CR8** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Pin | CONFIG | `cvm-version` is a string `<version>@sha256:<digest>` with a full semantic version and a digest of 64 lowercase hex characters; a config without such a member pins nothing. | Reject a config whose `cvm-version` is absent, is not a string, has no digest, or has a malformed digest. | Every accept. | `cvm-version` as a number; no `cvm-version`; a version without a digest; an uppercase digest; a digest one byte short. |
 | **CR9** | CONFORMANCE_ADAPTER_SPEC.md §2.2, accept output (§4) | CONFIG | The accept reports the pin: the repository `tinfoilsh/cvmimage`, the version as a tag with one leading `v` and its pre-release and build metadata kept, and the digest. | Assert `runtime` by deep equality on every accept. | Every accepting fixture; a version written with a leading `v`; a version with build metadata. | — (an accept that reports another pin fails its fixture). |
 
