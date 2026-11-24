@@ -1,5 +1,5 @@
 {
-  "id": "cr3-yaml-numeric-patch",
+  "id": "cr2-yaml-numeric-patch",
   "stage": "v3-read-config-runtime",
   "input": {
     "schema_version": "1",

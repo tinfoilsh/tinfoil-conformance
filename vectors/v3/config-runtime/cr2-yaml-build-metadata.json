@@ -1,5 +1,5 @@
 {
-  "id": "cr3-yaml-build-metadata",
+  "id": "cr2-yaml-build-metadata",
   "stage": "v3-read-config-runtime",
   "input": {
     "schema_version": "1",

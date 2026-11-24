@@ -1,5 +1,5 @@
 {
-  "id": "runtime-pos-yaml-release",
+  "id": "cr2-yaml-earlier-release",
   "stage": "v3-read-config-runtime",
   "input": {
     "schema_version": "1",
@@ -7,11 +7,7 @@
     "nonce_hex": ""
   },
   "expected": {
-    "accepted": true,
-    "runtime": {
-      "repo": "tinfoilsh/cvmimage",
-      "tag": "v0.15.4",
-      "digest": "16161729a671d10adb79eea43d505edd58d66e3ad6e006cf638eee36a77e1d3e"
-    }
+    "accepted": false,
+    "code": "PROVENANCE_REJECTED"
   }
 }

@@ -1,5 +1,5 @@
 {
-  "id": "cr3-yaml-release",
+  "id": "cr2-yaml-release",
   "stage": "v3-read-config-runtime",
   "input": {
     "schema_version": "1",

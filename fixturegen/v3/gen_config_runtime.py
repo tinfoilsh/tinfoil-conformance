@@ -3,12 +3,13 @@
 `v3-read-config-runtime` stage (CONFORMANCE_ADAPTER_SPEC §2.2,
 SPEC_COVERAGE_V3 CR-rules).
 
-A deployment config pins the runtime it boots as
-`cvm-version: <version>@sha256:<digest>`. From cvm-version v0.15.5-rc.1 on a
-config is JSON in one byte form (RFC 8785 canonical JSON, integers only, no
-null) and YAML is refused; earlier versions keep YAML. Each fixture is a v3
-document carrying the config bytes (the `tinfoil-config` entry); the stage
-reads the pin from them and authenticates nothing.
+A deployment config pins the runtime it boots in its `cvm-version` member, as
+`<version>@sha256:<digest>`. A verifier reads the pin only from a config that
+is JSON in one byte form (RFC 8785 canonical JSON, integers only, no null)
+and pins cvm-version v0.15.5-rc.1 or later; it refuses everything else, YAML
+at every version included. Each fixture is a v3 document carrying the config
+bytes (the `tinfoil-config` entry); the stage reads the pin from them and
+authenticates nothing.
 
 The accepts report the pin; every rejection is a single change to an
 accepting config and attributes to PROVENANCE_REJECTED. Emits the shared
@@ -43,11 +44,11 @@ RUNTIME_REPO = "tinfoilsh/cvmimage"
 DIGEST_SEPARATOR = "@sha256:"
 RUNTIME_DIGEST = hashlib.sha256(b"config-runtime-manifest").hexdigest()
 
-# The first cvm-version whose config is JSON, the release candidate before it
-# and the release before that.
+# The cutoff, which is the first cvm-version whose config is JSON, the release
+# candidate before it and the release before that.
 CUTOFF = "0.15.5-rc.1"
-LAST_YAML_CANDIDATE = "0.15.5-rc.0"
-LAST_YAML_RELEASE = "0.15.4"
+CANDIDATE_BELOW_CUTOFF = "0.15.5-rc.0"
+RELEASE_BELOW_CUTOFF = "0.15.4"
 
 # The integers every JSON implementation reads exactly are those up to 2^53-1
 # in absolute value.
@@ -269,6 +270,12 @@ def pos_release():
     return serialize(small(pin(version))), accept(version)
 
 
+def pos_numeric_patch():
+    """Patch 10 of the same minor version: version numbers compare as numbers, not as text."""
+    version = "0.15.10"
+    return serialize(small(pin(version))), accept(version)
+
+
 def pos_minor():
     """A later minor version."""
     version = "0.16.0"
@@ -294,23 +301,14 @@ def pos_integer_bounds():
     return serialize(config), accept()
 
 
-def pos_yaml_release():
-    """A YAML config for the last release before the first JSON version."""
-    return yaml_config(LAST_YAML_RELEASE), accept(LAST_YAML_RELEASE)
-
-
-def pos_yaml_candidate():
-    """A YAML config for the release candidate just before the first JSON version: pre-release identifiers order versions."""
-    return yaml_config(LAST_YAML_CANDIDATE), accept(LAST_YAML_CANDIDATE)
-
-
 # CR1: the document carries the config.
 def cr1_no_config():
     """The document carries no config entry."""
     return None, reject()
 
 
-# CR2: from the first JSON version on, YAML is refused.
+# CR2: config bytes are read only as JSON. Each of these is YAML, which the
+# strict JSON parse refuses whatever version it pins and however it writes it.
 def cr2_yaml_at_cutoff():
     """A YAML config in block style that pins the first JSON version."""
     return yaml_config(CUTOFF), reject()
@@ -326,31 +324,51 @@ def cr2_yaml_flow():
     return yaml_flow_config(CUTOFF), reject()
 
 
-# CR3: the version is compared by semantic version precedence. Each of these
-# is YAML, so a comparison that takes the version for an earlier one, or for
-# no version at all, accepts it.
-def cr3_yaml_v_prefix():
+def cr2_yaml_below_cutoff():
+    """A YAML config in block style that pins the release candidate just before the first JSON version."""
+    return yaml_config(CANDIDATE_BELOW_CUTOFF), reject()
+
+
+def cr2_yaml_earlier_release():
+    """A YAML config in block style that pins the last release before the first JSON version."""
+    return yaml_config(RELEASE_BELOW_CUTOFF), reject()
+
+
+def cr2_yaml_v_prefix():
     """YAML that pins the first JSON version written with a leading v."""
     return yaml_config("v" + CUTOFF), reject()
 
 
-def cr3_yaml_build_metadata():
+def cr2_yaml_build_metadata():
     """YAML that pins the first JSON version with build metadata."""
     return yaml_config(CUTOFF + "+gpu"), reject()
 
 
-def cr3_yaml_release():
-    """YAML that pins the release the first JSON version is a candidate of: a release follows its pre-releases."""
+def cr2_yaml_release():
+    """YAML that pins the release the first JSON version is a candidate of."""
     return yaml_config("0.15.5"), reject()
 
 
-def cr3_yaml_numeric_patch():
-    """YAML that pins patch 10 of the same minor version: version numbers compare as numbers, not as text."""
+def cr2_yaml_numeric_patch():
+    """YAML that pins patch 10 of the same minor version."""
     return yaml_config("0.15.10"), reject()
 
 
-# CR4: bytes that are not strictly one JSON object are not a JSON config, and
-# from the first JSON version on nothing else is accepted.
+# CR3: the pinned version is at or above the cutoff by semantic version
+# precedence. Each of these is the canonical JSON of the minimal config with
+# an earlier version in its pin, so only this rule rejects it.
+def cr3_below_cutoff():
+    """Canonical JSON that pins the release candidate just before the first JSON version: pre-release identifiers order versions."""
+    return serialize(small(pin(CANDIDATE_BELOW_CUTOFF))), reject()
+
+
+def cr3_earlier_release():
+    """Canonical JSON that pins the last release before the first JSON version."""
+    return serialize(small(pin(RELEASE_BELOW_CUTOFF))), reject()
+
+
+# CR4: bytes that the strict JSON parser does not read as one object are
+# refused.
 def cr4_repeated_member():
     """A member appears twice with the same value."""
     return replace(serialize(small()), '"cpus":2,', '"cpus":2,"cpus":2,'), reject()
@@ -493,20 +511,23 @@ VECTORS = {
     "runtime-pos-v-prefix": pos_v_prefix,
     "runtime-pos-build-metadata": pos_build_metadata,
     "runtime-pos-release": pos_release,
+    "runtime-pos-numeric-patch": pos_numeric_patch,
     "runtime-pos-minor": pos_minor,
     "runtime-pos-major": pos_major,
     "runtime-pos-large": pos_large,
     "runtime-pos-integer-bounds": pos_integer_bounds,
-    "runtime-pos-yaml-release": pos_yaml_release,
-    "runtime-pos-yaml-candidate": pos_yaml_candidate,
     "cr1-no-config": cr1_no_config,
     "cr2-yaml-at-cutoff": cr2_yaml_at_cutoff,
     "cr2-yaml-later": cr2_yaml_later,
     "cr2-yaml-flow": cr2_yaml_flow,
-    "cr3-yaml-v-prefix": cr3_yaml_v_prefix,
-    "cr3-yaml-build-metadata": cr3_yaml_build_metadata,
-    "cr3-yaml-release": cr3_yaml_release,
-    "cr3-yaml-numeric-patch": cr3_yaml_numeric_patch,
+    "cr2-yaml-below-cutoff": cr2_yaml_below_cutoff,
+    "cr2-yaml-earlier-release": cr2_yaml_earlier_release,
+    "cr2-yaml-v-prefix": cr2_yaml_v_prefix,
+    "cr2-yaml-build-metadata": cr2_yaml_build_metadata,
+    "cr2-yaml-release": cr2_yaml_release,
+    "cr2-yaml-numeric-patch": cr2_yaml_numeric_patch,
+    "cr3-below-cutoff": cr3_below_cutoff,
+    "cr3-earlier-release": cr3_earlier_release,
     "cr4-repeated-member": cr4_repeated_member,
     "cr4-second-value": cr4_second_value,
     "cr4-top-level-array": cr4_top_level_array,
