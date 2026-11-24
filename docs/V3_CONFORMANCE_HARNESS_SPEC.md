@@ -1,19 +1,19 @@
 # V3 Conformance Harness Spec
 
 > **Normative contract:** [CONFORMANCE_ADAPTER_SPEC.md](CONFORMANCE_ADAPTER_SPEC.md)
-> (v1.2.0) — the frozen adapter specification new SDKs port against. This
+> (v1.3.0) — the frozen adapter specification new SDKs port against. This
 > document is its informative companion: the rationale and the 1:1 map from v3
 > spec rules to the harness stages that reach them.
 > Companions: [V3_CONFORMANCE_INTERFACE.md](V3_CONFORMANCE_INTERFACE.md) (block
 > design), [SPEC_COVERAGE_V3.md](SPEC_COVERAGE_V3.md) (the authoritative
-> 121-rule matrix). Reference implementation: `tinfoil-go`
+> 130-rule matrix). Reference implementation: `tinfoil-go`
 > `cmd/tinfoil-conformance` + `verifier/conformance` (built `-tags
 > tinfoil_conformance`).
 >
 > Machine-checkable contract: [`schemas/v3/`](../schemas/v3/) (JSON Schema for
 > Input / Output / capabilities / fixture — the enums here are authoritative).
 > [`tools/validate_suite.py`](../tools/validate_suite.py) validates every fixture
-> against those schemas and asserts the matrix is 121/121 accounted-for; it and
+> against those schemas and asserts the matrix is 130/130 accounted-for; it and
 > the go harness run on every push via `.github/workflows/v3-conformance.yml`.
 
 ## 1. Goal
@@ -175,6 +175,7 @@ somewhere in this flow. The block stages are optional and add *localization*
 | `v3-authenticate-quote` | CPU quote signature chain | B3 |
 | `v3-authenticate-approval` | key-signed approval bundle: pinned-key DSSE + Rekor v2 inclusion proofs ([CONFORMANCE_ADAPTER_SPEC §2.1](CONFORMANCE_ADAPTER_SPEC.md#21-approval-bundle-and-timestamp-stages-v12)) | B2 (key-signed verifier) |
 | `v3-verify-timestamp` | RFC 3161 timestamp response against the trusted root's timestamp authorities at the appraisal clock (same §2.1) | B2 (timestamp verifier) |
+| `v3-read-config-runtime` | the runtime pin stated by the config a document carries: JSON in one byte form from the cutoff version on, YAML before it ([CONFORMANCE_ADAPTER_SPEC §2.2](CONFORMANCE_ADAPTER_SPEC.md#22-config-runtime-stage-v13)) | B2 (config reader) |
 
 (Policy *comparison* B4b and channel-key recovery B6 are exercised inside
 `verify-attestation-v3` — POLICY_REJECTED attribution and the asserted accept
@@ -197,6 +198,7 @@ one field changed to violate the rule under test).
 | PLATFORM_ENDORSEMENTS policies: every-member-required, unknown-field fail-closed, unmappable block, author/id-block-must-be-false | `PL1–PL12` | `v3-assemble-policy` · `v3-validate-quote` | reject + accept |
 | Shape filtering / exactly-one measurement resolution | `ST1–ST4` | `v3-assemble-policy` | reject (0 or >1) + accept |
 | Channel binding (crypto_material) | (B6) | `v3-bind-channel` | reject + accept |
+| Config runtime pin: config presence, format by pinned version, version order, strict JSON, the one byte form, integers, no null, the pin ([CONFORMANCE_ADAPTER_SPEC §2.2](CONFORMANCE_ADAPTER_SPEC.md#22-config-runtime-stage-v13)) | `CR1–CR9` | `v3-read-config-runtime` (the only stage that reaches them: the suite has no config-based full-flow document) | reject + accept (no trust root) |
 | Freshness: nonce binding + per-artifact witness (enforced since #109) | `FR1–FR3` | `verify-attestation-v3` (witness failures attribute to B2/PROVENANCE) | reject (missing/stale/future/wrong-identity/mismatched witness) + accept (valid witness, at-max-age boundary) |
 | Explicitly-unchecked fields | `U1–U6` | `verify-attestation-v3` | negative assertion (mutate → still accepts) |
 | Ambiguous / underspecified | `AM1–AM5` | — | no fixture until resolved as a spec-question |

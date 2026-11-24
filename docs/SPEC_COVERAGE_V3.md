@@ -5,9 +5,9 @@
 > `main`** (if `pr/assembled-policy` ever lands, the SEV rows will correctly flag the
 > exact-equality regression). Coexists with the v2 stages — v2 is retired per-SDK as it ports.
 
-**Scope:** 121 normative rules — 116 across 9 layers (mapped to block-aligned stages below) + 5 ambiguous/underspecified (tracked as spec-questions, Phase 3). Each mappable rule needs ≥1 fixture (accept **and** reject where both are meaningful). Done = every rule has a fixture and a go-status (or, for ambiguous rules, a resolved spec-question).
+**Scope:** 130 normative rules — 125 across 10 layers (mapped to block-aligned stages below) + 5 ambiguous/underspecified (tracked as spec-questions, Phase 3). Each mappable rule needs ≥1 fixture (accept **and** reject where both are meaningful). Done = every rule has a fixture and a go-status (or, for ambiguous rules, a resolved spec-question).
 
-**Coverage verdict (self-audit vs `POLICY_VALIDATION.md` field tables):** every field/bit of AMD Table 23 (+POLICY §2.1, PLATFORM_INFO §2.2) and Intel §3.1/§3.2/§3.2a (+TDATTRIBUTES §3.3, XFAM §3.4), all 8 enforcement classes, the 7 strict-parse rules, and every required SEV/TDX policy member has ≥1 catalog rule. 121/121 tracked (E14–E17 envelope-binding rules added after the slice-1 audit).
+**Coverage verdict (self-audit vs `POLICY_VALIDATION.md` field tables):** every field/bit of AMD Table 23 (+POLICY §2.1, PLATFORM_INFO §2.2) and Intel §3.1/§3.2/§3.2a (+TDATTRIBUTES §3.3, XFAM §3.4), all 8 enforcement classes, the 7 strict-parse rules, and every required SEV/TDX policy member has ≥1 catalog rule. 130/130 tracked (E14–E17 envelope-binding rules added after the slice-1 audit; CR1–CR9 config-runtime rules added with adapter contract 1.3).
 
 ## How to use this file
 - The **rule catalog** (bottom) is authoritative: `RULE_ID · doc-ref · layer · rule · accept-idea · reject-idea`. The accept/reject ideas ARE the fixture specs.
@@ -25,6 +25,7 @@
 | POLICY | 12 | `v3-assemble-policy / v3-validate-quote` | B4a/B4b |
 | STRUCTURAL | 4 | `v3-assemble-policy` | B4a |
 | FRESHNESS | 3 | `v3-authenticate-provenance (capability-gated)` | B2 |
+| CONFIG | 9 | `v3-read-config-runtime` | B2 |
 | UNCHECKED | 6 | `(negative assertions, cross-stage)` | — |
 
 ## Burn-down (check when fixture lands + go graded)
@@ -34,7 +35,7 @@
 > deferred/not-yet-specified proposal, an explicitly-unenforced field, a
 > sequencing property verified by end-to-end ordering, a defensive check
 > unreachable via a well-formed input, or an open spec-question. `[ ]` = open.
-> **Status: 108 `[x]` + 13 `[~]` = 121/121 accounted-for, 0 open.**
+> **Status: 117 `[x]` + 13 `[~]` = 130/130 accounted-for, 0 open.**
 
 **ENVELOPE** (B1) — 17 rules
 
@@ -174,6 +175,77 @@
   bytes but now tests rejection of the retired platform publisher. A new
   accepting production capture is required after the cvmimage publisher rollout.
 
+**CONFIG** (B2) — 9 rules
+
+  `[x]CR1` `[x]CR2` `[x]CR3` `[x]CR4` `[x]CR5` `[x]CR6` `[x]CR7` `[x]CR8` `[x]CR9`
+
+  `gen_config_runtime.py` fixtures the runtime pin a config states at the
+  `v3-read-config-runtime` stage (43 fixtures, all green): a document carries
+  the config bytes and nothing is authenticated, so the fixtures need no trust
+  root and a run of the generator rewrites them byte for byte. Rejects are
+  named for their rule:
+
+  - CR1, the config entry: `cr1-no-config`.
+  - CR2, the format a version takes: `cr2-yaml-at-cutoff`, `cr2-yaml-later`,
+    `cr2-yaml-flow`; accepts `runtime-happy`, `runtime-pos-release`,
+    `runtime-pos-minor`, `runtime-pos-major` (JSON) and
+    `runtime-pos-yaml-release`, `runtime-pos-yaml-candidate` (YAML below the
+    cutoff).
+  - CR3, the order of versions: `cr3-yaml-v-prefix`,
+    `cr3-yaml-build-metadata`, `cr3-yaml-release`, `cr3-yaml-numeric-patch`;
+    accepts `runtime-pos-v-prefix`, `runtime-pos-build-metadata`,
+    `runtime-pos-yaml-candidate`.
+  - CR4, strict JSON: `cr4-repeated-member`, `cr4-second-value`,
+    `cr4-top-level-array`, `cr4-not-utf8`, `cr4-byte-order-mark`,
+    `cr4-unpaired-surrogate`.
+  - CR5, the one byte form: `cr5-space`, `cr5-trailing-newline`,
+    `cr5-member-order`, `cr5-member-order-code-points`, `cr5-escaped-letter`,
+    `cr5-escaped-solidus`, `cr5-uppercase-escape`, `cr5-negative-zero`;
+    accept `runtime-pos-large`.
+  - CR6, integers: `cr6-fraction`, `cr6-exponent`, `cr6-above-max`,
+    `cr6-below-min`; accept `runtime-pos-integer-bounds`.
+  - CR7, no null: `cr7-null-member`, `cr7-null-nested`.
+  - CR8, the pin: `cr8-version-number`, `cr8-version-missing`,
+    `cr8-unpinned`, `cr8-digest-uppercase`, `cr8-digest-short`.
+  - CR9, the reported pin, is asserted on every accept.
+
+  Every reject is one change to an accepting config, the minimal
+  `runtime-happy` or the full `runtime-pos-large`. The CR3 rejects are YAML on
+  purpose: a JSON config whose version a comparison takes for an earlier one
+  falls through to the YAML reader, which reads the same pin from it, so only
+  YAML shows the mistake. The CR6 and CR7 rejects are each in RFC 8785 form
+  (`1.5`, `1e+21`, 2^53, `null`), so the serialization comparison alone
+  accepts them. `runtime-pos-large` and `cr5-member-order-code-points` differ
+  in the place of one tmpfs path that begins with U+20BB7, beside one that
+  begins with U+FF77: UTF-16 code units order the first before the second,
+  code points and UTF-8 bytes the second before the first.
+
+  No fixture carries JSON that pins a version below the cutoff: the rule
+  leaves such bytes to the YAML readers, which do not read them alike.
+
+  **Reason audit (2026-11-24):** every reject was confirmed to fail at its
+  intended check in tinfoil-go, and each check was then removed from the
+  reference reader in turn to confirm that the fixtures named for it fail:
+  the serialization comparison (the eight `cr5-*`), the null check (both
+  `cr7-*`), the integer check (the four `cr6-*`), its bound alone
+  (`cr6-above-max`, `cr6-below-min`), the refusal of YAML (the `cr2-*` and
+  `cr3-*` rejects and `cr4-byte-order-mark`) and the digest check (both
+  `cr8-digest-*`). A comparison that does not understand a leading `v`, one
+  that does not understand build metadata, one that compares versions as
+  text and one that places a release before its candidates each fail the
+  `cr3-*` reject named for it; one that ignores pre-release identifiers fails
+  `runtime-pos-yaml-candidate`. The other CR4 rejects cannot be isolated
+  there, because the YAML decoder underneath refuses them too. Three of them
+  were confirmed against a reader with JavaScript's defaults (a decoder that
+  substitutes U+FFFD and drops the byte-order mark, `JSON.parse`, a
+  comparison of text): it accepts `cr4-not-utf8`, `cr4-byte-order-mark` and
+  `cr4-unpaired-surrogate`. A reader that orders members by code point, as
+  Python's `sort_keys` does, rejects `runtime-pos-large` and accepts
+  `cr5-member-order-code-points`.
+
+  These rules are reached by the block stage only: the suite has no
+  config-based document for `verify-attestation-v3`.
+
 **UNCHECKED** (—) — 6 rules (negative-assertion fixtures: prove these are *not* enforced / are ignored)
 
   `[x]U1` `[x]U2` `[~]U3` `[~]U4` `[~]U5` `[~]U6`
@@ -182,7 +254,7 @@
 
   `[~]AM1` `[~]AM2` `[~]AM3` `[~]AM4` `[~]AM5`
 
-> Burn-down total: **108 fixtured (`[x]`) + 13 accounted-for by design (`[~]`) = 121 / 121**, 0 open. Complete layers (fixtured, both-sided, reason-audited): ENVELOPE, PROVENANCE, QUOTE-SEV, POLICY, STRUCTURAL, FRESHNESS; QUOTE-TDX 24/25 (T5 by design); IDENTITY, UNCHECKED have their enforced rules fixtured and the rest documented `[~]`.
+> Burn-down total: **117 fixtured (`[x]`) + 13 accounted-for by design (`[~]`) = 130 / 130**, 0 open. Complete layers (fixtured, both-sided, reason-audited): ENVELOPE, PROVENANCE, QUOTE-SEV, POLICY, STRUCTURAL, FRESHNESS, CONFIG; QUOTE-TDX 24/25 (T5 by design); IDENTITY, UNCHECKED have their enforced rules fixtured and the rest documented `[~]`.
 
 ---
 
@@ -362,6 +434,22 @@ This checklist captures every testable normative rule (MUST/MUST-NOT/REQUIRED/SH
 
 ---
 
+### CONFIG LAYER — Runtime Pin of a Config
+
+| RULE_ID | Doc: Section/Line | Verification Layer | Normative Rule | Testable As | Accept Fixture Idea | Reject Fixture Idea |
+|---------|-------------------|-------------------|---|---|---|---|
+| **CR1** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Config | CONFIG | The runtime pin is read from the config bytes a document carries in its `tinfoil-config` reference-values entry; a document without one yields no pin. | Reject a document that carries no config entry. | A document with a config entry. | The same document without the entry. |
+| **CR2** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Format | CONFIG | A config whose `cvm-version` is at or above `v0.15.5-rc.1` is a JSON config, and YAML that pins such a version is refused. A config that pins an earlier version is YAML, read as before. | Accept JSON at and above the cutoff and YAML below it; reject YAML at and above it, in block style and in flow style. | Canonical JSON that pins `0.15.5-rc.1`, `0.15.5`, `0.16.0` and `1.0.0`; block YAML that pins `0.15.4` and `0.15.5-rc.0`. | Block YAML that pins `0.15.5-rc.1` and `0.16.0`; flow YAML with unquoted names that pins `0.15.5-rc.1`. |
+| **CR3** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Cutoff | CONFIG | The version is the text of `cvm-version` before `@sha256:`, with a leading `v` added if missing, compared with the cutoff by semantic version precedence: numbers compare as numbers, a release follows its pre-releases, pre-release identifiers count, build metadata does not. | Reject YAML whose version a wrong comparison places below the cutoff; accept the versions just below it. | JSON with a leading `v`; JSON with build metadata; YAML that pins `0.15.5-rc.0`. | YAML that pins `v0.15.5-rc.1`, `0.15.5-rc.1+gpu`, `0.15.5` and `0.15.10`. |
+| **CR4** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Format | CONFIG | Only bytes the strict JSON parser reads as one object are a JSON config: exactly one value, well-formed UTF-8 without a byte-order mark, no repeated member, no escape of an unpaired surrogate. At or above the cutoff, bytes that fail this are refused. | Reject each violation in bytes that are otherwise the serialization of an accepting config. | Every JSON accept. | A repeated member; a second value; the config inside an array; a byte that is not UTF-8; a leading byte-order mark; the escape of a lone high surrogate. |
+| **CR5** | CONFORMANCE_ADAPTER_SPEC.md §2.2, One byte form | CONFIG | A JSON config is byte for byte its RFC 8785 serialization: no whitespace, members ordered by the UTF-16 code units of their names, minimal escapes with lowercase hex digits. | Reject every other spelling of the same value. | A full config with non-ASCII text, an escaped control character and member names that UTF-16 code units and code points order differently. | A space after a colon; a trailing newline; two members swapped; the full config ordered by code point; an escaped ASCII letter in a name; an escaped solidus; an uppercase hex escape; `-0`. |
+| **CR6** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Integers | CONFIG | Every number in a JSON config is an integer literal of at most 2^53-1 in absolute value. | Reject a fraction, an exponent and an integer beyond the bound, each written as RFC 8785 writes it, so that only this rule rejects. | 2^53-1 and -(2^53-1). | `1.5`; `1e+21`; 2^53; -2^53. |
+| **CR7** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Null | CONFIG | A JSON config holds no `null`, at any depth. | Reject `null` at the top level and inside nested members. | Every JSON accept. | `null` for a top-level member; `null` three levels down. |
+| **CR8** | CONFORMANCE_ADAPTER_SPEC.md §2.2, Pin | CONFIG | `cvm-version` is a string `<version>@sha256:<digest>` with a full semantic version and a digest of 64 lowercase hex characters; a config without such a member pins nothing. | Reject a config whose `cvm-version` is absent, is not a string, has no digest, or has a malformed digest. | Every accept. | `cvm-version` as a number; no `cvm-version`; a version without a digest; an uppercase digest; a digest one byte short. |
+| **CR9** | CONFORMANCE_ADAPTER_SPEC.md §2.2, accept output (§4) | CONFIG | The accept reports the pin: the repository `tinfoilsh/cvmimage`, the version as a tag with one leading `v` and its pre-release and build metadata kept, and the digest. | Assert `runtime` by deep equality on every accept. | Every accepting fixture; a version written with a leading `v`; a version with build metadata. | — (an accept that reports another pin fails its fixture). |
+
+---
+
 ### UNCHECKED LAYER — Fields Explicitly Not Verified
 
 | RULE_ID | Doc: Section/Line | Verification Layer | Normative Rule | Testable As | Accept Fixture Idea | Reject Fixture Idea |
@@ -417,9 +505,10 @@ This checklist captures every testable normative rule (MUST/MUST-NOT/REQUIRED/SH
 | **POLICY** | 12 | Normative, enforced |
 | **STRUCTURAL** | 4 | Normative, partially enforced (shape filtering deferred) |
 | **FRESHNESS** | 3 | Deferred / not enforced |
+| **CONFIG** | 9 | Normative, enforced |
 | **UNCHECKED** | 6 | Intentionally unchecked or deferred |
 | **AMBIGUOUS** | 5 | Underspecified; fixture design uncertain |
-| **Total Normative** | **112** | |
+| **Total Normative** | **125** | |
 | **Known Gaps** | **8** | Documented in CONFORMANCE.md |
 
 ---

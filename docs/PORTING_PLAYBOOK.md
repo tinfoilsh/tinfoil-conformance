@@ -43,7 +43,12 @@ Parallel workers must code against frozen interfaces, never each other's WIP.
 
 **Phase 1 — foundation (one worker, first).** Strict JSON + envelope +
 measurement + policy artifact + adapter CLI skeleton (envelope stage working,
-others exit 20). Gate: `--dirs envelope` all pass.
+others exit 20). Gate: `--dirs envelope` all pass. The reader of the runtime
+pin a config states (`endorsement/config/runtime.go`) needs no cryptography
+either: strict JSON, an RFC 8785 serializer, the YAML reader and semantic
+version precedence. It is driven by `v3-read-config-runtime`
+([CONFORMANCE_ADAPTER_SPEC §2.2](CONFORMANCE_ADAPTER_SPEC.md#22-config-runtime-stage-v13)); gate:
+`--dirs config-runtime`.
 
 **Phase 2 — three crypto slices in parallel.** Each is self-contained, tests
 via its own fixture directory, and must not touch the others' files:
@@ -74,6 +79,17 @@ wire the product client (fetch → verify → ground truth → channel binding:
   and serde each diverge from this out of the box.
 - **Integer width.** Policy u64 fields must survive > 2^53 (use your big/exact
   int type). Known open issue: Go's structpb round-trip is itself lossy here.
+- **A JSON config has one byte form.** Compare the RFC 8785 serialization
+  with the bytes you were given, not with text decoded from them: a decoder
+  that drops a byte-order mark or substitutes U+FFFD hides the difference.
+  Order members by UTF-16 code units; the native string order of Python,
+  Rust and Go is by code point. The comparison does not replace the
+  integer and null checks: `1.5`, `1e+21`, 2^53 and `null` are all in
+  RFC 8785 form. Reject the escape of an unpaired surrogate, which
+  `JSON.parse` and Python's `json` keep. Compare versions by semantic
+  version precedence, and make sure a version the comparison cannot parse
+  never passes as one below the cutoff: YAML that pins the cutoff with a
+  leading `v` or with build metadata must still be refused.
 - **Canonical encodings.** Base64: exactly one accepted encoding (round-trip
   check). Hex: lowercase only, exact lengths. These are asserted by fixtures.
 - **Signature forms.** SEV report signature is r‖s **little-endian**, 72-byte
