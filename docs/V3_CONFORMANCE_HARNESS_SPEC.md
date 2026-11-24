@@ -175,7 +175,7 @@ somewhere in this flow. The block stages are optional and add *localization*
 | `v3-authenticate-quote` | CPU quote signature chain | B3 |
 | `v3-authenticate-approval` | key-signed approval bundle: pinned-key DSSE + Rekor v2 inclusion proofs ([CONFORMANCE_ADAPTER_SPEC §2.1](CONFORMANCE_ADAPTER_SPEC.md#21-approval-bundle-and-timestamp-stages-v12)) | B2 (key-signed verifier) |
 | `v3-verify-timestamp` | RFC 3161 timestamp response against the trusted root's timestamp authorities at the appraisal clock (same §2.1) | B2 (timestamp verifier) |
-| `v3-read-config-runtime` | the runtime pin stated by the config a document carries: JSON in one byte form from the cutoff version on, YAML before it ([CONFORMANCE_ADAPTER_SPEC §2.2](CONFORMANCE_ADAPTER_SPEC.md#22-config-runtime-stage-v13)) | B2 (config reader) |
+| `v3-read-config-runtime` | the runtime pin stated by the config a document carries, read only from JSON in one byte form that pins the cutoff version or a later one ([CONFORMANCE_ADAPTER_SPEC §2.2](CONFORMANCE_ADAPTER_SPEC.md#22-config-runtime-stage-v13)) | B2 (config reader) |
 
 (Policy *comparison* B4b and channel-key recovery B6 are exercised inside
 `verify-attestation-v3` — POLICY_REJECTED attribution and the asserted accept
@@ -198,7 +198,7 @@ one field changed to violate the rule under test).
 | PLATFORM_ENDORSEMENTS policies: every-member-required, unknown-field fail-closed, unmappable block, author/id-block-must-be-false | `PL1–PL12` | `v3-assemble-policy` · `v3-validate-quote` | reject + accept |
 | Shape filtering / exactly-one measurement resolution | `ST1–ST4` | `v3-assemble-policy` | reject (0 or >1) + accept |
 | Channel binding (crypto_material) | (B6) | `v3-bind-channel` | reject + accept |
-| Config runtime pin: config presence, format by pinned version, version order, strict JSON, the one byte form, integers, no null, the pin ([CONFORMANCE_ADAPTER_SPEC §2.2](CONFORMANCE_ADAPTER_SPEC.md#22-config-runtime-stage-v13)) | `CR1–CR9` | `v3-read-config-runtime` (the only stage that reaches them: the suite has no config-based full-flow document) | reject + accept (no trust root) |
+| Config runtime pin: config presence, JSON only, the cutoff, strict JSON, the one byte form, integers, no null, the pin ([CONFORMANCE_ADAPTER_SPEC §2.2](CONFORMANCE_ADAPTER_SPEC.md#22-config-runtime-stage-v13)) | `CR1–CR9` | `v3-read-config-runtime` (the only stage that reaches them: the suite has no config-based full-flow document) | reject + accept (no trust root) |
 | Freshness: nonce binding + per-artifact witness (enforced since #109) | `FR1–FR3` | `verify-attestation-v3` (witness failures attribute to B2/PROVENANCE) | reject (missing/stale/future/wrong-identity/mismatched witness) + accept (valid witness, at-max-age boundary) |
 | Explicitly-unchecked fields | `U1–U6` | `verify-attestation-v3` | negative assertion (mutate → still accepts) |
 | Ambiguous / underspecified | `AM1–AM5` | — | no fixture until resolved as a spec-question |

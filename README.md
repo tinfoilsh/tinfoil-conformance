@@ -27,7 +27,7 @@ vectors/                Test fixtures, grouped by stage
                         tls-pinning, cert-binding, ehbp (planned)
   v3/                   v3 adapter fixtures (docs/CONFORMANCE_ADAPTER_SPEC.md)
     approval-bundle/    v3-authenticate-approval: key-signed approval bundles
-    config-runtime/     v3-read-config-runtime: runtime pins of JSON and YAML configs
+    config-runtime/     v3-read-config-runtime: runtime pins of JSON configs
     rfc3161/            v3-verify-timestamp: RFC 3161 timestamp responses
 harness/                Python test runner: spawns SDK binaries, diffs JSON
 fixturegen/             Synthetic-bundle generators for crafted fixtures

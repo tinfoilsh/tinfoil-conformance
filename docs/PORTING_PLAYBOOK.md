@@ -45,8 +45,8 @@ Parallel workers must code against frozen interfaces, never each other's WIP.
 measurement + policy artifact + adapter CLI skeleton (envelope stage working,
 others exit 20). Gate: `--dirs envelope` all pass. The reader of the runtime
 pin a config states (`endorsement/config/runtime.go`) needs no cryptography
-either: strict JSON, an RFC 8785 serializer, the YAML reader and semantic
-version precedence. It is driven by `v3-read-config-runtime`
+either: strict JSON, an RFC 8785 serializer and semantic version
+precedence. It is driven by `v3-read-config-runtime`
 ([CONFORMANCE_ADAPTER_SPEC §2.2](CONFORMANCE_ADAPTER_SPEC.md#22-config-runtime-stage-v13)); gate:
 `--dirs config-runtime`.
 
@@ -87,9 +87,9 @@ wire the product client (fetch → verify → ground truth → channel binding:
   integer and null checks: `1.5`, `1e+21`, 2^53 and `null` are all in
   RFC 8785 form. Reject the escape of an unpaired surrogate, which
   `JSON.parse` and Python's `json` keep. Compare versions by semantic
-  version precedence, and make sure a version the comparison cannot parse
-  never passes as one below the cutoff: YAML that pins the cutoff with a
-  leading `v` or with build metadata must still be refused.
+  version precedence, and refuse a JSON config that pins a version below
+  the cutoff. Carry no YAML parser for config bytes: YAML is refused
+  whatever version it pins.
 - **Canonical encodings.** Base64: exactly one accepted encoding (round-trip
   check). Hex: lowercase only, exact lengths. These are asserted by fixtures.
 - **Signature forms.** SEV report signature is r‖s **little-endian**, 72-byte

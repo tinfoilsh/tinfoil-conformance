@@ -54,7 +54,7 @@ RECOMMENDED (they localize failures but add no reach):
 | `v3-authenticate-quote` | CPU quote signature chain to the vendor root (no policy comparison) |
 | `v3-authenticate-approval` | key-signed approval bundle (DSSE under a pinned key, witnessed by Rekor v2 inclusion proofs) → the verifying key's hint (§2.1) |
 | `v3-verify-timestamp` | RFC 3161 timestamp response over given bytes, against the trusted root's timestamp authorities at the appraisal clock → genTime (§2.1) |
-| `v3-read-config-runtime` | the runtime pin stated by the config a document carries: JSON in one byte form from `cvm-version` `v0.15.5-rc.1` on, YAML before it → the pin (§2.2) |
+| `v3-read-config-runtime` | the runtime pin stated by the config a document carries, read only from JSON in one byte form that pins `cvm-version` `v0.15.5-rc.1` or later → the pin (§2.2) |
 
 Unimplemented stages MUST exit 20 (never 1 or a wrong verdict).
 
@@ -134,9 +134,10 @@ second precision (e.g. `2026-11-03T21:32:16Z`).
 A deployment config pins the runtime it boots in its `cvm-version` member, as
 `<version>@sha256:<digest>`: a version of `tinfoilsh/cvmimage` and the SHA-256
 digest of that version's runtime manifest. A config that pins `v0.15.5-rc.1`
-(the cutoff) or a later version is JSON in one byte form, and YAML is refused
-for it; a config that pins an earlier version is YAML, read as before. A
-verifier that reads the pin from config bytes applies this rule first.
+(the cutoff) or a later version is JSON in one byte form. A verifier reads
+the pin from config bytes only as such a config: it carries no YAML parser
+for them, and it rejects the YAML config of an earlier version like any other
+bytes that are not JSON.
 
 **`v3-read-config-runtime`** is a RECOMMENDED block stage that drives that
 reader alone. It authenticates neither the config nor the quote, and it is
@@ -154,23 +155,21 @@ the pin with the reader the SDK itself uses. It enforces, rejecting with
 - **Config.** The document carries a config entry.
 - **Format.** The reader parses the bytes with the SDK's strict JSON parser:
   exactly one JSON value, well-formed UTF-8 with no byte-order mark, no
-  repeated member, no escape of an unpaired surrogate. If they are an object
-  with a string member `cvm-version` whose version is at or above the cutoff,
-  the config is a JSON config: it MUST be in the one byte form below, and the
-  pin is read from that string. Otherwise the SDK's YAML reader reads the
-  bytes as it did before the cutoff existed, and a `cvm-version` it reads
-  whose version is at or above the cutoff rejects. Bytes that are neither a
-  JSON config nor YAML below the cutoff therefore reject, whichever reader
-  refuses them.
-- **Cutoff.** The version is the text of `cvm-version` before `@sha256:`,
-  with a leading `v` added if it has none. It is compared with
-  `v0.15.5-rc.1` by semantic version precedence: numeric identifiers compare
-  as numbers, a release follows its pre-releases, pre-release identifiers
-  count and build metadata after `+` does not. `0.15.4` and `0.15.5-rc.0`
-  are below the cutoff; `0.15.5-rc.1`, `v0.15.5-rc.1`, `0.15.5-rc.1+gpu`,
-  `0.15.5`, `0.15.10`, `0.16.0` and `1.0.0` are at or above it. Text that is
-  not a full semantic version yields no pin and rejects (see Pin), so it
-  needs no place in this order.
+  repeated member, no escape of an unpaired surrogate. The value MUST be an
+  object with a string member `cvm-version`: the pin is read from that
+  string, and the bytes MUST be in the one byte form below. Anything else
+  rejects, and no other reader is tried: this includes every YAML config,
+  whatever version it pins.
+- **Cutoff.** The version MUST be at or above the cutoff: a JSON config that
+  pins an earlier version rejects. The version is the text of `cvm-version`
+  before `@sha256:`, with a leading `v` added if it has none. It is compared
+  with `v0.15.5-rc.1` by semantic version precedence: numeric identifiers
+  compare as numbers, a release follows its pre-releases, pre-release
+  identifiers count and build metadata after `+` does not. `0.15.4` and
+  `0.15.5-rc.0` are below the cutoff; `0.15.5-rc.1`, `v0.15.5-rc.1`,
+  `0.15.5-rc.1+gpu`, `0.15.5`, `0.15.10`, `0.16.0` and `1.0.0` are at or
+  above it. Text that is not a full semantic version yields no pin and
+  rejects (see Pin), so it needs no place in this order.
 - **One byte form.** A JSON config is byte for byte its own RFC 8785
   serialization: no whitespace; the members of every object ordered by the
   UTF-16 code units of their names (not by code point or UTF-8 byte, which
@@ -192,6 +191,9 @@ the pin with the reader the SDK itself uses. It enforces, rejecting with
   and build metadata), with or without a leading `v`, and the digest is 64
   lowercase hex characters. A config whose `cvm-version` is absent, is not
   a string, or does not have this form pins nothing and rejects.
+
+The order in which a reader applies these checks decides only which error it
+reports, and the stage does not observe it.
 
 Malformed input (exit 30) is as for the other block stages that take a
 document. Accept output: `runtime`, the pin (§4).
