@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: tinfoilsh/tinfoil-go
-          ref: 7bd741c87e1f5c6b45a50986b6ddc6b708e2397d
+          ref: 9205c9769edaf82212371f1f6cd2a7d426e6bdba
           path: sdks/tinfoil-go
           token: ${{ secrets.SDK_TOKEN || github.token }}
       - name: Run the shared v3 fixtures through the harness
