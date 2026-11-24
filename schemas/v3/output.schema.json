@@ -17,7 +17,17 @@
         "code_measurement": { "$ref": "#/$defs/measurement" },
         "enclave_measurement": { "$ref": "#/$defs/measurement" },
         "signing_key_hint": { "type": "string", "description": "v3-authenticate-approval accept: the hint of the pinned key that verified (standard base64 of SHA-256 over the DER SubjectPublicKeyInfo)" },
-        "timestamp": { "type": "string", "description": "v3-verify-timestamp accept: the TSTInfo genTime, RFC 3339 in UTC at second precision (e.g. 2026-11-03T21:32:16Z)" }
+        "timestamp": { "type": "string", "description": "v3-verify-timestamp accept: the TSTInfo genTime, RFC 3339 in UTC at second precision (e.g. 2026-11-03T21:32:16Z)" },
+        "runtime": {
+          "type": "object",
+          "description": "v3-read-config-runtime accept: the runtime pin the document's config states",
+          "required": ["repo", "tag", "digest"],
+          "properties": {
+            "repo": { "type": "string" },
+            "tag": { "type": "string" },
+            "digest": { "type": "string" }
+          }
+        }
       }
     },
     "rejection": {

@@ -21,7 +21,8 @@
         "v3-authenticate-quote",
         "verify-attestation-v3",
         "v3-authenticate-approval",
-        "v3-verify-timestamp"
+        "v3-verify-timestamp",
+        "v3-read-config-runtime"
       ]
     },
     "input": { "$ref": "input.schema.json" },
@@ -79,6 +80,17 @@
           "type": "string",
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
           "description": "v3-verify-timestamp: the TSTInfo genTime the accept must report, RFC 3339 in UTC at second precision (accept fixtures only)."
+        },
+        "runtime": {
+          "type": "object",
+          "description": "v3-read-config-runtime: the runtime pin the accept must report, as the document's config states it (accept fixtures only).",
+          "required": ["repo", "tag", "digest"],
+          "additionalProperties": false,
+          "properties": {
+            "repo": { "const": "tinfoilsh/cvmimage", "description": "The repository that publishes runtime manifests." },
+            "tag": { "type": "string", "pattern": "^v[0-9]", "description": "The pinned version with a leading v, pre-release and build metadata kept." },
+            "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the pinned runtime manifest, lowercase hex." }
+          }
         }
       },
       "allOf": [
@@ -100,7 +112,8 @@
               "v3-authenticate-provenance",
               "v3-assemble-policy",
               "v3-authenticate-quote",
-              "verify-attestation-v3"
+              "verify-attestation-v3",
+              "v3-read-config-runtime"
             ]
           }
         }

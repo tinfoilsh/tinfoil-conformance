@@ -1,4 +1,4 @@
-# Conformance Adapter Specification — v1.2.0
+# Conformance Adapter Specification — v1.3.0
 
 The normative contract a tinfoil SDK implements to be driven by the shared v3
 conformance suite. An SDK that passes the suite under this contract rejects
@@ -15,8 +15,8 @@ public API surface an SDK exposes and the rule that the full-verify stage and
 [V3_CONFORMANCE_HARNESS_SPEC.md](V3_CONFORMANCE_HARNESS_SPEC.md)
 (rule→stage map), [SPEC_COVERAGE_V3.md](SPEC_COVERAGE_V3.md) (coverage matrix).
 
-Versioning: current contract version **1.2.0** (1.1.0 + the two §2.1 stages,
-`v3-authenticate-approval` and `v3-verify-timestamp`). Additive, backward-compatible
+Versioning: current contract version **1.3.0** (1.2.0 + the §2.2 stage,
+`v3-read-config-runtime`). Additive, backward-compatible
 changes (new optional Input/expected fields, new stages) bump the minor;
 anything an existing adapter would break on bumps the major. `Input.schema_version`
 stays `"1"` for all 1.x.
@@ -54,6 +54,7 @@ RECOMMENDED (they localize failures but add no reach):
 | `v3-authenticate-quote` | CPU quote signature chain to the vendor root (no policy comparison) |
 | `v3-authenticate-approval` | key-signed approval bundle (DSSE under a pinned key, witnessed by Rekor v2 inclusion proofs) → the verifying key's hint (§2.1) |
 | `v3-verify-timestamp` | RFC 3161 timestamp response over given bytes, against the trusted root's timestamp authorities at the appraisal clock → genTime (§2.1) |
+| `v3-read-config-runtime` | the runtime pin stated by the config a document carries: JSON in one byte form from `cvm-version` `v0.15.5-rc.1` on, YAML before it → the pin (§2.2) |
 
 Unimplemented stages MUST exit 20 (never 1 or a wrong verdict).
 
@@ -128,6 +129,73 @@ Malformed input (exit 30): undecodable base64; `verification_time_unix`
 absent or 0. Accept output: `timestamp`, the genTime as RFC 3339 in UTC at
 second precision (e.g. `2026-11-03T21:32:16Z`).
 
+### 2.2 Config runtime stage (v1.3)
+
+A deployment config pins the runtime it boots in its `cvm-version` member, as
+`<version>@sha256:<digest>`: a version of `tinfoilsh/cvmimage` and the SHA-256
+digest of that version's runtime manifest. A config that pins `v0.15.5-rc.1`
+(the cutoff) or a later version is JSON in one byte form, and YAML is refused
+for it; a config that pins an earlier version is YAML, read as before. A
+verifier that reads the pin from config bytes applies this rule first.
+
+**`v3-read-config-runtime`** is a RECOMMENDED block stage that drives that
+reader alone. It authenticates neither the config nor the quote, and it is
+the suite's only coverage of these rules: no document-stage fixture carries a
+config. Input: `document_b64`, a v3 document decoded as the other block
+stages decode it (structure only), with collateral format
+`https://tinfoil.sh/predicate/attestation-collaterals/v3`, which carries the
+config bytes in its `tinfoil-config` reference-values entry (format
+`https://tinfoil.sh/collateral/config/v1`, data `{"config_base64": "…"}`).
+The stage adds no Input member, so an adapter built against 1.2 parses its
+fixtures and exits 20: the suite records them as skipped. The adapter reads
+the pin with the reader the SDK itself uses. It enforces, rejecting with
+`PROVENANCE_REJECTED`:
+
+- **Config.** The document carries a config entry.
+- **Format.** The reader parses the bytes with the SDK's strict JSON parser:
+  exactly one JSON value, well-formed UTF-8 with no byte-order mark, no
+  repeated member, no escape of an unpaired surrogate. If they are an object
+  with a string member `cvm-version` whose version is at or above the cutoff,
+  the config is a JSON config: it MUST be in the one byte form below, and the
+  pin is read from that string. Otherwise the SDK's YAML reader reads the
+  bytes as it did before the cutoff existed, and a `cvm-version` it reads
+  whose version is at or above the cutoff rejects. Bytes that are neither a
+  JSON config nor YAML below the cutoff therefore reject, whichever reader
+  refuses them.
+- **Cutoff.** The version is the text of `cvm-version` before `@sha256:`,
+  with a leading `v` added if it has none. It is compared with
+  `v0.15.5-rc.1` by semantic version precedence: numeric identifiers compare
+  as numbers, a release follows its pre-releases, pre-release identifiers
+  count and build metadata after `+` does not. `0.15.4` and `0.15.5-rc.0`
+  are below the cutoff; `0.15.5-rc.1`, `v0.15.5-rc.1`, `0.15.5-rc.1+gpu`,
+  `0.15.5`, `0.15.10`, `0.16.0` and `1.0.0` are at or above it. Text that is
+  not a full semantic version yields no pin and rejects (see Pin), so it
+  needs no place in this order.
+- **One byte form.** A JSON config is byte for byte its own RFC 8785
+  serialization: no whitespace; the members of every object ordered by the
+  UTF-16 code units of their names (not by code point or UTF-8 byte, which
+  order a name outside the Basic Multilingual Plane differently); strings
+  escaped minimally, that is `\"`, `\\`, `\b`, `\t`, `\n`, `\f` and `\r`,
+  six-character escapes with lowercase hex digits for the other characters
+  below U+0020, and every other character as itself, `/` and non-ASCII text
+  included. The comparison is over the bytes the document carries, not over
+  text decoded from them.
+- **Integers.** Every number in a JSON config is an integer literal
+  `-?(0|[1-9][0-9]*)` whose absolute value is at most 2^53-1
+  (`9007199254740991`). A fraction or an exponent rejects even where RFC 8785
+  itself writes the number that way (`1.5`, `1e+21`), and 2^53 rejects though
+  it serializes unchanged. `-0` rejects under the one byte form, which
+  writes it `0`.
+- **Null.** A JSON config holds no `null`, at any depth.
+- **Pin.** `cvm-version` is `<version>@sha256:<digest>`, where the version
+  is a full semantic version (`MAJOR.MINOR.PATCH`, optionally a pre-release
+  and build metadata), with or without a leading `v`, and the digest is 64
+  lowercase hex characters. A config whose `cvm-version` is absent, is not
+  a string, or does not have this form pins nothing and rejects.
+
+Malformed input (exit 30) is as for the other block stages that take a
+document. Accept output: `runtime`, the pin (§4).
+
 ## 3. Input semantics
 
 Shape: [`input.schema.json`](../schemas/v3/input.schema.json). Beyond the shape:
@@ -148,7 +216,8 @@ Shape: [`input.schema.json`](../schemas/v3/input.schema.json). Beyond the shape:
   document's echoed nonce — as the expected value.
 - `schema_version` MUST equal `"1"`; anything else is malformed (exit 30).
 - `document_b64` is the Input of the document stages (§2 table, first five
-  rows); the fixture schema requires it there and not for the §2.1 stages.
+  rows, and the §2.2 stage); the fixture schema requires it there and not for
+  the §2.1 stages.
 - **`v3-authenticate-approval`** reads `bundle_json_b64` (base64 of the
   Sigstore bundle JSON), `signing_keys_pem` (array of ≥1 PEM `PUBLIC KEY`
   blocks, PKIX ECDSA P-256, the keys the adapter pins) and
@@ -158,6 +227,8 @@ Shape: [`input.schema.json`](../schemas/v3/input.schema.json). Beyond the shape:
   TimeStampResp), `timestamp_input_b64` (base64 of the bytes the message
   imprint covers) and `verification_time_unix`, which for this stage is the
   appraisal clock and REQUIRED (absent/0 is malformed, exit 30).
+- **`v3-read-config-runtime`** reads `document_b64` alone. It compares no
+  nonce, takes no pin, uses no trust root and reads no clock.
 - When a document carries more than one reference-values entry of the same
   format (distinct ids — duplicate ids already reject at parse), the **first**
   entry in collateral order is used.
@@ -185,6 +256,12 @@ The §2.1 stages yield their own facts: `v3-authenticate-approval` MUST carry
 precision). A fixture's `expected` may declare either; the suite asserts it on
 accept exactly as it asserts the facts above.
 
+`v3-read-config-runtime` MUST carry `runtime`: an object with `repo`
+(`tinfoilsh/cvmimage`), `tag` (the pinned version with a leading `v`, added
+if the config wrote none; a pre-release and build metadata are kept as
+written) and `digest` (the pinned manifest digest, 64 lowercase hex). The
+suite asserts a declared `runtime` by deep equality.
+
 Measurements are laid out per platform, each register lowercase hex:
 
 | `type` | `registers` |
@@ -208,7 +285,7 @@ strings):
 | code | layer |
 |---|---|
 | `ENVELOPE_REJECTED` | document parse/shape, nonce equality, endorsed-section hashes, report_data ladder |
-| `PROVENANCE_REJECTED` | a Sigstore artifact (code, platform, or **freshness witness**) failed authentication: chain, SCT, tlog, observer timestamp, identity, subject digest, predicate parse, tag/commit extraction, freshness window; every verification failure of the §2.1 stages |
+| `PROVENANCE_REJECTED` | a Sigstore artifact (code, platform, or **freshness witness**) failed authentication: chain, SCT, tlog, observer timestamp, identity, subject digest, predicate parse, tag/commit extraction, freshness window; every verification failure of the §2.1 and §2.2 stages |
 | `QUOTE_REJECTED` | the hardware quote is not authentic: signature/chain/collateral/vendor structure |
 | `POLICY_REJECTED` | the quote is authentic but fails the endorsed policy/identity/shape comparison |
 | `MALFORMED_INPUT` | the adapter input itself did not parse, or its pin names nothing while the verifier uses default config trust (exit 30) |
@@ -231,8 +308,8 @@ transparency-log timestamp is within **MaxFreshnessAge = 7 days** (future skew
 ## 6. Capabilities
 
 Shape: [`capabilities.schema.json`](../schemas/v3/capabilities.schema.json).
-Declares `stages_supported` (listing the §2.1 stage names when implemented —
-they add no capability flags), `synthetic_roots` (which vendor roots the
+Declares `stages_supported` (listing the §2.1 and §2.2 stage names when
+implemented — they add no capability flags), `synthetic_roots` (which vendor roots the
 adapter can inject), `freshness_enforced` (true for any SDK on the current v3
 verifier). The suite uses capabilities to gate fixtures; behavioral divergence
 is expressed as a capability, never as a tolerated failing fixture.
