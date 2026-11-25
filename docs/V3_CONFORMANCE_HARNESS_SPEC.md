@@ -1,7 +1,7 @@
 # V3 Conformance Harness Spec
 
 > **Normative contract:** [CONFORMANCE_ADAPTER_SPEC.md](CONFORMANCE_ADAPTER_SPEC.md)
-> (v1.2.0) — the frozen adapter specification new SDKs port against. This
+> (v1.3.0) — the frozen adapter specification new SDKs port against. This
 > document is its informative companion: the rationale and the 1:1 map from v3
 > spec rules to the harness stages that reach them.
 > Companions: [V3_CONFORMANCE_INTERFACE.md](V3_CONFORMANCE_INTERFACE.md) (block
@@ -175,6 +175,7 @@ somewhere in this flow. The block stages are optional and add *localization*
 | `v3-authenticate-quote` | CPU quote signature chain | B3 |
 | `v3-authenticate-approval` | key-signed approval bundle: pinned-key DSSE + Rekor v2 inclusion proofs ([CONFORMANCE_ADAPTER_SPEC §2.1](CONFORMANCE_ADAPTER_SPEC.md#21-approval-bundle-and-timestamp-stages-v12)) | B2 (key-signed verifier) |
 | `v3-verify-timestamp` | RFC 3161 timestamp response against the trusted root's timestamp authorities at the appraisal clock (same §2.1) | B2 (timestamp verifier) |
+| `v3-authenticate-containers` | container build attestations: the builds the document's config requires, each against its image's entry ([CONFORMANCE_ADAPTER_SPEC §2.2](CONFORMANCE_ADAPTER_SPEC.md#22-container-provenance-stage-v13)) | B2 (container provenance) |
 
 (Policy *comparison* B4b and channel-key recovery B6 are exercised inside
 `verify-attestation-v3` — POLICY_REJECTED attribution and the asserted accept

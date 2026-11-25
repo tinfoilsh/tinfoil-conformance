@@ -21,7 +21,8 @@
         "v3-authenticate-quote",
         "verify-attestation-v3",
         "v3-authenticate-approval",
-        "v3-verify-timestamp"
+        "v3-verify-timestamp",
+        "v3-authenticate-containers"
       ]
     },
     "input": { "$ref": "input.schema.json" },
@@ -100,7 +101,8 @@
               "v3-authenticate-provenance",
               "v3-assemble-policy",
               "v3-authenticate-quote",
-              "verify-attestation-v3"
+              "verify-attestation-v3",
+              "v3-authenticate-containers"
             ]
           }
         }
