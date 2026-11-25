@@ -1,4 +1,4 @@
-# Conformance Adapter Specification — v1.2.0
+# Conformance Adapter Specification — v1.3.0
 
 The normative contract a tinfoil SDK implements to be driven by the shared v3
 conformance suite. An SDK that passes the suite under this contract rejects
@@ -15,8 +15,8 @@ public API surface an SDK exposes and the rule that the full-verify stage and
 [V3_CONFORMANCE_HARNESS_SPEC.md](V3_CONFORMANCE_HARNESS_SPEC.md)
 (rule→stage map), [SPEC_COVERAGE_V3.md](SPEC_COVERAGE_V3.md) (coverage matrix).
 
-Versioning: current contract version **1.2.0** (1.1.0 + the two §2.1 stages,
-`v3-authenticate-approval` and `v3-verify-timestamp`). Additive, backward-compatible
+Versioning: current contract version **1.3.0** (1.2.0 + the §2.2 stage,
+`v3-authenticate-containers`). Additive, backward-compatible
 changes (new optional Input/expected fields, new stages) bump the minor;
 anything an existing adapter would break on bumps the major. `Input.schema_version`
 stays `"1"` for all 1.x.
@@ -54,6 +54,7 @@ RECOMMENDED (they localize failures but add no reach):
 | `v3-authenticate-quote` | CPU quote signature chain to the vendor root (no policy comparison) |
 | `v3-authenticate-approval` | key-signed approval bundle (DSSE under a pinned key, witnessed by Rekor v2 inclusion proofs) → the verifying key's hint (§2.1) |
 | `v3-verify-timestamp` | RFC 3161 timestamp response over given bytes, against the trusted root's timestamp authorities at the appraisal clock → genTime (§2.1) |
+| `v3-authenticate-containers` | container build attestations: the builds the document's config requires, each against its image's entry (§2.2) |
 
 Unimplemented stages MUST exit 20 (never 1 or a wrong verdict).
 
@@ -128,6 +129,74 @@ Malformed input (exit 30): undecodable base64; `verification_time_unix`
 absent or 0. Accept output: `timestamp`, the genTime as RFC 3339 in UTC at
 second precision (e.g. `2026-11-03T21:32:16Z`).
 
+### 2.2 Container provenance stage (v1.3)
+
+A deployment config, which is JSON, may require the GitHub Actions build of
+a container's image:
+
+```json
+{"containers": [{
+  "name": "app",
+  "image": "ghcr.io/example/app@sha256:<64 hex>",
+  "provenance": {"github": {
+    "repository": "example/app",
+    "repository_id": "123456789",
+    "workflow": "release.yml",
+    "ref": "refs/tags/v1.4.2",
+    "commit": "<40 hex>"}}}]}
+```
+
+A document proves the build of an image with a reference-values collateral
+entry of format `https://tinfoil.sh/collateral/container-provenance/v1` whose
+data is `{"digest": "<64 lowercase hex>", "sigstore_bundle": {…}}`: the
+image's digest and a SLSA v1 build attestation of the image.
+
+**`v3-authenticate-containers`** is a RECOMMENDED block stage that runs the
+SDK's container check alone, on the config that a document carries. It
+authenticates neither the config nor the quote. Input: `document_b64`, a v3
+document decoded as the other block stages decode it, which carries the
+config bytes in its `tinfoil-config` reference-values entry (format
+`https://tinfoil.sh/collateral/config/v1`, data `{"config_base64": "…"}`), and
+optional `sigstore_trusted_root_json_b64`. The stage adds no Input member and
+no accept output, so an adapter built against 1.2 parses its fixtures and
+exits 20. It enforces, rejecting with `PROVENANCE_REJECTED`:
+
+- **Config.** The document carries a config entry, and the SDK's strict JSON
+  parser reads its bytes.
+- **Requirements.** A config without a `containers` member requires nothing;
+  otherwise `containers` is an array of objects. A container without a
+  `provenance` member requires nothing and is not read further. A
+  `provenance` member is an object with exactly the member `github`, itself
+  an object with exactly the members `repository`, `repository_id`,
+  `workflow`, `ref` and `commit`, each a string; the container's `image` is
+  then a string that ends with `@sha256:` and the 64 lowercase hex characters
+  of the image digest. Anything else rejects, `null` in place of `containers`
+  or of `provenance` included: a requirement that the verifier cannot read is
+  never treated as met. The verifier checks nothing else about these values.
+- **Entry.** A requirement is checked against the first container-provenance
+  entry whose `digest` is the image digest, whatever the entry's id. A
+  document without one rejects.
+- **Bundle.** The entry's bundle verifies as a code-provenance bundle does,
+  under a certificate whose OIDC issuer is GitHub Actions and whose runner
+  environment is `github-hosted`, over an in-toto v1 statement with predicate
+  type `https://slsa.dev/provenance/v1` whose **first** subject carries the
+  image digest as its sha256 digest.
+- **Certificate.** Five values of the certificate equal, as plain strings,
+  what the requirement names: the source repository URI is
+  `https://github.com/<repository>`, the source repository identifier is
+  `<repository_id>`, the SAN is
+  `https://github.com/<repository>/.github/workflows/<workflow>@<ref>`, the
+  source repository ref is `<ref>` and the source repository digest is
+  `<commit>`. No character of the requirement is a pattern: a `*` stands for
+  itself. The SAN names the workflow file that signed and the source values
+  name the run, so together they refuse a workflow called from another
+  repository or from another ref.
+
+Malformed input (exit 30) is as for the other block stages that take a
+document. A container-provenance entry whose `digest` is not 64 lowercase hex
+characters, that has no `sigstore_bundle` or that has another member does not
+decode.
+
 ## 3. Input semantics
 
 Shape: [`input.schema.json`](../schemas/v3/input.schema.json). Beyond the shape:
@@ -148,7 +217,8 @@ Shape: [`input.schema.json`](../schemas/v3/input.schema.json). Beyond the shape:
   document's echoed nonce — as the expected value.
 - `schema_version` MUST equal `"1"`; anything else is malformed (exit 30).
 - `document_b64` is the Input of the document stages (§2 table, first five
-  rows); the fixture schema requires it there and not for the §2.1 stages.
+  rows, and the §2.2 stage); the fixture schema requires it there and not for
+  the §2.1 stages.
 - **`v3-authenticate-approval`** reads `bundle_json_b64` (base64 of the
   Sigstore bundle JSON), `signing_keys_pem` (array of ≥1 PEM `PUBLIC KEY`
   blocks, PKIX ECDSA P-256, the keys the adapter pins) and
@@ -158,6 +228,9 @@ Shape: [`input.schema.json`](../schemas/v3/input.schema.json). Beyond the shape:
   TimeStampResp), `timestamp_input_b64` (base64 of the bytes the message
   imprint covers) and `verification_time_unix`, which for this stage is the
   appraisal clock and REQUIRED (absent/0 is malformed, exit 30).
+- **`v3-authenticate-containers`** reads `document_b64` and
+  `sigstore_trusted_root_json_b64`. It compares no nonce, takes no pin and
+  reads no clock.
 - When a document carries more than one reference-values entry of the same
   format (distinct ids — duplicate ids already reject at parse), the **first**
   entry in collateral order is used.
@@ -183,7 +256,8 @@ The §2.1 stages yield their own facts: `v3-authenticate-approval` MUST carry
 `signing_key_hint` (the hint of the pinned key that verified) and
 `v3-verify-timestamp` MUST carry `timestamp` (genTime, RFC 3339 UTC, second
 precision). A fixture's `expected` may declare either; the suite asserts it on
-accept exactly as it asserts the facts above.
+accept exactly as it asserts the facts above. `v3-authenticate-containers`
+yields none.
 
 Measurements are laid out per platform, each register lowercase hex:
 
@@ -208,7 +282,7 @@ strings):
 | code | layer |
 |---|---|
 | `ENVELOPE_REJECTED` | document parse/shape, nonce equality, endorsed-section hashes, report_data ladder |
-| `PROVENANCE_REJECTED` | a Sigstore artifact (code, platform, or **freshness witness**) failed authentication: chain, SCT, tlog, observer timestamp, identity, subject digest, predicate parse, tag/commit extraction, freshness window; every verification failure of the §2.1 stages |
+| `PROVENANCE_REJECTED` | a Sigstore artifact (code, platform, or **freshness witness**) failed authentication: chain, SCT, tlog, observer timestamp, identity, subject digest, predicate parse, tag/commit extraction, freshness window; every verification failure of the §2.1 and §2.2 stages |
 | `QUOTE_REJECTED` | the hardware quote is not authentic: signature/chain/collateral/vendor structure |
 | `POLICY_REJECTED` | the quote is authentic but fails the endorsed policy/identity/shape comparison |
 | `MALFORMED_INPUT` | the adapter input itself did not parse, or its pin names nothing while the verifier uses default config trust (exit 30) |
@@ -231,8 +305,8 @@ transparency-log timestamp is within **MaxFreshnessAge = 7 days** (future skew
 ## 6. Capabilities
 
 Shape: [`capabilities.schema.json`](../schemas/v3/capabilities.schema.json).
-Declares `stages_supported` (listing the §2.1 stage names when implemented —
-they add no capability flags), `synthetic_roots` (which vendor roots the
+Declares `stages_supported` (listing the §2.1 and §2.2 stage names when
+implemented — they add no capability flags), `synthetic_roots` (which vendor roots the
 adapter can inject), `freshness_enforced` (true for any SDK on the current v3
 verifier). The suite uses capabilities to gate fixtures; behavioral divergence
 is expressed as a capability, never as a tolerated failing fixture.
@@ -274,6 +348,7 @@ python3 tools/run_adapter.py --adapter "<cmd>" [--dirs a,b,...]  # drive any ada
 ```
 
 `run_adapter.py` asserts, per fixture: the verdict (exit code + `accepted`),
-the declared `expected.code`, and every declared accept fact. An adapter is
+the declared `expected.code`, and every declared accept fact. An adapter that
+has not answered a fixture after 30 seconds fails it. An adapter is
 conforming at a given suite revision when it passes all fixtures its
 capabilities cover.

@@ -5,8 +5,9 @@ Usage: run_adapter.py --adapter "cmd args..." [--dirs d1,d2 | fixture.json ...]
 
 For every fixture: pipe input JSON to `cmd <stage>`, then assert the verdict
 (exit code + accepted), the declared reject code, and any declared accept facts
-(code_digest, measurements, channel keys, signing_key_hint, timestamp). Exit
-nonzero on any mismatch.
+(code_digest, measurements, channel keys, signing_key_hint, timestamp). An
+adapter that does not answer a fixture in time fails it. Exit nonzero on any
+mismatch.
 """
 
 import argparse
@@ -17,6 +18,9 @@ import subprocess
 import sys
 
 EXIT_ACCEPTED, EXIT_REJECTED, EXIT_UNSUPPORTED, EXIT_MALFORMED = 0, 10, 20, 30
+# An adapter that has not answered a fixture after this long fails it, so
+# that one that hangs fails the run instead of blocking it.
+FIXTURE_TIMEOUT_S = 30
 FACTS = ("code_digest", "code_measurement", "enclave_measurement",
          "tls_public_key_fp", "hpke_public_key", "signing_key_hint", "timestamp")
 
@@ -24,8 +28,11 @@ FACTS = ("code_digest", "code_measurement", "enclave_measurement",
 def run_fixture(adapter, path):
     f = json.load(open(path))
     exp = f["expected"]
-    proc = subprocess.run(adapter + [f["stage"]], input=json.dumps(f["input"]).encode(),
-                          capture_output=True)
+    try:
+        proc = subprocess.run(adapter + [f["stage"]], input=json.dumps(f["input"]).encode(),
+                              capture_output=True, timeout=FIXTURE_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        return "FAIL", f"no answer after {FIXTURE_TIMEOUT_S}s", None, None
     if proc.returncode == EXIT_UNSUPPORTED:
         return "SKIP", "stage unsupported", proc.returncode, None
     try:
