@@ -142,7 +142,8 @@ a container's image:
     "repository": "example/app",
     "repository_id": "123456789",
     "workflow": "release.yml",
-    "ref": "refs/tags/v*"}}}]}
+    "ref": "refs/tags/v1.4.2",
+    "commit": "<40 hex>"}}}]}
 ```
 
 A document proves the build of an image with a reference-values collateral
@@ -167,10 +168,10 @@ exits 20. It enforces, rejecting with `PROVENANCE_REJECTED`:
   `provenance` member requires nothing and is not read further. A
   `provenance` member is an object with exactly the member `github`, itself
   an object with exactly the members `repository`, `repository_id`,
-  `workflow` and `ref`, each a string; the container's `image` is then a
-  string that ends with `@sha256:` and the 64 lowercase hex characters of the
-  image digest. Anything else rejects, `null` in place of `containers` or of
-  `provenance` included: a requirement that the verifier cannot read is
+  `workflow`, `ref` and `commit`, each a string; the container's `image` is
+  then a string that ends with `@sha256:` and the 64 lowercase hex characters
+  of the image digest. Anything else rejects, `null` in place of `containers`
+  or of `provenance` included: a requirement that the verifier cannot read is
   never treated as met. The verifier checks nothing else about these values.
 - **Entry.** A requirement is checked against the first container-provenance
   entry whose `digest` is the image digest, whatever the entry's id. A
@@ -180,21 +181,16 @@ exits 20. It enforces, rejecting with `PROVENANCE_REJECTED`:
   environment is `github-hosted`, over an in-toto v1 statement with predicate
   type `https://slsa.dev/provenance/v1` whose **first** subject carries the
   image digest as its sha256 digest.
-- **Certificate.** Three values of the certificate equal, as plain strings,
+- **Certificate.** Five values of the certificate equal, as plain strings,
   what the requirement names: the source repository URI is
   `https://github.com/<repository>`, the source repository identifier is
-  `<repository_id>`, and the SAN is
-  `https://github.com/<repository>/.github/workflows/<workflow>@` followed by
-  the source repository ref, so that the workflow that signed is the
-  repository's own file at the ref of the run, not one called from elsewhere.
-  The source repository ref matches `<ref>`.
-- **Ref matching.** `<ref>` is a pattern that the whole ref must match: `*`
-  stands for any run of characters, possibly empty, other than `/`, and every
-  other character stands for itself. Pattern and ref therefore have the same
-  number of `/`-separated segments and match segment by segment. The matcher
-  uses no regular expression engine and takes time bounded by the product of
-  the two lengths, so a pattern of many wildcards that a ref almost matches
-  is answered like any other.
+  `<repository_id>`, the SAN is
+  `https://github.com/<repository>/.github/workflows/<workflow>@<ref>`, the
+  source repository ref is `<ref>` and the source repository digest is
+  `<commit>`. No character of the requirement is a pattern: a `*` stands for
+  itself. The SAN names the workflow file that signed and the source values
+  name the run, so together they refuse a workflow called from another
+  repository or from another ref.
 
 Malformed input (exit 30) is as for the other block stages that take a
 document. A container-provenance entry whose `digest` is not 64 lowercase hex

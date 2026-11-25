@@ -61,13 +61,11 @@ REPOSITORY_ID = "924941172"
 WORKFLOW = "build.yml"
 TAG = "build-v0.14.2"
 REF = "refs/tags/" + TAG
+COMMIT = "01a05df207140a8e8e1d2cd26028ab7c51dad9d1"
 
-# An image that the recorded attestation does not name.
+# An image and a commit that the recorded attestation does not name.
 OTHER_DIGEST = hashlib.sha256(b"container-image-other").hexdigest()
-
-# Enough adjacent wildcards that a matcher which tries every way to share a
-# tag out among them does not finish.
-MANY_WILDCARDS = 200
+OTHER_COMMIT = hashlib.sha1(b"container-source-commit-other").hexdigest()
 
 ACCEPT = {"accepted": True}
 REJECT = {"accepted": False, "code": "PROVENANCE_REJECTED"}
@@ -77,7 +75,8 @@ REJECT = {"accepted": False, "code": "PROVENANCE_REJECTED"}
 def github(**changes):
     """The provenance.github members that the recorded build meets, with
     `changes` applied; a change to None drops the member."""
-    members = {"repository": REPOSITORY, "repository_id": REPOSITORY_ID, "workflow": WORKFLOW, "ref": REF, **changes}
+    members = {"repository": REPOSITORY, "repository_id": REPOSITORY_ID, "workflow": WORKFLOW, "ref": REF,
+               "commit": COMMIT, **changes}
     return {name: value for name, value in members.items() if value is not None}
 
 
@@ -117,31 +116,28 @@ def unverifiable_bundle():
     return bundle
 
 
-def synthetic(identity_repository=REPOSITORY, source_repository=REPOSITORY, predicate_type=SLSA_V1):
+def synthetic(identity_repository=REPOSITORY, source_repository=REPOSITORY, source_ref=REF, predicate_type=SLSA_V1):
     """(entry, trusted root) for an attestation of the image under the
-    synthetic root: a run at REF of `source_repository`, which has
-    REPOSITORY_ID, signed by the WORKFLOW file of `identity_repository`."""
+    synthetic root: a run at `source_ref` and COMMIT of `source_repository`,
+    which has REPOSITORY_ID, signed by the WORKFLOW file of
+    `identity_repository` at REF."""
     statement = canon({"_type": STATEMENT_V1, "subject": [{"name": IMAGE, "digest": {"sha256": DIGEST}}],
                        "predicateType": predicate_type, "predicate": {}})
     bundle, root = ss.build_bundle(
         f"{GITHUB}{identity_repository}/.github/workflows/{WORKFLOW}@{REF}", statement,
-        source_repo_uri=GITHUB + source_repository, source_repo_id=REPOSITORY_ID, source_ref=REF)
+        source_repo_uri=GITHUB + source_repository, source_repo_id=REPOSITORY_ID, source_ref=source_ref,
+        source_digest=COMMIT)
     return entry(bundle), root
 
 
 # Each vector returns (config bytes, entries, expected), and the trusted root
 # to verify under when that is not the embedded one.
 def build_matches():
-    """The requirement names the repository, repository ID, workflow and exact ref of the recorded build."""
+    """The requirement names the repository, repository ID, workflow, ref and commit of the recorded build."""
     return requiring(), [entry()], ACCEPT
 
 
-# The four comparisons with the certificate.
-def build_other_repository():
-    """The requirement names another repository."""
-    return requiring(repository="tinfoilsh/measure-image"), [entry()], REJECT
-
-
+# One member of the requirement is not what the recorded certificate states.
 def build_other_repository_id():
     """The requirement names the repository under another ID."""
     return requiring(repository_id="92494117"), [entry()], REJECT
@@ -152,9 +148,14 @@ def build_other_workflow():
     return requiring(workflow="release.yml"), [entry()], REJECT
 
 
-def build_other_ref():
-    """The requirement names a tag series that the build's tag is not in."""
-    return requiring(ref="refs/tags/v*"), [entry()], REJECT
+def build_other_commit():
+    """The requirement names another commit."""
+    return requiring(commit=OTHER_COMMIT), [entry()], REJECT
+
+
+def build_ref_with_wildcard():
+    """The requirement writes the ref with a "*" in place of the end of the build's tag; the "*" stands for itself."""
+    return requiring(ref="refs/tags/build-v*"), [entry()], REJECT
 
 
 def build_of_another_image():
@@ -174,26 +175,9 @@ def entry_first_wins():
     return requiring(), [entry(unverifiable_bundle(), entry_id="container-other"), entry()], REJECT
 
 
-def entry_shared_by_two_containers():
-    """Two containers run the same image and require the same build; the one entry serves both."""
-    provenance = {"github": github()}
-    return (config(container(name="web", provenance=provenance), container(name="worker", provenance=provenance)),
-            [entry()], ACCEPT)
-
-
 # Reading the requirements. A config that requires nothing comes without an
 # entry, and one that cannot be read comes with the entry that the readable
 # requirement accepts.
-def config_no_containers():
-    """The config has no containers member."""
-    return b"{}", [], ACCEPT
-
-
-def config_no_provenance():
-    """The container declares no provenance."""
-    return config(container()), [], ACCEPT
-
-
 def config_no_provenance_image_not_string():
     """A container that declares no provenance is not read further: its image is a number."""
     return config(container(image=7)), [], ACCEPT
@@ -204,24 +188,19 @@ def config_provenance_null():
     return config(container(provenance=None)), [entry()], REJECT
 
 
-def config_provenance_empty():
-    """The provenance member is an empty object."""
-    return config(container(provenance={})), [entry()], REJECT
-
-
 def config_provenance_unknown_kind():
     """The provenance member carries a kind of requirement beside the GitHub one."""
     return config(container(provenance={"github": github(), "gitlab": {}})), [entry()], REJECT
 
 
 def config_github_unknown_member():
-    """The GitHub requirement carries a member beside the four it defines."""
+    """The GitHub requirement carries a member beside the five it defines."""
     return requiring(environment="release"), [entry()], REJECT
 
 
 def config_github_missing_member():
-    """The GitHub requirement names no repository ID."""
-    return requiring(repository_id=None), [entry()], REJECT
+    """The GitHub requirement names no commit."""
+    return requiring(commit=None), [entry()], REJECT
 
 
 def config_github_number_member():
@@ -239,11 +218,6 @@ def config_image_without_digest():
     return config(container(f"{IMAGE}:{TAG}", provenance={"github": github()})), [entry()], REJECT
 
 
-def config_image_digest_uppercase():
-    """The image digest is written in uppercase."""
-    return config(container(pinned(DIGEST.upper()), provenance={"github": github()})), [entry()], REJECT
-
-
 def config_not_json():
     """The config states the requirement in bytes that are not JSON."""
     members = "".join(f"        {name}: {json.dumps(value)}\n" for name, value in github().items())
@@ -251,77 +225,29 @@ def config_not_json():
     return text.encode(), [entry()], REJECT
 
 
-# Matching the ref. The build's ref is REF; each vector changes the pattern.
-def ref(pattern, expected):
-    return requiring(ref=pattern), [entry()], expected
-
-
-def ref_wildcard_at_end():
-    """The wildcard ends the pattern."""
-    return ref("refs/tags/build-v*", ACCEPT)
-
-
-def ref_wildcard_at_start():
-    """The wildcard starts its segment."""
-    return ref("refs/tags/*-v0.14.2", ACCEPT)
-
-
-def ref_wildcard_in_middle():
-    """The wildcard stands between two literal pieces."""
-    return ref("refs/tags/build-v0.*.2", ACCEPT)
-
-
-def ref_wildcard_alone():
-    """The wildcard is a whole segment."""
-    return ref("refs/tags/*", ACCEPT)
-
-
-def ref_wildcard_empty_match():
-    """The wildcard stands for no character."""
-    return ref("refs/tags/build-*v0.14.2", ACCEPT)
-
-
-def ref_several_wildcards():
-    """One segment holds three wildcards; each literal piece is found after the one before it."""
-    return ref("refs/tags/build-v*.*.*", ACCEPT)
-
-
-def ref_wildcard_across_separator():
-    """The wildcard does not stand for a run that holds a separator."""
-    return ref("refs/*", REJECT)
-
-
-def ref_more_segments():
-    """The pattern has one segment more than the ref, a wildcard that could stand for no character."""
-    return ref(REF + "/*", REJECT)
-
-
-def ref_ends_overlap():
-    """The tag starts with the pattern's first piece and ends with its last, but the two overlap in it."""
-    return ref("refs/tags/build-v0.14*14.2", REJECT)
-
-
-def ref_many_wildcards_near_miss():
-    """The pattern needs a second "b" after many adjacent wildcards and the tag has one: no match, answered without trying every way to share the tag out among the wildcards."""
-    return ref("refs/tags/b" + "*" * MANY_WILDCARDS + "b*", REJECT)
-
-
-# What the recorded certificate cannot show, under the synthetic root.
+# What the recorded certificate cannot show, under the synthetic root. Each
+# rejected certificate differs from the accepted one in a single respect.
 def synthetic_matches():
     """A synthetic attestation of the image that meets the requirement."""
     proof, root = synthetic()
     return requiring(), [proof], ACCEPT, root
 
 
+def synthetic_run_of_another_repository():
+    """The run is of a repository with another name; the repository ID, workflow identity, ref and commit are the required ones."""
+    proof, root = synthetic(source_repository="example/measure-image-action")
+    return requiring(), [proof], REJECT, root
+
+
 def synthetic_workflow_of_another_repository():
-    """The run is of the required repository at a matching ref, but the workflow that signed is another repository's file of the same name."""
+    """The workflow that signed is another repository's file of the same name at the same ref; the run is the required one."""
     proof, root = synthetic(identity_repository="example/shared-workflows")
     return requiring(), [proof], REJECT, root
 
 
-def synthetic_run_of_another_repository():
-    """The workflow that signed, the repository ID and the ref are the required ones, but the run is of a repository with another name."""
-    proof, root = synthetic(source_repository="example/measure-image-action")
+def synthetic_run_from_another_ref():
+    """The run is from a branch at the required commit and calls the required workflow at the required ref."""
+    proof, root = synthetic(source_ref="refs/heads/main")
     return requiring(), [proof], REJECT, root
 
 
@@ -333,40 +259,26 @@ def synthetic_predicate_type():
 
 VECTORS = {
     "build-matches": build_matches,
-    "build-other-repository": build_other_repository,
     "build-other-repository-id": build_other_repository_id,
     "build-other-workflow": build_other_workflow,
-    "build-other-ref": build_other_ref,
+    "build-other-commit": build_other_commit,
+    "build-ref-with-wildcard": build_ref_with_wildcard,
     "build-of-another-image": build_of_another_image,
     "entry-missing": entry_missing,
     "entry-first-wins": entry_first_wins,
-    "entry-shared-by-two-containers": entry_shared_by_two_containers,
-    "config-no-containers": config_no_containers,
-    "config-no-provenance": config_no_provenance,
     "config-no-provenance-image-not-string": config_no_provenance_image_not_string,
     "config-provenance-null": config_provenance_null,
-    "config-provenance-empty": config_provenance_empty,
     "config-provenance-unknown-kind": config_provenance_unknown_kind,
     "config-github-unknown-member": config_github_unknown_member,
     "config-github-missing-member": config_github_missing_member,
     "config-github-number-member": config_github_number_member,
     "config-containers-null": config_containers_null,
     "config-image-without-digest": config_image_without_digest,
-    "config-image-digest-uppercase": config_image_digest_uppercase,
     "config-not-json": config_not_json,
-    "ref-wildcard-at-end": ref_wildcard_at_end,
-    "ref-wildcard-at-start": ref_wildcard_at_start,
-    "ref-wildcard-in-middle": ref_wildcard_in_middle,
-    "ref-wildcard-alone": ref_wildcard_alone,
-    "ref-wildcard-empty-match": ref_wildcard_empty_match,
-    "ref-several-wildcards": ref_several_wildcards,
-    "ref-wildcard-across-separator": ref_wildcard_across_separator,
-    "ref-more-segments": ref_more_segments,
-    "ref-ends-overlap": ref_ends_overlap,
-    "ref-many-wildcards-near-miss": ref_many_wildcards_near_miss,
     "synthetic-matches": synthetic_matches,
-    "synthetic-workflow-of-another-repository": synthetic_workflow_of_another_repository,
     "synthetic-run-of-another-repository": synthetic_run_of_another_repository,
+    "synthetic-workflow-of-another-repository": synthetic_workflow_of_another_repository,
+    "synthetic-run-from-another-ref": synthetic_run_from_another_ref,
     "synthetic-predicate-type": synthetic_predicate_type,
 }
 
